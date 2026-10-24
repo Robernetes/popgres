@@ -1,0 +1,83 @@
+{
+  "body": {
+    "createRule": "",
+    "created": "2022-10-10 09:51:28.452Z",
+    "deleteRule": "",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_text_id_",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "mkrguaaf",
+        "max": 0,
+        "min": 2,
+        "name": "title",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "izkl5z2s",
+        "name": "active",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_created_",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_updated_",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "id": "sz5l5z67tg7gku0",
+    "indexes": [
+      "create unique index idx_test1 on demo2 (title)",
+      "CREATE INDEX `idx_test2` ON `demo2` (`active`)"
+    ],
+    "listRule": "",
+    "name": "demo2",
+    "system": false,
+    "type": "base",
+    "updateRule": "",
+    "updated": "<now>",
+    "viewRule": ""
+  },
+  "contentType": "application/json",
+  "status": 200
+}

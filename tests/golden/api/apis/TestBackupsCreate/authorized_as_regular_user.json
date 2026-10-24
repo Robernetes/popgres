@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The authorized record is not allowed to perform this action.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

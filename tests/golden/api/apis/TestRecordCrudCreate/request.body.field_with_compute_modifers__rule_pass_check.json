@@ -1,0 +1,17 @@
+{
+  "body": {
+    "collectionId": "9n89pl5vkct6330",
+    "collectionName": "demo5",
+    "created": "<now>",
+    "file": "",
+    "id": "<dynamic>",
+    "rel_many": [],
+    "rel_one": "",
+    "select_many": [],
+    "select_one": "",
+    "total": 3,
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

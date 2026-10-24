@@ -1,0 +1,30 @@
+{
+  "body": {
+    "data": {
+      "clientId": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "duration": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "keyId": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "privateKey": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "teamId": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      }
+    },
+    "message": "Invalid client secret data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

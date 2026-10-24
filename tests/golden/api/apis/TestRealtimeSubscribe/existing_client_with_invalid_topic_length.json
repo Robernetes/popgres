@@ -1,0 +1,20 @@
+{
+  "body": {
+    "data": {
+      "subscriptions": {
+        "1": {
+          "code": "validation_length_too_long",
+          "message": "The length must be no more than 2500.",
+          "params": {
+            "max": 2500,
+            "min": 0
+          }
+        }
+      }
+    },
+    "message": "Something went wrong while processing your request.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

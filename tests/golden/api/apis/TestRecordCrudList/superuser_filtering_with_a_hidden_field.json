@@ -1,0 +1,55 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "wzlqyes4orhoygb",
+        "collectionName": "demo3",
+        "created": "2022-10-14 11:41:09.381Z",
+        "files": [],
+        "id": "1tmknxy2868d869",
+        "title": "test1",
+        "updated": "2022-10-14 11:41:09.381Z"
+      },
+      {
+        "collectionId": "wzlqyes4orhoygb",
+        "collectionName": "demo3",
+        "created": "2022-10-14 11:41:12.548Z",
+        "files": [
+          "test_FLurQTgrY8.txt",
+          "300_UhLKX91HVb.png"
+        ],
+        "id": "lcl9d87w22ml6jy",
+        "title": "test2",
+        "updated": "2022-10-14 14:08:29.095Z"
+      },
+      {
+        "collectionId": "wzlqyes4orhoygb",
+        "collectionName": "demo3",
+        "created": "2022-10-14 11:41:15.689Z",
+        "files": [
+          "test_JnXeKEwgwr.txt"
+        ],
+        "id": "7nwo8tuiatetxdm",
+        "title": "test3",
+        "updated": "2022-10-14 14:08:16.072Z"
+      },
+      {
+        "collectionId": "wzlqyes4orhoygb",
+        "collectionName": "demo3",
+        "created": "2022-10-14 11:41:18.877Z",
+        "files": [
+          "300_JdfBOieXAW.png"
+        ],
+        "id": "mk5fmymtx4wsprk",
+        "title": "test4",
+        "updated": "2022-10-14 14:08:06.446Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 4,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

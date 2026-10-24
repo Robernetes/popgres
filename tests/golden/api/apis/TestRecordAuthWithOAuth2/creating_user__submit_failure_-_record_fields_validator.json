@@ -1,0 +1,27 @@
+{
+  "body": {
+    "data": {
+      "email": {
+        "code": "validation_is_email",
+        "message": "Must be a valid email address."
+      },
+      "file": {
+        "code": "validation_invalid_file",
+        "message": "Invalid new files: [invalid].",
+        "params": {
+          "invalidFiles": [
+            "invalid"
+          ]
+        }
+      },
+      "rel": {
+        "code": "validation_missing_rel_records",
+        "message": "Failed to find all relation records with the provided ids."
+      }
+    },
+    "message": "Failed to create record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

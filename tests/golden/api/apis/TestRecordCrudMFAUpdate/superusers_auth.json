@@ -1,0 +1,14 @@
+{
+  "body": {
+    "collectionId": "pbc_2279338944",
+    "collectionName": "_mfas",
+    "collectionRef": "_pb_users_auth_",
+    "created": "<now>",
+    "id": "user1_0",
+    "method": "abc",
+    "recordRef": "4q1xlclmfloku33",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

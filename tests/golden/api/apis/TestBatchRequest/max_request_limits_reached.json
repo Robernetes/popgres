@@ -1,0 +1,18 @@
+{
+  "body": {
+    "data": {
+      "requests": {
+        "code": "validation_length_too_long",
+        "message": "The length must be no more than 2.",
+        "params": {
+          "max": 2,
+          "min": 0
+        }
+      }
+    },
+    "message": "Invalid batch request data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

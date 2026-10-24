@@ -1,0 +1,21 @@
+{
+  "body": {
+    "data": {
+      "requests": {
+        "2": {
+          "code": "batch_request_failed",
+          "message": "Batch request failed.",
+          "response": {
+            "data": {},
+            "message": "The requested resource wasn't found.",
+            "status": 404
+          }
+        }
+      }
+    },
+    "message": "Batch transaction failed.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

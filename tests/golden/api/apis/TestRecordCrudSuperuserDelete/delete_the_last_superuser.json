@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "You can't delete the only existing superuser.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

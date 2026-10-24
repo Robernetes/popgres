@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Batch requests are not allowed.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

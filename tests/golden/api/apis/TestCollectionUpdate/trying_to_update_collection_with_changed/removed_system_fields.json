@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "code": "validation_system_field_change",
+        "message": "System fields cannot be deleted or renamed."
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

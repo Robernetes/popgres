@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "verified": {
+        "code": "validation_values_mismatch",
+        "message": "Values don't match."
+      }
+    },
+    "message": "Failed to create record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

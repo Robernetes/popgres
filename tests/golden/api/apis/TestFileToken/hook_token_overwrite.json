@@ -1,0 +1,7 @@
+{
+  "body": {
+    "token": "test"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

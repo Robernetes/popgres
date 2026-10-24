@@ -1,0 +1,22 @@
+{
+  "body": [
+    {
+      "expression": "0 0 * * *",
+      "id": "__pbDBOptimize__"
+    },
+    {
+      "expression": "0 * * * *",
+      "id": "__pbMFACleanup__"
+    },
+    {
+      "expression": "0 * * * *",
+      "id": "__pbOTPCleanup__"
+    },
+    {
+      "expression": "0 */6 * * *",
+      "id": "__pbLogsCleanup__"
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

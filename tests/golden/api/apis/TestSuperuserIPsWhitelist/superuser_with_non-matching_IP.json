@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "You are not allowed to perform this request.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

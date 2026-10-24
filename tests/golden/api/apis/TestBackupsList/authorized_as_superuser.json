@@ -1,0 +1,26 @@
+{
+  "body": [
+    {
+      "key": "@test4.zip",
+      "modified": "<now>",
+      "size": 66560
+    },
+    {
+      "key": "test1.zip",
+      "modified": "<now>",
+      "size": 66560
+    },
+    {
+      "key": "test2.zip",
+      "modified": "<now>",
+      "size": 66560
+    },
+    {
+      "key": "test3.zip",
+      "modified": "<now>",
+      "size": 66560
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

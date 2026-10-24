@@ -1,0 +1,10 @@
+{
+  "body": {
+    "affectedRows": 0,
+    "columns": [],
+    "execTime": "<dynamic>",
+    "rows": []
+  },
+  "contentType": "application/json",
+  "status": 200
+}

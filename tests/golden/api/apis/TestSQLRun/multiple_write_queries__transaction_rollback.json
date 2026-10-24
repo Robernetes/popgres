@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Failed to execute query. Raw error:\nSQL logic error: near \"invalid\": syntax error (1).",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

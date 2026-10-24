@@ -1,0 +1,19 @@
+{
+  "body": {
+    "data": {
+      "passwordAuth": {
+        "identityFields": {
+          "code": "validation_missing_field",
+          "message": "Invalid or missing field missing.",
+          "params": {
+            "fieldName": "missing"
+          }
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

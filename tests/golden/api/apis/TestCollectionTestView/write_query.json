@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Invalid view query. Raw error: \nSQL logic error: near \"CREATE\": syntax error (1).",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

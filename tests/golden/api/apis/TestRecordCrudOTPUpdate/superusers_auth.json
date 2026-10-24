@@ -1,0 +1,15 @@
+{
+  "body": {
+    "collectionId": "pbc_1638494021",
+    "collectionName": "_otps",
+    "collectionRef": "_pb_users_auth_",
+    "created": "<now>",
+    "id": "user1_0",
+    "password": "",
+    "recordRef": "4q1xlclmfloku33",
+    "sentTo": "",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

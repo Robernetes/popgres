@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "id": {
+        "code": "validation_pk_change",
+        "message": "The record primary key cannot be changed."
+      }
+    },
+    "message": "Failed to update record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

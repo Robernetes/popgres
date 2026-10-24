@@ -1,0 +1,21 @@
+{
+  "body": {
+    "data": {
+      "requests": {
+        "0": {
+          "code": "batch_request_failed",
+          "message": "Batch request failed.",
+          "response": {
+            "data": {},
+            "message": "Something went wrong while processing your request.",
+            "status": 400
+          }
+        }
+      }
+    },
+    "message": "Batch transaction failed.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

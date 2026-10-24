@@ -1,0 +1,22 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "pbc_4275539003",
+        "collectionName": "_authOrigins",
+        "collectionRef": "v851q4r790rhknl",
+        "created": "2024-07-26 12:22:37.681Z",
+        "fingerprint": "22bbbcbed36e25321f384ccf99f60057",
+        "id": "9r2j0m74260ur8i",
+        "recordRef": "gk390qegs4y47wn",
+        "updated": "2024-07-26 12:22:37.681Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

@@ -1,0 +1,68 @@
+{
+  "body": {
+    "createRule": null,
+    "created": "2023-02-17 19:42:54.278Z",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 0,
+        "min": 0,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "<dynamic>",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": true,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "<dynamic>",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": true,
+        "type": "autodate"
+      },
+      {
+        "exceptDomains": [],
+        "help": "",
+        "hidden": false,
+        "id": "<dynamic>",
+        "name": "email",
+        "onlyDomains": [],
+        "presentable": false,
+        "required": true,
+        "system": true,
+        "type": "email"
+      }
+    ],
+    "id": "ib3m2700k5hlsjz",
+    "indexes": [],
+    "listRule": "",
+    "name": "view2_update",
+    "system": false,
+    "type": "view",
+    "updateRule": null,
+    "updated": "<now>",
+    "viewQuery": "select 2 as id, created, updated, email from _superusers limit 1",
+    "viewRule": ""
+  },
+  "contentType": "application/json",
+  "status": 200
+}

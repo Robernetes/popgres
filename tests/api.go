@@ -245,6 +245,8 @@ func (scenario *ApiScenario) test(t testing.TB) {
 
 		res := recorder.Result()
 
+		scenario.captureGolden(t, recorder)
+
 		if res.StatusCode != scenario.ExpectedStatus {
 			t.Errorf("Expected status code %d, got %d", scenario.ExpectedStatus, res.StatusCode)
 		}

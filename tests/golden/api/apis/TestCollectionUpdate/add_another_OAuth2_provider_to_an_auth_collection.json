@@ -1,0 +1,296 @@
+{
+  "body": {
+    "authAlert": {
+      "emailTemplate": {
+        "body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p>If this was you, you may disregard this email.</p>\n<p><strong>If this wasn't you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
+        "subject": "Login from a new location"
+      },
+      "enabled": true
+    },
+    "authRule": "",
+    "authToken": {
+      "duration": 1209600
+    },
+    "confirmEmailChangeTemplate": {
+      "body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn't ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
+      "subject": "Confirm your {APP_NAME} new email address"
+    },
+    "createRule": "",
+    "created": "2022-10-10 09:49:46.145Z",
+    "deleteRule": "id = @request.auth.id",
+    "emailChangeToken": {
+      "duration": 1800
+    },
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_text_id_",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cost": 10,
+        "help": "",
+        "hidden": true,
+        "id": "_pbf_auth_password_",
+        "max": 0,
+        "min": 8,
+        "name": "password",
+        "pattern": "",
+        "presentable": false,
+        "required": true,
+        "system": true,
+        "type": "password"
+      },
+      {
+        "autogeneratePattern": "[a-zA-Z0-9_]{50}",
+        "help": "",
+        "hidden": true,
+        "id": "_pbf_auth_tokenKey_",
+        "max": 60,
+        "min": 30,
+        "name": "tokenKey",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "exceptDomains": [],
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_auth_email_",
+        "name": "email",
+        "onlyDomains": [],
+        "presentable": false,
+        "required": false,
+        "system": true,
+        "type": "email"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_auth_emailVisibility_",
+        "name": "emailVisibility",
+        "presentable": false,
+        "required": false,
+        "system": true,
+        "type": "bool"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_auth_verified_",
+        "name": "verified",
+        "presentable": false,
+        "required": false,
+        "system": true,
+        "type": "bool"
+      },
+      {
+        "autogeneratePattern": "users[0-9]{5}",
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_auth_username_",
+        "max": 150,
+        "min": 3,
+        "name": "username",
+        "pattern": "^[\\w][\\w\\.\\-]*$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "users_name",
+        "max": 0,
+        "min": 0,
+        "name": "name",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "users_avatar",
+        "maxSelect": 1,
+        "maxSize": 5242880,
+        "mimeTypes": [
+          "image/jpg",
+          "image/jpeg",
+          "image/png",
+          "image/svg+xml",
+          "image/gif"
+        ],
+        "name": "avatar",
+        "presentable": false,
+        "protected": false,
+        "required": false,
+        "system": false,
+        "thumbs": [
+          "70x50",
+          "70x50t",
+          "70x50b",
+          "70x50f",
+          "0x50",
+          "70x0"
+        ],
+        "type": "file"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "xtecur3m",
+        "maxSelect": 5,
+        "maxSize": 5242880,
+        "mimeTypes": [],
+        "name": "file",
+        "presentable": false,
+        "protected": false,
+        "required": false,
+        "system": false,
+        "thumbs": [],
+        "type": "file"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "help": "",
+        "hidden": false,
+        "id": "lkeigvv3",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "rel",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_created_",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_updated_",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "fileToken": {
+      "duration": 180
+    },
+    "id": "_pb_users_auth_",
+    "indexes": [
+      "CREATE UNIQUE INDEX `__pb_users_auth__username_idx` ON `users` (username)",
+      "CREATE UNIQUE INDEX `__pb_users_auth__email_idx` ON `users` (email) WHERE email != ''",
+      "CREATE UNIQUE INDEX `__pb_users_auth__tokenKey_idx` ON `users` (tokenKey)",
+      "CREATE INDEX `__pb_users_auth__created_idx` ON `users` (`created`)"
+    ],
+    "listRule": null,
+    "manageRule": null,
+    "mfa": {
+      "duration": 1800,
+      "enabled": true,
+      "rule": ""
+    },
+    "name": "users",
+    "oauth2": {
+      "enabled": true,
+      "mappedFields": {
+        "avatarURL": "",
+        "id": "",
+        "name": "",
+        "username": "username"
+      },
+      "providers": [
+        {
+          "authURL": "",
+          "clientId": "a",
+          "displayName": "",
+          "extra": {},
+          "name": "apple",
+          "pkce": null,
+          "tokenURL": "",
+          "userInfoURL": ""
+        },
+        {
+          "authURL": "",
+          "clientId": "test",
+          "displayName": "existing",
+          "extra": {},
+          "name": "google",
+          "pkce": null,
+          "tokenURL": "",
+          "userInfoURL": ""
+        }
+      ]
+    },
+    "otp": {
+      "duration": 300,
+      "emailTemplate": {
+        "body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn't ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
+        "subject": "OTP for {APP_NAME}"
+      },
+      "enabled": true,
+      "length": 8
+    },
+    "passwordAuth": {
+      "enabled": true,
+      "identityFields": [
+        "email",
+        "username"
+      ]
+    },
+    "passwordResetToken": {
+      "duration": 1800
+    },
+    "resetPasswordTemplate": {
+      "body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn't ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
+      "subject": "Reset your {APP_NAME} password"
+    },
+    "system": false,
+    "type": "auth",
+    "updateRule": "id = @request.auth.id",
+    "updated": "<now>",
+    "verificationTemplate": {
+      "body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
+      "subject": "Verify your {APP_NAME} email"
+    },
+    "verificationToken": {
+      "duration": 604800
+    },
+    "viewRule": "id = @request.auth.id"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

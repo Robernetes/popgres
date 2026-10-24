@@ -1,0 +1,54 @@
+{
+  "body": [
+    {
+      "body": {
+        "active": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "<now>",
+        "id": "<dynamic>",
+        "title": "batch1",
+        "updated": "<now>"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "active": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "<now>",
+        "id": "<dynamic>",
+        "title": "batch2",
+        "updated": "<now>"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "active": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "<now>",
+        "id": "<dynamic>",
+        "title": "batch3",
+        "updated": "<now>"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "active": true,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "2022-10-12 11:42:55.076Z",
+        "id": "achv...",
+        "title": "batch4",
+        "updated": "<now>"
+      },
+      "status": 200
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

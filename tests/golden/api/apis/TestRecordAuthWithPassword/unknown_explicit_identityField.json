@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "identityField": {
+        "code": "validation_in_invalid",
+        "message": "Must be a valid value."
+      }
+    },
+    "message": "An error occurred while validating the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

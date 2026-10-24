@@ -1,0 +1,224 @@
+{
+  "body": {
+    "items": [
+      {
+        "createRule": null,
+        "created": "2024-06-20 09:29:22.894Z",
+        "deleteRule": null,
+        "fields": [
+          {
+            "autogeneratePattern": "[a-z0-9]{15}",
+            "help": "",
+            "hidden": false,
+            "id": "text3208210256",
+            "max": 15,
+            "min": 15,
+            "name": "id",
+            "pattern": "^[a-z0-9]+$",
+            "presentable": false,
+            "primaryKey": true,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text455797646",
+            "max": 0,
+            "min": 0,
+            "name": "collectionRef",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text127846527",
+            "max": 0,
+            "min": 0,
+            "name": "recordRef",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text1582905952",
+            "max": 0,
+            "min": 0,
+            "name": "method",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "hidden": false,
+            "id": "autodate2990389176",
+            "name": "created",
+            "onCreate": true,
+            "onUpdate": false,
+            "presentable": false,
+            "system": true,
+            "type": "autodate"
+          },
+          {
+            "hidden": false,
+            "id": "autodate3332085495",
+            "name": "updated",
+            "onCreate": true,
+            "onUpdate": true,
+            "presentable": false,
+            "system": true,
+            "type": "autodate"
+          }
+        ],
+        "id": "pbc_2279338944",
+        "indexes": [
+          "CREATE INDEX `idx_mfas_collectionRef_recordRef` ON `mfas` (\n  `collectionRef`,\n  `recordRef`\n)"
+        ],
+        "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+        "name": "_mfas",
+        "system": true,
+        "type": "base",
+        "updateRule": null,
+        "updated": "2024-10-24 18:34:35.352Z",
+        "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+      },
+      {
+        "createRule": null,
+        "created": "2024-06-20 09:29:22.862Z",
+        "deleteRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+        "fields": [
+          {
+            "autogeneratePattern": "[a-z0-9]{15}",
+            "help": "",
+            "hidden": false,
+            "id": "text3208210256",
+            "max": 15,
+            "min": 15,
+            "name": "id",
+            "pattern": "^[a-z0-9]+$",
+            "presentable": false,
+            "primaryKey": true,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text455797646",
+            "max": 0,
+            "min": 0,
+            "name": "collectionRef",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text127846527",
+            "max": 0,
+            "min": 0,
+            "name": "recordRef",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text2462348188",
+            "max": 0,
+            "min": 0,
+            "name": "provider",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "autogeneratePattern": "",
+            "help": "",
+            "hidden": false,
+            "id": "text1044722854",
+            "max": 0,
+            "min": 0,
+            "name": "providerId",
+            "pattern": "",
+            "presentable": false,
+            "primaryKey": false,
+            "required": true,
+            "system": true,
+            "type": "text"
+          },
+          {
+            "hidden": false,
+            "id": "autodate2990389176",
+            "name": "created",
+            "onCreate": true,
+            "onUpdate": false,
+            "presentable": false,
+            "system": true,
+            "type": "autodate"
+          },
+          {
+            "hidden": false,
+            "id": "autodate3332085495",
+            "name": "updated",
+            "onCreate": true,
+            "onUpdate": true,
+            "presentable": false,
+            "system": true,
+            "type": "autodate"
+          }
+        ],
+        "id": "pbc_2281828961",
+        "indexes": [
+          "CREATE UNIQUE INDEX `idx_externalAuths_record_provider` ON `externalAuths` (collectionRef, recordRef, provider)",
+          "CREATE UNIQUE INDEX `idx_externalAuths_collection_provider` ON `externalAuths` (collectionRef, provider, providerId)"
+        ],
+        "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+        "name": "_externalAuths",
+        "system": true,
+        "type": "base",
+        "updateRule": null,
+        "updated": "2024-07-31 16:33:51.596Z",
+        "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+      }
+    ],
+    "page": 2,
+    "perPage": 2,
+    "totalItems": 16,
+    "totalPages": 8
+  },
+  "contentType": "application/json",
+  "status": 200
+}

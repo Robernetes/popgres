@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "collections": {
+        "code": "validation_collections_import_failure",
+        "message": "Failed to import the collections configuration. Raw error:\nfailed to save collection \"import1\": custom_error."
+      }
+    },
+    "message": "Failed to import collections.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

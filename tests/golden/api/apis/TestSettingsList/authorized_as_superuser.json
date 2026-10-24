@@ -1,0 +1,91 @@
+{
+  "body": {
+    "backups": {
+      "cron": "",
+      "cronMaxKeep": 0,
+      "s3": {
+        "accessKey": "",
+        "bucket": "",
+        "enabled": false,
+        "endpoint": "",
+        "forcePathStyle": false,
+        "region": ""
+      }
+    },
+    "batch": {
+      "enabled": true,
+      "maxBodySize": 0,
+      "maxRequests": 50,
+      "timeout": 5
+    },
+    "logs": {
+      "logAuthId": false,
+      "logIP": false,
+      "maxDataSize": 0,
+      "maxDays": 0,
+      "minLevel": 0
+    },
+    "meta": {
+      "accentColor": "#1055c9",
+      "appName": "acme_test",
+      "appURL": "http://localhost:8090",
+      "hideControls": false,
+      "senderAddress": "support@example.com",
+      "senderName": "Support"
+    },
+    "rateLimits": {
+      "enabled": false,
+      "excludedIPs": [],
+      "rules": [
+        {
+          "audience": "",
+          "duration": 3,
+          "label": "*:auth",
+          "maxRequests": 2
+        },
+        {
+          "audience": "",
+          "duration": 5,
+          "label": "*:create",
+          "maxRequests": 20
+        },
+        {
+          "audience": "",
+          "duration": 1,
+          "label": "/api/batch",
+          "maxRequests": 3
+        },
+        {
+          "audience": "",
+          "duration": 10,
+          "label": "/api/",
+          "maxRequests": 300
+        }
+      ]
+    },
+    "s3": {
+      "accessKey": "",
+      "bucket": "",
+      "enabled": false,
+      "endpoint": "",
+      "forcePathStyle": false,
+      "region": ""
+    },
+    "smtp": {
+      "authMethod": "",
+      "enabled": false,
+      "host": "smtp.example.com",
+      "localName": "",
+      "port": 587,
+      "tls": false,
+      "username": ""
+    },
+    "superuserIPs": [],
+    "trustedProxy": {
+      "headers": [],
+      "useLeftmostIP": false
+    }
+  },
+  "contentType": "application/json",
+  "status": 200
+}

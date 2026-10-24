@@ -1,0 +1,21 @@
+{
+  "body": {
+    "data": {
+      "code": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "provider": {
+        "code": "validation_invalid_provider",
+        "message": "Provider with name missing is missing or is not enabled.",
+        "params": {
+          "name": "missing"
+        }
+      }
+    },
+    "message": "An error occurred while loading the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

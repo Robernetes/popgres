@@ -1,0 +1,38 @@
+{
+  "body": {
+    "data": {
+      "requests": {
+        "0": {
+          "method": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          },
+          "url": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          }
+        },
+        "2": {
+          "method": {
+            "code": "validation_in_invalid",
+            "message": "Must be a valid value."
+          }
+        },
+        "3": {
+          "url": {
+            "code": "validation_length_too_long",
+            "message": "The length must be no more than 2000.",
+            "params": {
+              "max": 2000,
+              "min": 0
+            }
+          }
+        }
+      }
+    },
+    "message": "Invalid batch request data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

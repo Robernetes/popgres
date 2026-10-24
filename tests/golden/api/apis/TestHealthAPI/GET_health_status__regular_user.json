@@ -1,0 +1,9 @@
+{
+  "body": {
+    "code": 200,
+    "data": {},
+    "message": "API is healthy."
+  },
+  "contentType": "application/json",
+  "status": 200
+}

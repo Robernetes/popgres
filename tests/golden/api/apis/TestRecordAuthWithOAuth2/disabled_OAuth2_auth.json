@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The collection is not configured to allow OAuth2 authentication.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "id": {
+        "code": "validation_invalid_auth_id",
+        "message": "Invalid or duplicated auth record id."
+      }
+    },
+    "message": "Failed to create record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

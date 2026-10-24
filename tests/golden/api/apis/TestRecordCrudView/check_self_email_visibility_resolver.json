@@ -1,0 +1,16 @@
+{
+  "body": {
+    "collectionId": "kpv709sk2lqbqk8",
+    "collectionName": "nologin",
+    "created": "2022-10-12 10:39:47.633Z",
+    "email": "test@example.com",
+    "emailVisibility": false,
+    "id": "dc49k6jgejn40h3",
+    "name": "test",
+    "updated": "2022-10-12 10:39:47.633Z",
+    "username": "test_username",
+    "verified": false
+  },
+  "contentType": "application/json",
+  "status": 200
+}

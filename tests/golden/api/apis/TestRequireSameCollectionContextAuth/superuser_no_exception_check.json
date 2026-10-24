@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The request requires auth record from _superusers collection.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

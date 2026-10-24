@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The request requires valid record authorization token.",
+    "status": 401
+  },
+  "contentType": "application/json",
+  "status": 401
+}

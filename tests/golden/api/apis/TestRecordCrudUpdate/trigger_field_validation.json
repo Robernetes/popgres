@@ -1,0 +1,17 @@
+{
+  "body": {
+    "data": {
+      "title": {
+        "code": "validation_min_text_constraint",
+        "message": "Must be at least 2 character(s).",
+        "params": {
+          "min": 2
+        }
+      }
+    },
+    "message": "Failed to update record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

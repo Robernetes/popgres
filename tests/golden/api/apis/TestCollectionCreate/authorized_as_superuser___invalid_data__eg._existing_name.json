@@ -1,0 +1,22 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "1": {
+          "name": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          }
+        }
+      },
+      "name": {
+        "code": "validation_collection_name_exists",
+        "message": "Collection name must be unique (case insensitive)."
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

@@ -1,0 +1,52 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "pbc_3142635823",
+        "collectionName": "_superusers",
+        "created": "2022-10-10 09:50:06.449Z",
+        "email": "test@example.com",
+        "emailVisibility": false,
+        "id": "sywbhecnh46rhm0",
+        "updated": "2022-10-10 09:50:06.449Z",
+        "verified": true
+      },
+      {
+        "collectionId": "pbc_3142635823",
+        "collectionName": "_superusers",
+        "created": "2022-10-10 11:22:27.982Z",
+        "email": "test2@example.com",
+        "emailVisibility": false,
+        "id": "sbmbsdb40jyxf7h",
+        "updated": "2022-10-10 11:22:31.096Z",
+        "verified": true
+      },
+      {
+        "collectionId": "pbc_3142635823",
+        "collectionName": "_superusers",
+        "created": "2022-10-10 11:22:50.693Z",
+        "email": "test3@example.com",
+        "emailVisibility": false,
+        "id": "9q2trqumvlyr3bd",
+        "updated": "2022-10-10 11:22:54.907Z",
+        "verified": true
+      },
+      {
+        "collectionId": "pbc_3142635823",
+        "collectionName": "_superusers",
+        "created": "2024-07-26 12:17:43.787Z",
+        "email": "test4@example.com",
+        "emailVisibility": false,
+        "id": "q911776rrfy658l",
+        "updated": "2024-07-26 12:17:43.787Z",
+        "verified": true
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 4,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Something went wrong while processing your request.",
+    "status": 500
+  },
+  "contentType": "application/json",
+  "status": 500
+}

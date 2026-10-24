@@ -1,0 +1,53 @@
+{
+  "body": {
+    "createRule": null,
+    "created": "<now>",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text3632233996",
+        "max": 0,
+        "min": 0,
+        "name": "test",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      }
+    ],
+    "id": "pbc_1690656308",
+    "indexes": [
+      "create index idx_test1 on new (test)",
+      "CREATE INDEX `idx_test2` ON `new` (\n  `id`,\n  `test`\n)"
+    ],
+    "listRule": null,
+    "name": "new",
+    "system": false,
+    "type": "base",
+    "updateRule": null,
+    "updated": "<now>",
+    "viewRule": null
+  },
+  "contentType": "application/json",
+  "status": 200
+}

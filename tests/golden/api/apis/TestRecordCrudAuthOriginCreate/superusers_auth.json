@@ -1,0 +1,14 @@
+{
+  "body": {
+    "collectionId": "pbc_4275539003",
+    "collectionName": "_authOrigins",
+    "collectionRef": "_pb_users_auth_",
+    "created": "<now>",
+    "fingerprint": "abc",
+    "id": "<dynamic>",
+    "recordRef": "4q1xlclmfloku33",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

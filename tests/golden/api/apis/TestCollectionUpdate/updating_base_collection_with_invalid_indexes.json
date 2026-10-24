@@ -1,0 +1,16 @@
+{
+  "body": {
+    "data": {
+      "indexes": {
+        "0": {
+          "code": "validation_invalid_index_expression",
+          "message": "Invalid CREATE INDEX expression."
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

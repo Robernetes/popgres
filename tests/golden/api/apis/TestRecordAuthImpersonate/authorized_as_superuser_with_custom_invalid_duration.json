@@ -1,0 +1,17 @@
+{
+  "body": {
+    "data": {
+      "duration": {
+        "code": "validation_min_greater_equal_than_required",
+        "message": "Must be no less than 0.",
+        "params": {
+          "threshold": 0
+        }
+      }
+    },
+    "message": "An error occurred while validating the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

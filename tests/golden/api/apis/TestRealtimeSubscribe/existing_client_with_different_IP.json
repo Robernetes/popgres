@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Invalid realtime client.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

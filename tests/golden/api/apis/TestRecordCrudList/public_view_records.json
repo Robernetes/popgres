@@ -1,0 +1,32 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "ib3m2700k5hlsjz",
+        "collectionName": "view2",
+        "file_many": [],
+        "id": "al1h9ijdeojtsjy",
+        "rel_many": [
+          "bgs820n361vj1qd",
+          "4q1xlclmfloku33",
+          "oap640cot4yru2s"
+        ],
+        "state": false
+      },
+      {
+        "collectionId": "ib3m2700k5hlsjz",
+        "collectionName": "view2",
+        "file_many": [],
+        "id": "imy661ixudk5izi",
+        "rel_many": [],
+        "state": false
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 2,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

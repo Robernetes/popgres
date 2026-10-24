@@ -1,0 +1,18 @@
+{
+  "body": {
+    "data": {
+      "password": {
+        "code": "validation_min_text_constraint",
+        "message": "Must be at least 8 character(s)."
+      },
+      "rel": {
+        "code": "validation_missing_rel_records",
+        "message": "Failed to find all relation records with the provided ids."
+      }
+    },
+    "message": "Failed to create record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

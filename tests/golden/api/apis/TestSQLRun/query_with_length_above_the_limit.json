@@ -1,0 +1,18 @@
+{
+  "body": {
+    "data": {
+      "query": {
+        "code": "validation_length_too_long",
+        "message": "The length must be no more than 5000.",
+        "params": {
+          "max": 5000,
+          "min": 0
+        }
+      }
+    },
+    "message": "An error occurred while validating the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

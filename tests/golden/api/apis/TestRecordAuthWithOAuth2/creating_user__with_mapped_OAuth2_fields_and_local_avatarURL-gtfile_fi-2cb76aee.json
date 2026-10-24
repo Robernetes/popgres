@@ -1,0 +1,35 @@
+{
+  "body": {
+    "meta": {
+      "accessToken": "",
+      "avatarURL": "<dynamic>",
+      "avatarUrl": "<dynamic>",
+      "email": "oauth2@example.com",
+      "expiry": "",
+      "id": "oauth2_id",
+      "isNew": true,
+      "name": "",
+      "rawUser": {},
+      "refreshToken": "",
+      "username": "oauth2_username"
+    },
+    "record": {
+      "avatar": "",
+      "collectionId": "_pb_users_auth_",
+      "collectionName": "users",
+      "created": "<now>",
+      "email": "oauth2@example.com",
+      "emailVisibility": true,
+      "file": [],
+      "id": "<dynamic>",
+      "name": "test_name",
+      "rel": "0yxhwia2amd8gec",
+      "updated": "<now>",
+      "username": "oauth2_id",
+      "verified": true
+    },
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

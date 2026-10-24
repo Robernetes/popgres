@@ -1,0 +1,17 @@
+{
+  "body": {
+    "collectionId": "9n89pl5vkct6330",
+    "collectionName": "demo5",
+    "created": "2023-01-07 13:13:28.337Z",
+    "file": "300_uh_lkx91_hvb_Da8K5pl069.png",
+    "id": "la4y2w4o98acwuj",
+    "rel_many": [],
+    "rel_one": "",
+    "select_many": [],
+    "select_one": "",
+    "total": 3,
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

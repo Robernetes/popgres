@@ -1,0 +1,39 @@
+{
+  "body": {
+    "items": [
+      {
+        "active": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "2022-10-12 11:42:51.509Z",
+        "id": "llvuca81nly1qls",
+        "title": "test1",
+        "updated": "2022-10-12 11:42:51.509Z"
+      },
+      {
+        "active": true,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "2022-10-12 11:42:55.076Z",
+        "id": "achvryl401bhse3",
+        "title": "test2",
+        "updated": "2022-10-14 10:52:46.726Z"
+      },
+      {
+        "active": true,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "2022-10-12 11:42:58.215Z",
+        "id": "0yxhwia2amd8gec",
+        "title": "test3",
+        "updated": "2022-10-14 10:52:49.596Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 3,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

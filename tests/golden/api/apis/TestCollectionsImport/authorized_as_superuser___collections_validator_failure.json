@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "collections": {
+        "code": "validation_collections_import_failure",
+        "message": "Data validations failed for collection \"import2\" (pbc_3894273008):\n{\n  \"fields\": {\n    \"1\": {\n      \"name\": \"must not be in list\"\n    }\n  }\n}."
+      }
+    },
+    "message": "Failed to import collections.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

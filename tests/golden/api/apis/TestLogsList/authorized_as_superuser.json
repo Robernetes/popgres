@@ -1,0 +1,30 @@
+{
+  "body": {
+    "items": [
+      {
+        "created": "2022-05-01 10:00:00.123Z",
+        "data": {
+          "status": 200
+        },
+        "id": "873f2133-9f38-44fb-bf82-c8f53b310d91",
+        "level": 0,
+        "message": "test_message1"
+      },
+      {
+        "created": "2022-05-02 10:00:00.123Z",
+        "data": {
+          "status": 400
+        },
+        "id": "f2133873-44fb-9f38-bf82-c918f53b310d",
+        "level": 8,
+        "message": "test_message2"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 2,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Too many attempts, please try again later with a new OTP.",
+    "status": 429
+  },
+  "contentType": "application/json",
+  "status": 429
+}

@@ -1,0 +1,14 @@
+{
+  "body": {
+    "collectionId": "pbc_3142635823",
+    "collectionName": "_superusers",
+    "created": "<now>",
+    "email": "test_new@example.com",
+    "emailVisibility": false,
+    "id": "<dynamic>",
+    "updated": "<now>",
+    "verified": true
+  },
+  "contentType": "application/json",
+  "status": 200
+}

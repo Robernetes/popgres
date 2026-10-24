@@ -1,0 +1,216 @@
+{
+  "body": {
+    "items": [
+      {
+        "bool": true,
+        "collectionId": "wsmn24bux7wo113",
+        "collectionName": "demo1",
+        "created": "2022-10-14 10:13:12.397Z",
+        "datetime": "2022-10-01 12:00:00.000Z",
+        "email": "test@example.com",
+        "expand": {
+          "rel_many": [
+            {
+              "avatar": "",
+              "collectionId": "_pb_users_auth_",
+              "collectionName": "users",
+              "created": "2022-10-10 10:36:59.438Z",
+              "email": "test2@example.com",
+              "emailVisibility": false,
+              "expand": {},
+              "file": [
+                "test_kfd2wYLxkz.txt"
+              ],
+              "id": "oap640cot4yru2s",
+              "name": "",
+              "rel": "",
+              "updated": "2022-10-11 18:37:20.744Z",
+              "username": "test2_username",
+              "verified": true
+            }
+          ]
+        },
+        "file_many": [
+          "test_QZFjKjXchk.txt",
+          "300_WlbFWSGmW9.png",
+          "logo_vcfJJG5TAh.svg",
+          "test_MaWC6mWyrP.txt",
+          "test_tC1Yc87DfC.txt"
+        ],
+        "file_one": "test_d61b33QdDU.txt",
+        "id": "84nmscqy84lsi1t",
+        "json": [
+          1,
+          2,
+          3
+        ],
+        "number": 123456,
+        "point": {
+          "lat": 0,
+          "lon": 0
+        },
+        "rel_many": [
+          "oap640cot4yru2s"
+        ],
+        "rel_one": "",
+        "select_many": [
+          "optionB",
+          "optionC"
+        ],
+        "select_one": "optionB",
+        "text": "test",
+        "updated": "2023-01-04 20:11:20.732Z",
+        "url": "https://example.copm"
+      },
+      {
+        "bool": false,
+        "collectionId": "wsmn24bux7wo113",
+        "collectionName": "demo1",
+        "created": "2022-10-14 10:14:04.685Z",
+        "datetime": "",
+        "email": "test2@example.com",
+        "expand": {
+          "rel_many": [
+            {
+              "avatar": "",
+              "collectionId": "_pb_users_auth_",
+              "collectionName": "users",
+              "created": "2022-10-10 10:37:33.119Z",
+              "email": "test3@example.com",
+              "emailVisibility": true,
+              "expand": {
+                "rel": {
+                  "active": true,
+                  "collectionId": "sz5l5z67tg7gku0",
+                  "collectionName": "demo2",
+                  "created": "2022-10-12 11:42:58.215Z",
+                  "id": "0yxhwia2amd8gec",
+                  "title": "test3",
+                  "updated": "2022-10-14 10:52:49.596Z"
+                }
+              },
+              "file": [],
+              "id": "bgs820n361vj1qd",
+              "name": "test3",
+              "rel": "0yxhwia2amd8gec",
+              "updated": "2022-10-12 11:46:02.462Z",
+              "username": "users69238",
+              "verified": true
+            },
+            {
+              "avatar": "300_1SEi6Q6U72.png",
+              "collectionId": "_pb_users_auth_",
+              "collectionName": "users",
+              "created": "2022-10-10 10:36:26.879Z",
+              "email": "test@example.com",
+              "emailVisibility": false,
+              "expand": {
+                "rel": {
+                  "active": false,
+                  "collectionId": "sz5l5z67tg7gku0",
+                  "collectionName": "demo2",
+                  "created": "2022-10-12 11:42:51.509Z",
+                  "id": "llvuca81nly1qls",
+                  "title": "test1",
+                  "updated": "2022-10-12 11:42:51.509Z"
+                }
+              },
+              "file": [],
+              "id": "4q1xlclmfloku33",
+              "name": "test1",
+              "rel": "llvuca81nly1qls",
+              "updated": "2022-10-12 11:46:10.490Z",
+              "username": "users75657",
+              "verified": false
+            },
+            {
+              "avatar": "",
+              "collectionId": "_pb_users_auth_",
+              "collectionName": "users",
+              "created": "2022-10-10 10:36:59.438Z",
+              "email": "test2@example.com",
+              "emailVisibility": false,
+              "expand": {},
+              "file": [
+                "test_kfd2wYLxkz.txt"
+              ],
+              "id": "oap640cot4yru2s",
+              "name": "",
+              "rel": "",
+              "updated": "2022-10-11 18:37:20.744Z",
+              "username": "test2_username",
+              "verified": true
+            }
+          ],
+          "rel_one": {
+            "bool": true,
+            "collectionId": "wsmn24bux7wo113",
+            "collectionName": "demo1",
+            "created": "2022-10-14 10:13:12.397Z",
+            "datetime": "2022-10-01 12:00:00.000Z",
+            "email": "test@example.com",
+            "file_many": [
+              "test_QZFjKjXchk.txt",
+              "300_WlbFWSGmW9.png",
+              "logo_vcfJJG5TAh.svg",
+              "test_MaWC6mWyrP.txt",
+              "test_tC1Yc87DfC.txt"
+            ],
+            "file_one": "test_d61b33QdDU.txt",
+            "id": "84nmscqy84lsi1t",
+            "json": [
+              1,
+              2,
+              3
+            ],
+            "number": 123456,
+            "point": {
+              "lat": 0,
+              "lon": 0
+            },
+            "rel_many": [
+              "oap640cot4yru2s"
+            ],
+            "rel_one": "",
+            "select_many": [
+              "optionB",
+              "optionC"
+            ],
+            "select_one": "optionB",
+            "text": "test",
+            "updated": "2023-01-04 20:11:20.732Z",
+            "url": "https://example.copm"
+          }
+        },
+        "file_many": [],
+        "file_one": "300_Jsjq7RdBgA.png",
+        "id": "al1h9ijdeojtsjy",
+        "json": null,
+        "number": 456,
+        "point": {
+          "lat": 42.654318,
+          "lon": 23.333157
+        },
+        "rel_many": [
+          "bgs820n361vj1qd",
+          "4q1xlclmfloku33",
+          "oap640cot4yru2s"
+        ],
+        "rel_one": "84nmscqy84lsi1t",
+        "select_many": [
+          "optionB"
+        ],
+        "select_one": "optionB",
+        "text": "test2",
+        "updated": "2025-04-02 11:05:26.292Z",
+        "url": ""
+      }
+    ],
+    "page": 1,
+    "perPage": 2,
+    "totalItems": 3,
+    "totalPages": 2
+  },
+  "contentType": "application/json",
+  "status": 200
+}

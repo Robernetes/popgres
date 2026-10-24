@@ -1,0 +1,20 @@
+{
+  "body": {
+    "affectedRows": 0,
+    "columns": [
+      {
+        "name": "2",
+        "nullable": true,
+        "type": ""
+      }
+    ],
+    "execTime": 0,
+    "rows": [
+      [
+        "2"
+      ]
+    ]
+  },
+  "contentType": "application/json",
+  "status": 200
+}

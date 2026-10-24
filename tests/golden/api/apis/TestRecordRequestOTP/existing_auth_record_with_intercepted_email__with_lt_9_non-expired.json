@@ -1,0 +1,7 @@
+{
+  "body": {
+    "otpId": "<dynamic>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

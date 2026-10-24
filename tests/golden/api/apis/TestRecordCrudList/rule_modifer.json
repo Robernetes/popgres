@@ -1,0 +1,32 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "9n89pl5vkct6330",
+        "collectionName": "demo5",
+        "created": "2023-01-07 13:13:24.249Z",
+        "file": "logo_vcf_jjg5_tah_9MtIHytOmZ.svg",
+        "id": "qjeql998mtp1azp",
+        "rel_many": [
+          "qzaqccwrmva4o1n",
+          "i9naidtvr6qsgb4"
+        ],
+        "rel_one": "i9naidtvr6qsgb4",
+        "select_many": [
+          "b",
+          "c",
+          "a"
+        ],
+        "select_one": "b",
+        "total": 0,
+        "updated": "2023-02-18 11:51:08.128Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

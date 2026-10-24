@@ -1,0 +1,81 @@
+{
+  "body": {
+    "items": [
+      {
+        "bool": true,
+        "collectionId": "wsmn24bux7wo113",
+        "collectionName": "demo1",
+        "created": "2022-10-14 10:13:12.397Z",
+        "datetime": "2022-10-01 12:00:00.000Z",
+        "email": "test@example.com",
+        "file_many": [
+          "test_QZFjKjXchk.txt",
+          "300_WlbFWSGmW9.png",
+          "logo_vcfJJG5TAh.svg",
+          "test_MaWC6mWyrP.txt",
+          "test_tC1Yc87DfC.txt"
+        ],
+        "file_one": "test_d61b33QdDU.txt",
+        "id": "84nmscqy84lsi1t",
+        "json": [
+          1,
+          2,
+          3
+        ],
+        "number": 123456,
+        "point": {
+          "lat": 0,
+          "lon": 0
+        },
+        "rel_many": [
+          "oap640cot4yru2s"
+        ],
+        "rel_one": "",
+        "select_many": [
+          "optionB",
+          "optionC"
+        ],
+        "select_one": "optionB",
+        "text": "test",
+        "updated": "2023-01-04 20:11:20.732Z",
+        "url": "https://example.copm"
+      },
+      {
+        "bool": false,
+        "collectionId": "wsmn24bux7wo113",
+        "collectionName": "demo1",
+        "created": "2022-10-14 10:14:04.685Z",
+        "datetime": "",
+        "email": "test2@example.com",
+        "file_many": [],
+        "file_one": "300_Jsjq7RdBgA.png",
+        "id": "al1h9ijdeojtsjy",
+        "json": null,
+        "number": 456,
+        "point": {
+          "lat": 42.654318,
+          "lon": 23.333157
+        },
+        "rel_many": [
+          "bgs820n361vj1qd",
+          "4q1xlclmfloku33",
+          "oap640cot4yru2s"
+        ],
+        "rel_one": "84nmscqy84lsi1t",
+        "select_many": [
+          "optionB"
+        ],
+        "select_one": "optionB",
+        "text": "test2",
+        "updated": "2025-04-02 11:05:26.292Z",
+        "url": ""
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 2,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

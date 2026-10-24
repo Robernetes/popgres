@@ -1,0 +1,19 @@
+{
+  "body": {
+    "data": {
+      "indexes": {
+        "0": {
+          "code": "validation_existing_index_name",
+          "message": "The index name is already used in demo1 collection.",
+          "params": {
+            "usedTableName": "demo1"
+          }
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

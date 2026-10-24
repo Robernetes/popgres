@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "name": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

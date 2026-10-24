@@ -1,0 +1,23 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "pbc_2281828961",
+        "collectionName": "_externalAuths",
+        "collectionRef": "v851q4r790rhknl",
+        "created": "2024-07-29 11:56:28.439Z",
+        "id": "f1z5b3843pzc964",
+        "provider": "google",
+        "providerId": "test456",
+        "recordRef": "gk390qegs4y47wn",
+        "updated": "2024-07-29 11:56:35.151Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

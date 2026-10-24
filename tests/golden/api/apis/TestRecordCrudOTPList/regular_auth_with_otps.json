@@ -1,0 +1,21 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "pbc_1638494021",
+        "collectionName": "_otps",
+        "collectionRef": "_pb_users_auth_",
+        "created": "<now>",
+        "id": "user1_0",
+        "recordRef": "4q1xlclmfloku33",
+        "updated": "<now>"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

@@ -1,0 +1,19 @@
+{
+  "body": {
+    "avatar": "",
+    "collectionId": "_pb_users_auth_",
+    "collectionName": "users",
+    "created": "<now>",
+    "email": "new@example.com",
+    "emailVisibility": true,
+    "file": [],
+    "id": "o1o1y0pd78686mq",
+    "name": "",
+    "rel": "achvryl401bhse3",
+    "updated": "<now>",
+    "username": "test.valid",
+    "verified": true
+  },
+  "contentType": "application/json",
+  "status": 200
+}

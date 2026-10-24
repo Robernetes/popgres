@@ -1,0 +1,18 @@
+{
+  "body": {
+    "data": {
+      "email": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "template": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      }
+    },
+    "message": "Failed to send the test email.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

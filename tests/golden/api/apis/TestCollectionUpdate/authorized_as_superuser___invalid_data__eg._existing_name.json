@@ -1,0 +1,122 @@
+{
+  "body": {
+    "data": {
+      "authAlert": {
+        "emailTemplate": {
+          "body": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          },
+          "subject": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          }
+        }
+      },
+      "authToken": {
+        "duration": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "secret": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "confirmEmailChangeTemplate": {
+        "body": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "subject": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "emailChangeToken": {
+        "duration": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "secret": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "fileToken": {
+        "duration": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "secret": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "name": {
+        "code": "validation_collection_name_exists",
+        "message": "Collection name must be unique (case insensitive)."
+      },
+      "otp": {
+        "emailTemplate": {
+          "body": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          },
+          "subject": {
+            "code": "validation_required",
+            "message": "Cannot be blank."
+          }
+        }
+      },
+      "passwordResetToken": {
+        "duration": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "secret": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "resetPasswordTemplate": {
+        "body": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "subject": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "type": {
+        "code": "validation_collection_type_change",
+        "message": "Collection type cannot be changed."
+      },
+      "verificationTemplate": {
+        "body": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "subject": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      },
+      "verificationToken": {
+        "duration": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        },
+        "secret": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

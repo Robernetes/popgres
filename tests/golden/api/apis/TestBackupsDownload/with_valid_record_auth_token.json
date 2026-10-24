@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Insufficient permissions to access the resource.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

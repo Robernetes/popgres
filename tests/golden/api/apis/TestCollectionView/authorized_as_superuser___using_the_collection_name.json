@@ -1,0 +1,242 @@
+{
+  "body": {
+    "createRule": null,
+    "created": "2022-10-10 09:51:19.868Z",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "_pbf_text_id_",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "u7spsiph",
+        "max": 0,
+        "min": 0,
+        "name": "text",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "puk534el",
+        "name": "bool",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "exceptDomains": [],
+        "help": "",
+        "hidden": false,
+        "id": "ktas5n7b",
+        "name": "url",
+        "onlyDomains": [],
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "url"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "dc4abz4i",
+        "maxSelect": 1,
+        "name": "select_one",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "optionA",
+          "optionB",
+          "optionC"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "owtlq7zl",
+        "maxSelect": 3,
+        "name": "select_many",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "optionA",
+          "optionB",
+          "optionC"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "4ulkdevf",
+        "maxSelect": 1,
+        "maxSize": 5242880,
+        "mimeTypes": [],
+        "name": "file_one",
+        "presentable": false,
+        "protected": true,
+        "required": false,
+        "system": false,
+        "thumbs": [],
+        "type": "file"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "fjzhrsvq",
+        "maxSelect": 99,
+        "maxSize": 5242880,
+        "mimeTypes": [],
+        "name": "file_many",
+        "presentable": false,
+        "protected": false,
+        "required": false,
+        "system": false,
+        "thumbs": [],
+        "type": "file"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "1z1ld0i5",
+        "max": null,
+        "min": null,
+        "name": "number",
+        "onlyInt": false,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "exceptDomains": [],
+        "help": "",
+        "hidden": false,
+        "id": "khvhpwgj",
+        "name": "email",
+        "onlyDomains": [],
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "email"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "ro6p02gk",
+        "max": "",
+        "min": "",
+        "name": "datetime",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "date"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "ei2fg4v1",
+        "maxSize": 5242880,
+        "name": "json",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "wsmn24bux7wo113",
+        "help": "",
+        "hidden": false,
+        "id": "zaedritp",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "rel_one",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "t9bpk2ug",
+        "maxSelect": 9999,
+        "minSelect": 0,
+        "name": "rel_many",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "geoPoint3081106212",
+        "name": "point",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "geoPoint"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_created_",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "_pbf_autodate_updated_",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "id": "wsmn24bux7wo113",
+    "indexes": [
+      "CREATE INDEX `_wsmn24bux7wo113_created_idx` ON `demo1` (`created`)"
+    ],
+    "listRule": null,
+    "name": "demo1",
+    "system": false,
+    "type": "base",
+    "updateRule": null,
+    "updated": "2026-05-14 18:14:18.425Z",
+    "viewRule": null
+  },
+  "contentType": "application/json",
+  "status": 200
+}

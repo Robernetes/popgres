@@ -1,0 +1,35 @@
+{
+  "body": {
+    "meta": {
+      "accessToken": "",
+      "avatarURL": "",
+      "avatarUrl": "",
+      "email": "test2@example.com",
+      "expiry": "",
+      "id": "test_id",
+      "isNew": false,
+      "name": "",
+      "rawUser": {},
+      "refreshToken": "",
+      "username": ""
+    },
+    "record": {
+      "avatar": "300_1SEi6Q6U72.png",
+      "collectionId": "_pb_users_auth_",
+      "collectionName": "users",
+      "created": "2022-10-10 10:36:26.879Z",
+      "email": "test@example.com",
+      "emailVisibility": false,
+      "file": [],
+      "id": "4q1xlclmfloku33",
+      "name": "test1",
+      "rel": "llvuca81nly1qls",
+      "updated": "2022-10-12 11:46:10.490Z",
+      "username": "users75657",
+      "verified": false
+    },
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

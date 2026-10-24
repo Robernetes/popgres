@@ -1,0 +1,24 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "zahsr9d2mix2fvk",
+        "collectionName": "numeric_id_view",
+        "email": "test@example.com",
+        "id": "1"
+      },
+      {
+        "collectionId": "zahsr9d2mix2fvk",
+        "collectionName": "numeric_id_view",
+        "email": "test2@example.com",
+        "id": "2"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 2,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

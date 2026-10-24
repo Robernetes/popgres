@@ -1,0 +1,13 @@
+{
+  "body": {
+    "code": 200,
+    "data": {
+      "canBackup": true,
+      "possibleProxyHeader": "",
+      "realIP": "192.0.2.1"
+    },
+    "message": "API is healthy."
+  },
+  "contentType": "application/json",
+  "status": 200
+}

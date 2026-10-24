@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Too Many Requests.",
+    "status": 429
+  },
+  "contentType": "application/json",
+  "status": 429
+}

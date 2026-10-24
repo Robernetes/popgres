@@ -1,0 +1,7 @@
+{
+  "body": {
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

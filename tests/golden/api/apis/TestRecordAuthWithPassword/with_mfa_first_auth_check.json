@@ -1,0 +1,7 @@
+{
+  "body": {
+    "mfaId": "<dynamic>"
+  },
+  "contentType": "application/json",
+  "status": 401
+}

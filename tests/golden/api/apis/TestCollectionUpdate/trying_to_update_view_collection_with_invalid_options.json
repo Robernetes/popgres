@@ -1,0 +1,26 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "listRule": {
+        "code": "validation_invalid_rule",
+        "message": "Invalid rule. Raw error: invalid left operand \"bool\" - unknown field \"bool\"."
+      },
+      "viewQuery": {
+        "code": "validation_invalid_view_query",
+        "message": "Invalid query - SQL logic error: no such table: main.invalid (1)."
+      },
+      "viewRule": {
+        "code": "validation_invalid_rule",
+        "message": "Invalid rule. Raw error: invalid left operand \"bool\" - unknown field \"bool\"."
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

@@ -1,0 +1,19 @@
+{
+  "body": {
+    "record": {
+      "collectionId": "v851q4r790rhknl",
+      "collectionName": "clients",
+      "created": "2022-10-11 09:42:15.113Z",
+      "email": "test@example.com",
+      "emailVisibility": false,
+      "id": "gk390qegs4y47wn",
+      "name": "",
+      "updated": "<now>",
+      "username": "username_as_email@example.com",
+      "verified": true
+    },
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

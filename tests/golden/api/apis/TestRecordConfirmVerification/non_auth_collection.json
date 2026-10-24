@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Missing or invalid auth collection context.",
+    "status": 404
+  },
+  "contentType": "application/json",
+  "status": 404
+}

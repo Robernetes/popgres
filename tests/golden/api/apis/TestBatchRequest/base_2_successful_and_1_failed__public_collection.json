@@ -1,0 +1,26 @@
+{
+  "body": {
+    "data": {
+      "requests": {
+        "2": {
+          "code": "batch_request_failed",
+          "message": "Batch request failed.",
+          "response": {
+            "data": {
+              "title": {
+                "code": "validation_required",
+                "message": "Cannot be blank."
+              }
+            },
+            "message": "Failed to create record.",
+            "status": 400
+          }
+        }
+      }
+    },
+    "message": "Batch transaction failed.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

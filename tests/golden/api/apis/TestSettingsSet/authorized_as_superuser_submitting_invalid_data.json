@@ -1,0 +1,16 @@
+{
+  "body": {
+    "data": {
+      "meta": {
+        "appName": {
+          "code": "validation_required",
+          "message": "Cannot be blank."
+        }
+      }
+    },
+    "message": "An error occurred while saving the new settings.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "File not found.",
+    "status": 404
+  },
+  "contentType": "application/json",
+  "status": 404
+}

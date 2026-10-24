@@ -1,0 +1,46 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "4d1blo5cuycfaca",
+        "collectionName": "demo4",
+        "created": "2022-10-14 14:15:43.771Z",
+        "id": "qzaqccwrmva4o1n",
+        "json_array": [
+          1
+        ],
+        "json_object": {
+          "a": 123
+        },
+        "rel_many_cascade": [
+          "mk5fmymtx4wsprk"
+        ],
+        "rel_many_no_cascade": [
+          "1tmknxy2868d869"
+        ],
+        "rel_many_no_cascade_required": [
+          "lcl9d87w22ml6jy",
+          "1tmknxy2868d869"
+        ],
+        "rel_many_unique": [],
+        "rel_one_cascade": "7nwo8tuiatetxdm",
+        "rel_one_no_cascade": "mk5fmymtx4wsprk",
+        "rel_one_no_cascade_required": "lcl9d87w22ml6jy",
+        "rel_one_unique": "",
+        "self_rel_many": [
+          "i9naidtvr6qsgb4",
+          "qzaqccwrmva4o1n"
+        ],
+        "self_rel_one": "i9naidtvr6qsgb4",
+        "title": "test1",
+        "updated": "2022-10-20 19:23:59.427Z"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

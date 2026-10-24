@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Only superusers can perform this action.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

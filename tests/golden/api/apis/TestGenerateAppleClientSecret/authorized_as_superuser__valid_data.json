@@ -1,0 +1,7 @@
+{
+  "body": {
+    "secret": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

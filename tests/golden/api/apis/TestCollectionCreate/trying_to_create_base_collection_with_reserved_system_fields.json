@@ -1,0 +1,30 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "1": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        },
+        "2": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        },
+        "3": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        }
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

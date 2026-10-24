@@ -1,0 +1,13 @@
+{
+  "body": {
+    "active": false,
+    "collectionId": "sz5l5z67tg7gku0",
+    "collectionName": "demo2",
+    "created": "<now>",
+    "id": "<dynamic>",
+    "title": "new",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

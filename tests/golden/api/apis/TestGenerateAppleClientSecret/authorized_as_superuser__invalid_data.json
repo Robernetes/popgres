@@ -1,0 +1,41 @@
+{
+  "body": {
+    "data": {
+      "clientId": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      },
+      "duration": {
+        "code": "validation_min_greater_equal_than_required",
+        "message": "Must be no less than 1.",
+        "params": {
+          "threshold": 1
+        }
+      },
+      "keyId": {
+        "code": "validation_length_invalid",
+        "message": "The length must be exactly 10.",
+        "params": {
+          "max": 10,
+          "min": 10
+        }
+      },
+      "privateKey": {
+        "code": "validation_match_invalid",
+        "message": "Must be in a valid format."
+      },
+      "teamId": {
+        "code": "validation_length_invalid",
+        "message": "The length must be exactly 10.",
+        "params": {
+          "max": 10,
+          "min": 10
+        }
+      }
+    },
+    "message": "Invalid client secret data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

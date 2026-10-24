@@ -1,0 +1,15 @@
+{
+  "body": {
+    "collectionId": "pbc_2281828961",
+    "collectionName": "_externalAuths",
+    "collectionRef": "_pb_users_auth_",
+    "created": "2022-01-01 01:01:01.123Z",
+    "id": "dlmflokuq1xl342",
+    "provider": "gitlab",
+    "providerId": "test123",
+    "recordRef": "4q1xlclmfloku33",
+    "updated": "2022-01-01 01:01:01.123Z"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

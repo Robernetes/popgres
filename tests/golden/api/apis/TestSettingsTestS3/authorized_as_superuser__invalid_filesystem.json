@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "filesystem": {
+        "code": "validation_in_invalid",
+        "message": "Must be a valid value."
+      }
+    },
+    "message": "Failed to test the S3 filesystem.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

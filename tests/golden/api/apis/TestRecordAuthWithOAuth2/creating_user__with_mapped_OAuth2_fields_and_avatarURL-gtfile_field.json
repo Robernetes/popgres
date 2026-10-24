@@ -1,0 +1,35 @@
+{
+  "body": {
+    "meta": {
+      "accessToken": "",
+      "avatarURL": "https://pocketbase.io/images/logo.svg",
+      "avatarUrl": "https://pocketbase.io/images/logo.svg",
+      "email": "oauth2@example.com",
+      "expiry": "",
+      "id": "oauth2_id",
+      "isNew": true,
+      "name": "",
+      "rawUser": {},
+      "refreshToken": "",
+      "username": "oauth2_username"
+    },
+    "record": {
+      "avatar": "<dynamic>",
+      "collectionId": "_pb_users_auth_",
+      "collectionName": "users",
+      "created": "<now>",
+      "email": "oauth2@example.com",
+      "emailVisibility": true,
+      "file": [],
+      "id": "<dynamic>",
+      "name": "test_name",
+      "rel": "0yxhwia2amd8gec",
+      "updated": "<now>",
+      "username": "oauth2_id",
+      "verified": true
+    },
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

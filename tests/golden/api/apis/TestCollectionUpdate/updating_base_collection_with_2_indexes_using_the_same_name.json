@@ -1,0 +1,16 @@
+{
+  "body": {
+    "data": {
+      "indexes": {
+        "1": {
+          "code": "validation_duplicated_index_name",
+          "message": "The index name already exists."
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

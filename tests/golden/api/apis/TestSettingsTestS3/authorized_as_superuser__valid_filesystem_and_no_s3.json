@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Failed to test the S3 filesystem. Raw error: \nS3 storage filesystem is not enabled.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

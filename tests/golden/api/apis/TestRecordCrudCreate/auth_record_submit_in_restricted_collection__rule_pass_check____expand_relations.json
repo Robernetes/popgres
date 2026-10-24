@@ -1,0 +1,32 @@
+{
+  "body": {
+    "collectionId": "4d1blo5cuycfaca",
+    "collectionName": "demo4",
+    "created": "<now>",
+    "expand": {},
+    "id": "<dynamic>",
+    "json_array": null,
+    "json_object": null,
+    "rel_many_cascade": [
+      "lcl9d87w22ml6jy"
+    ],
+    "rel_many_no_cascade": [
+      "mk5fmymtx4wsprk"
+    ],
+    "rel_many_no_cascade_required": [
+      "7nwo8tuiatetxdm",
+      "lcl9d87w22ml6jy"
+    ],
+    "rel_many_unique": [],
+    "rel_one_cascade": "mk5fmymtx4wsprk",
+    "rel_one_no_cascade": "mk5fmymtx4wsprk",
+    "rel_one_no_cascade_required": "7nwo8tuiatetxdm",
+    "rel_one_unique": "",
+    "self_rel_many": [],
+    "self_rel_one": "",
+    "title": "test123",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

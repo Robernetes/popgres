@@ -1,0 +1,14 @@
+{
+  "body": [
+    {
+      "date": "2022-05-01 10:00:00.000Z",
+      "total": 1
+    },
+    {
+      "date": "2022-05-02 10:00:00.000Z",
+      "total": 1
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

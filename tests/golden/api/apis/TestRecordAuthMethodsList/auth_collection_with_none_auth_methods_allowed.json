@@ -1,0 +1,25 @@
+{
+  "body": {
+    "authProviders": [],
+    "emailPassword": false,
+    "mfa": {
+      "duration": 0,
+      "enabled": false
+    },
+    "oauth2": {
+      "enabled": false,
+      "providers": []
+    },
+    "otp": {
+      "duration": 0,
+      "enabled": false
+    },
+    "password": {
+      "enabled": false,
+      "identityFields": []
+    },
+    "usernamePassword": false
+  },
+  "contentType": "application/json",
+  "status": 200
+}

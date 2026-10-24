@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "clientId": {
+        "code": "validation_required",
+        "message": "Cannot be blank."
+      }
+    },
+    "message": "Something went wrong while processing your request.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

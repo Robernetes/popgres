@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Missing or invalid cron job.",
+    "status": 404
+  },
+  "contentType": "application/json",
+  "status": 404
+}

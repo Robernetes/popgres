@@ -1,0 +1,149 @@
+{
+  "body": [
+    {
+      "body": {
+        "collectionId": "9n89pl5vkct6330",
+        "collectionName": "demo5",
+        "created": "<now>",
+        "expand": {
+          "rel_one": {
+            "collectionId": "4d1blo5cuycfaca",
+            "collectionName": "demo4",
+            "created": "2022-10-14 14:15:43.771Z",
+            "id": "qzaqccwrmva4o1n",
+            "json_array": [
+              1
+            ],
+            "json_object": {
+              "a": 123
+            },
+            "rel_many_cascade": [
+              "mk5fmymtx4wsprk"
+            ],
+            "rel_many_no_cascade": [
+              "1tmknxy2868d869"
+            ],
+            "rel_many_no_cascade_required": [
+              "lcl9d87w22ml6jy",
+              "1tmknxy2868d869"
+            ],
+            "rel_many_unique": [],
+            "rel_one_cascade": "7nwo8tuiatetxdm",
+            "rel_one_no_cascade": "mk5fmymtx4wsprk",
+            "rel_one_no_cascade_required": "lcl9d87w22ml6jy",
+            "rel_one_unique": "",
+            "self_rel_many": [
+              "i9naidtvr6qsgb4",
+              "qzaqccwrmva4o1n"
+            ],
+            "self_rel_one": "i9naidtvr6qsgb4",
+            "title": "test1",
+            "updated": "2022-10-20 19:23:59.427Z"
+          }
+        },
+        "file": "",
+        "id": "<dynamic>",
+        "rel_many": [],
+        "rel_one": "qzaqccwrmva4o1n",
+        "select_many": [],
+        "select_one": "",
+        "total": 9,
+        "updated": "<now>"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "collectionId": "9n89pl5vkct6330",
+        "collectionName": "demo5",
+        "created": "2023-01-07 13:13:24.249Z",
+        "expand": {
+          "rel_many": [
+            {
+              "collectionId": "4d1blo5cuycfaca",
+              "collectionName": "demo4",
+              "created": "2022-10-14 14:15:43.771Z",
+              "id": "qzaqccwrmva4o1n",
+              "json_array": [
+                1
+              ],
+              "json_object": {
+                "a": 123
+              },
+              "rel_many_cascade": [
+                "mk5fmymtx4wsprk"
+              ],
+              "rel_many_no_cascade": [
+                "1tmknxy2868d869"
+              ],
+              "rel_many_no_cascade_required": [
+                "lcl9d87w22ml6jy",
+                "1tmknxy2868d869"
+              ],
+              "rel_many_unique": [],
+              "rel_one_cascade": "7nwo8tuiatetxdm",
+              "rel_one_no_cascade": "mk5fmymtx4wsprk",
+              "rel_one_no_cascade_required": "lcl9d87w22ml6jy",
+              "rel_one_unique": "",
+              "self_rel_many": [
+                "i9naidtvr6qsgb4",
+                "qzaqccwrmva4o1n"
+              ],
+              "self_rel_one": "i9naidtvr6qsgb4",
+              "title": "test1",
+              "updated": "2022-10-20 19:23:59.427Z"
+            },
+            {
+              "collectionId": "4d1blo5cuycfaca",
+              "collectionName": "demo4",
+              "created": "2022-10-14 17:35:18.647Z",
+              "id": "i9naidtvr6qsgb4",
+              "json_array": [
+                1,
+                2,
+                3
+              ],
+              "json_object": {
+                "a": {
+                  "b": "test"
+                }
+              },
+              "rel_many_cascade": [],
+              "rel_many_no_cascade": [],
+              "rel_many_no_cascade_required": [
+                "7nwo8tuiatetxdm"
+              ],
+              "rel_many_unique": [],
+              "rel_one_cascade": "",
+              "rel_one_no_cascade": "",
+              "rel_one_no_cascade_required": "lcl9d87w22ml6jy",
+              "rel_one_unique": "",
+              "self_rel_many": [],
+              "self_rel_one": "qzaqccwrmva4o1n",
+              "title": "test2",
+              "updated": "2022-10-20 19:23:39.645Z"
+            }
+          ]
+        },
+        "file": "logo_vcf_jjg5_tah_9MtIHytOmZ.svg",
+        "id": "qjeql998mtp1azp",
+        "rel_many": [
+          "qzaqccwrmva4o1n",
+          "i9naidtvr6qsgb4"
+        ],
+        "rel_one": "i9naidtvr6qsgb4",
+        "select_many": [
+          "b",
+          "c",
+          "a"
+        ],
+        "select_one": "b",
+        "total": 10,
+        "updated": "<now>"
+      },
+      "status": 200
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

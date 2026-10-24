@@ -1,0 +1,14 @@
+{
+  "body": {
+    "data": {
+      "token": {
+        "code": "validation_invalid_token",
+        "message": "Invalid or expired token."
+      }
+    },
+    "message": "An error occurred while validating the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

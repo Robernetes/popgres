@@ -1,0 +1,34 @@
+{
+  "body": [
+    {
+      "body": {
+        "active": false,
+        "collectionId": "sz5l5z67tg7gku0",
+        "collectionName": "demo2",
+        "created": "<now>",
+        "id": "<dynamic>",
+        "title": "batch_create",
+        "updated": "<now>"
+      },
+      "status": 200
+    },
+    {
+      "body": null,
+      "status": 204
+    },
+    {
+      "body": {
+        "collectionId": "wzlqyes4orhoygb",
+        "collectionName": "demo3",
+        "created": "2022-10-14 11:41:09.381Z",
+        "files": [],
+        "id": "1tmknxy2868d869",
+        "title": "batch_update",
+        "updated": "<now>"
+      },
+      "status": 200
+    }
+  ],
+  "contentType": "application/json",
+  "status": 200
+}

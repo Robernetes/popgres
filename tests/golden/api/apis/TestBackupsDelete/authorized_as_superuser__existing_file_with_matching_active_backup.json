@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The backup is currently being used and cannot be deleted.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

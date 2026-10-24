@@ -1,0 +1,20 @@
+{
+  "body": {
+    "collectionId": "ib3m2700k5hlsjz",
+    "collectionName": "view2",
+    "file_many": [
+      "test_QZFjKjXchk.txt",
+      "300_WlbFWSGmW9.png",
+      "logo_vcfJJG5TAh.svg",
+      "test_MaWC6mWyrP.txt",
+      "test_tC1Yc87DfC.txt"
+    ],
+    "id": "84nmscqy84lsi1t",
+    "rel_many": [
+      "oap640cot4yru2s"
+    ],
+    "state": true
+  },
+  "contentType": "application/json",
+  "status": 200
+}

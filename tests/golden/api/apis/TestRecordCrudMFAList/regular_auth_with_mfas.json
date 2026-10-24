@@ -1,0 +1,22 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "pbc_2279338944",
+        "collectionName": "_mfas",
+        "collectionRef": "_pb_users_auth_",
+        "created": "<now>",
+        "id": "user1_0",
+        "method": "oauth2",
+        "recordRef": "4q1xlclmfloku33",
+        "updated": "<now>"
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 1,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

@@ -1,0 +1,18 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "code": "validation_missing_primary_key",
+        "message": "Missing or invalid \"id\" PK field."
+      },
+      "viewQuery": {
+        "code": "validation_invalid_view_query",
+        "message": "Invalid query - missing required id column (you can use `(ROW_NUMBER() OVER()) as id` if you don't have one)."
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

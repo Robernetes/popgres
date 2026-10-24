@@ -1,0 +1,24 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "1": {
+          "name": {
+            "code": "validation_reserved_field_name",
+            "message": "The field name is reserved and cannot be used."
+          }
+        },
+        "2": {
+          "name": {
+            "code": "validation_reserved_field_name",
+            "message": "The field name is reserved and cannot be used."
+          }
+        }
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

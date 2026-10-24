@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "The current and the previous request authorization don't match.",
+    "status": 403
+  },
+  "contentType": "application/json",
+  "status": 403
+}

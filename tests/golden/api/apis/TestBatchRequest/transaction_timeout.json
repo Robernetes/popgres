@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Batch transaction failed.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

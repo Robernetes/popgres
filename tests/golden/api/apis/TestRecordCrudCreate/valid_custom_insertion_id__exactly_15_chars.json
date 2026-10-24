@@ -1,0 +1,13 @@
+{
+  "body": {
+    "collectionId": "wzlqyes4orhoygb",
+    "collectionName": "demo3",
+    "created": "<now>",
+    "files": [],
+    "id": "123456789012345",
+    "title": "test",
+    "updated": "<now>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

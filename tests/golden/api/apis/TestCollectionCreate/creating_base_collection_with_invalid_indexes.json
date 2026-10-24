@@ -1,0 +1,16 @@
+{
+  "body": {
+    "data": {
+      "indexes": {
+        "1": {
+          "code": "validation_invalid_index_expression",
+          "message": "Failed to create index idx_test2 - SQL logic error: no such column: missing (1)."
+        }
+      }
+    },
+    "message": "Failed to create collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

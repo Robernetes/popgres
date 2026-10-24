@@ -1,0 +1,26 @@
+{
+  "body": {
+    "data": {
+      "otpId": {
+        "code": "validation_length_out_of_range",
+        "message": "The length must be between 1 and 255.",
+        "params": {
+          "max": 255,
+          "min": 1
+        }
+      },
+      "password": {
+        "code": "validation_length_out_of_range",
+        "message": "The length must be between 1 and 71.",
+        "params": {
+          "max": 71,
+          "min": 1
+        }
+      }
+    },
+    "message": "An error occurred while validating the submitted data.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

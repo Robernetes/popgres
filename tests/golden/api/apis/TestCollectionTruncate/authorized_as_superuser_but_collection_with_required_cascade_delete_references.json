@@ -1,0 +1,9 @@
+{
+  "body": {
+    "data": {},
+    "message": "Failed to truncate collection (most likely due to required cascade delete record references).",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

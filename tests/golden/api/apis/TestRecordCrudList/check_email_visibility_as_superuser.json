@@ -1,0 +1,48 @@
+{
+  "body": {
+    "items": [
+      {
+        "collectionId": "kpv709sk2lqbqk8",
+        "collectionName": "nologin",
+        "created": "2022-10-12 10:39:47.633Z",
+        "email": "test@example.com",
+        "emailVisibility": false,
+        "id": "dc49k6jgejn40h3",
+        "name": "test",
+        "updated": "2022-10-12 10:39:47.633Z",
+        "username": "test_username",
+        "verified": false
+      },
+      {
+        "collectionId": "kpv709sk2lqbqk8",
+        "collectionName": "nologin",
+        "created": "2022-10-12 10:39:59.058Z",
+        "email": "test2@example.com",
+        "emailVisibility": true,
+        "id": "phhq3wr65cap535",
+        "name": "",
+        "updated": "2022-10-14 12:03:49.335Z",
+        "username": "viewers74618",
+        "verified": false
+      },
+      {
+        "collectionId": "kpv709sk2lqbqk8",
+        "collectionName": "nologin",
+        "created": "2022-10-14 12:16:52.515Z",
+        "email": "test3@example.com",
+        "emailVisibility": false,
+        "id": "oos036e9xvqeexy",
+        "name": "",
+        "updated": "2022-10-14 12:16:52.515Z",
+        "username": "nologin84738",
+        "verified": true
+      }
+    ],
+    "page": 1,
+    "perPage": 30,
+    "totalItems": 3,
+    "totalPages": 1
+  },
+  "contentType": "application/json",
+  "status": 200
+}

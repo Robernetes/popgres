@@ -1,0 +1,17 @@
+{
+  "body": {
+    "data": {
+      "id": {
+        "code": "validation_max_text_constraint",
+        "message": "Must be no more than 15 character(s).",
+        "params": {
+          "max": 15
+        }
+      }
+    },
+    "message": "Failed to create record.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

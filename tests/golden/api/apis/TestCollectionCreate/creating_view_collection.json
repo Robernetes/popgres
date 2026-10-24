@@ -1,0 +1,36 @@
+{
+  "body": {
+    "createRule": null,
+    "created": "<now>",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 0,
+        "min": 0,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      }
+    ],
+    "id": "pbc_246913458",
+    "indexes": [],
+    "listRule": null,
+    "name": "new",
+    "system": false,
+    "type": "view",
+    "updateRule": null,
+    "updated": "<now>",
+    "viewQuery": "select 1 as id from _superusers limit 1",
+    "viewRule": null
+  },
+  "contentType": "application/json",
+  "status": 200
+}

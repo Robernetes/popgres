@@ -1,0 +1,30 @@
+{
+  "body": {
+    "data": {
+      "fields": {
+        "3": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        },
+        "4": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        },
+        "5": {
+          "name": {
+            "code": "validation_not_in_invalid",
+            "message": "Must not be in list."
+          }
+        }
+      }
+    },
+    "message": "Failed to update collection.",
+    "status": 400
+  },
+  "contentType": "application/json",
+  "status": 400
+}

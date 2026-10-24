@@ -1,0 +1,13 @@
+{
+  "body": {
+    "created": "2022-05-01 10:00:00.123Z",
+    "data": {
+      "status": 200
+    },
+    "id": "873f2133-9f38-44fb-bf82-c8f53b310d91",
+    "level": 0,
+    "message": "test_message1"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

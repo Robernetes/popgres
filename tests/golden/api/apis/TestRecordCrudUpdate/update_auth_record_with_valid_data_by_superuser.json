@@ -1,0 +1,21 @@
+{
+  "body": {
+    "avatar": "",
+    "collectionId": "_pb_users_auth_",
+    "collectionName": "users",
+    "created": "2022-10-10 10:36:59.438Z",
+    "email": "new@example.com",
+    "emailVisibility": true,
+    "file": [
+      "test_kfd2wYLxkz.txt"
+    ],
+    "id": "oap640cot4yru2s",
+    "name": "",
+    "rel": "achvryl401bhse3",
+    "updated": "<now>",
+    "username": "test.valid",
+    "verified": false
+  },
+  "contentType": "application/json",
+  "status": 200
+}

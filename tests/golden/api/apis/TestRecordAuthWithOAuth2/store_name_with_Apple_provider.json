@@ -1,0 +1,35 @@
+{
+  "body": {
+    "meta": {
+      "accessToken": "",
+      "avatarURL": "",
+      "avatarUrl": "",
+      "email": "",
+      "expiry": "",
+      "id": "test_id",
+      "isNew": true,
+      "name": "test_store_name",
+      "rawUser": {},
+      "refreshToken": "",
+      "username": ""
+    },
+    "record": {
+      "avatar": "",
+      "collectionId": "_pb_users_auth_",
+      "collectionName": "users",
+      "created": "<now>",
+      "email": "",
+      "emailVisibility": false,
+      "file": [],
+      "id": "<dynamic>",
+      "name": "",
+      "rel": "",
+      "updated": "<now>",
+      "username": "<dynamic>",
+      "verified": true
+    },
+    "token": "<jwt>"
+  },
+  "contentType": "application/json",
+  "status": 200
+}

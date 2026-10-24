@@ -1,0 +1,28 @@
+{
+  "body": {
+    "bool": false,
+    "collectionId": "wsmn24bux7wo113",
+    "collectionName": "demo1",
+    "created": "2022-10-14 10:36:21.012Z",
+    "datetime": "",
+    "email": "",
+    "file_many": [],
+    "file_one": "",
+    "id": "imy661ixudk5izi",
+    "json": null,
+    "number": 0,
+    "point": {
+      "lat": 40.712728,
+      "lon": -74.006015
+    },
+    "rel_many": [],
+    "rel_one": "",
+    "select_many": [],
+    "select_one": "",
+    "text": "lorem ipsum",
+    "updated": "2025-04-02 11:05:03.433Z",
+    "url": ""
+  },
+  "contentType": "application/json",
+  "status": 200
+}
