@@ -32,7 +32,7 @@ services:
       # PG18 images keep PGDATA under /var/lib/postgresql/18/docker.
       - popgres_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d popgres"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d popgres"]
       interval: 5s
       timeout: 3s
       retries: 20

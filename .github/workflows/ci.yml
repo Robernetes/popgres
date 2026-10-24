@@ -82,11 +82,13 @@ jobs:
             pgvector/pgvector:0.8.7-pg${{ matrix.postgres }}-trixie \
             postgres -c wal_level=logical -c max_replication_slots=10 \
             -c max_wal_senders=10 -c max_slot_wal_keep_size=1GB
-          for i in $(seq 1 60); do
-            docker exec popgres_ci pg_isready -U postgres -q && break
+          # check over TCP: the temporary server started by the image entrypoint
+          # during the first initialization listens only on the unix socket
+          for i in $(seq 1 90); do
+            docker exec popgres_ci pg_isready -h 127.0.0.1 -U postgres -q && break
             sleep 1
           done
-          docker exec popgres_ci pg_isready -U postgres
+          docker exec popgres_ci pg_isready -h 127.0.0.1 -U postgres
 
       - name: Prepare the test databases
         run: |
