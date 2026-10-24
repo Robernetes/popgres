@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/store"
+	"github.com/pocketbase/dbx"
 	"golang.org/x/sync/semaphore"
 )
 

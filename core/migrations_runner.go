@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/fatih/color"
 	"github.com/pocketbase/dbx"
-	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/spf13/cast"
 )
 

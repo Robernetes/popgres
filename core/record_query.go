@@ -8,12 +8,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/inflector"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/search"
 	"github.com/Robernetes/popgres/tools/security"
+	"github.com/pocketbase/dbx"
 )
 
 var recordProxyType = reflect.TypeOf((*RecordProxy)(nil)).Elem()

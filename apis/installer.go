@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/Robernetes/popgres/ui"
+	"github.com/fatih/color"
+	"github.com/pocketbase/dbx"
 )
 
 // DefaultInstallerFunc is the default PocketBase installer function.

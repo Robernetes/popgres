@@ -6,9 +6,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/pocketbase/dbx"
 )
 
 func ensureNoTempViews(app core.App, t *testing.T) {

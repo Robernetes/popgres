@@ -5,11 +5,11 @@ import (
 	"encoding/json/v2"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/types"
+	"github.com/pocketbase/dbx"
 )
 
 func TestSyncRecordTableSchema(t *testing.T) {

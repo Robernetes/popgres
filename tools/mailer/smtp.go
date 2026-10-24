@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/domodwyer/mailyak/v3"
 	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/security"
+	"github.com/domodwyer/mailyak/v3"
 )
 
 var _ Mailer = (*SMTPClient)(nil)

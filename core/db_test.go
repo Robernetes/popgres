@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/pocketbase/dbx"
 )
 
 func TestGenerateDefaultRandomId(t *testing.T) {

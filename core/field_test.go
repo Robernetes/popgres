@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 func testFieldBaseMethods(t *testing.T, fieldType string) {

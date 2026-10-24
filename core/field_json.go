@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/ozzo-validation/v4/is"
 	"github.com/Robernetes/popgres/core/validators"
 	"github.com/Robernetes/popgres/tools/types"
+	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/pocketbase/ozzo-validation/v4/is"
 )
 
 func init() {

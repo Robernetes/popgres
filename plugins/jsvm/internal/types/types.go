@@ -1289,8 +1289,8 @@ func main() {
 
 	gen := tygoja.New(tygoja.Config{
 		Packages: map[string][]string{
-			"github.com/pocketbase/ozzo-validation/v4":          {"Error"},
-			"github.com/pocketbase/dbx":                         {"*"},
+			"github.com/pocketbase/ozzo-validation/v4":       {"Error"},
+			"github.com/pocketbase/dbx":                      {"*"},
 			"github.com/Robernetes/popgres/tools/security":   {"*"},
 			"github.com/Robernetes/popgres/tools/filesystem": {"*"},
 			"github.com/Robernetes/popgres/tools/template":   {"*"},
@@ -1299,9 +1299,9 @@ func main() {
 			"github.com/Robernetes/popgres/core":             {"*"},
 			"github.com/Robernetes/popgres/forms":            {"*"},
 			"github.com/Robernetes/popgres":                  {"*"},
-			"path/filepath":                                     {"*"},
-			"os":                                                {"*"},
-			"os/exec":                                           {"Command"},
+			"path/filepath":                                  {"*"},
+			"os":                                             {"*"},
+			"os/exec":                                        {"Command"},
 		},
 		FieldNameFormatter: func(s string) string {
 			return mapper.FieldName(nil, reflect.StructField{Name: s})

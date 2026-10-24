@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/ozzo-validation/v4/is"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/mails"
 	"github.com/Robernetes/popgres/tools/routine"
+	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/pocketbase/ozzo-validation/v4/is"
 )
 
 func recordRequestPasswordReset(e *core.RequestEvent) error {

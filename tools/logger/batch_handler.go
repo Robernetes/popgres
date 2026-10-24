@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"sync"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/tools/types"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 // contextKey is an alias type to prevent collisions with other log context keys.

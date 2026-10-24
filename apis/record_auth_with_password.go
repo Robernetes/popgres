@@ -6,12 +6,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pocketbase/dbx"
-	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/ozzo-validation/v4/is"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/list"
+	"github.com/pocketbase/dbx"
+	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/pocketbase/ozzo-validation/v4/is"
 )
 
 func recordAuthWithPassword(e *core.RequestEvent) error {

@@ -37,10 +37,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/archive"
 	"github.com/Robernetes/popgres/tools/osutils"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 

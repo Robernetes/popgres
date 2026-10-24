@@ -12,11 +12,11 @@ import (
 
 	_ "unsafe"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/logger"
 	"github.com/Robernetes/popgres/tools/mailer"
+	"github.com/pocketbase/dbx"
 )
 
 func TestNewBaseApp(t *testing.T) {

@@ -16,9 +16,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/disintegration/imaging"
-	"github.com/fatih/color"
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/Robernetes/popgres/tools/filesystem/blob"
 	"github.com/Robernetes/popgres/tools/filesystem/internal/fileblob"
 	"github.com/Robernetes/popgres/tools/filesystem/internal/s3blob"
@@ -26,6 +23,9 @@ import (
 	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/routine"
+	"github.com/disintegration/imaging"
+	"github.com/fatih/color"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/spf13/cast"
 
 	// manually register the webp decoder because disintegration/imaging does not support webp

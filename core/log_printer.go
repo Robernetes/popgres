@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/Robernetes/popgres/tools/logger"
 	"github.com/Robernetes/popgres/tools/store"
+	"github.com/fatih/color"
 	"github.com/spf13/cast"
 )
 

@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/Robernetes/popgres/tools/auth/internal/jwk"
 	"github.com/Robernetes/popgres/tools/security"
 	"github.com/Robernetes/popgres/tools/types"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/cast"
 	"golang.org/x/oauth2"
 )

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/dbutils"
+	"github.com/pocketbase/dbx"
 )
 
 // see https://github.com/pocketbase/pocketbase/issues/7689

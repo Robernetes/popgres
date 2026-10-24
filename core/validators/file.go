@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Robernetes/popgres/tools/filesystem"
 	"github.com/gabriel-vasile/mimetype"
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/Robernetes/popgres/tools/filesystem"
 )
 
 // UploadedFileSize checks whether the validated [*filesystem.File]

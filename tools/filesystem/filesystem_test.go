@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/Robernetes/popgres/tools/filesystem"
 	"github.com/Robernetes/popgres/tools/filesystem/blob"
+	"github.com/gabriel-vasile/mimetype"
 )
 
 func TestFilesystemExists(t *testing.T) {

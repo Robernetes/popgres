@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pocketbase/dbx"
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/security"
+	"github.com/pocketbase/dbx"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 // SyncRecordTableSchema compares the two provided collections

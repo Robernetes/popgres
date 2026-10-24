@@ -3,10 +3,10 @@ package apis
 import (
 	"net/http"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/forms"
 	"github.com/Robernetes/popgres/tools/router"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 // bindSettingsApi registers the settings api endpoints.

@@ -5,9 +5,9 @@ import (
 	"database/sql/driver"
 	"slices"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/types"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 func init() {

@@ -8,13 +8,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/cron"
 	"github.com/Robernetes/popgres/tools/filesystem"
 	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/mailer"
 	"github.com/Robernetes/popgres/tools/store"
 	"github.com/Robernetes/popgres/tools/subscriptions"
+	"github.com/pocketbase/dbx"
 )
 
 // App defines the main PocketBase app interface.

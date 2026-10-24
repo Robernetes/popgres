@@ -4,10 +4,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dop251/goja"
 	"github.com/Robernetes/popgres/apis"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/dop251/goja"
 )
 
 func TestHooksAppReset(t *testing.T) {

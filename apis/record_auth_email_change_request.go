@@ -3,10 +3,10 @@ package apis
 import (
 	"net/http"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/ozzo-validation/v4/is"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/mails"
+	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/pocketbase/ozzo-validation/v4/is"
 )
 
 func recordRequestEmailChange(e *core.RequestEvent) error {

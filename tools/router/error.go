@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/tools/inflector"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 // SafeErrorItem defines a common error interface for a printable public safe error.

@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"runtime/debug"
 
-	"github.com/fatih/color"
 	"github.com/Robernetes/popgres/core"
+	"github.com/fatih/color"
 )
 
 const (

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/logger"
+	"github.com/fatih/color"
+	"github.com/pocketbase/dbx"
 )
 
 func TestBaseAppLoggerLevelDevPrint(t *testing.T) {

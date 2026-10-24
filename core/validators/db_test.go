@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/core/validators"
 	"github.com/Robernetes/popgres/tests"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 func TestUniqueId(t *testing.T) {

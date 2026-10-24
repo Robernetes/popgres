@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/apis"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
@@ -25,6 +23,8 @@ import (
 	"github.com/Robernetes/popgres/tools/mailer"
 	"github.com/Robernetes/popgres/tools/router"
 	"github.com/Robernetes/popgres/tools/types"
+	"github.com/dop251/goja"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/spf13/cast"
 )
 

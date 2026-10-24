@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/types"
+	"github.com/pocketbase/dbx"
 )
 
 func TestRecordQueryWithDifferentCollectionValues(t *testing.T) {

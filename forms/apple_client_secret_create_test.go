@@ -9,9 +9,9 @@ import (
 	"encoding/pem"
 	"testing"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/Robernetes/popgres/forms"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestAppleClientSecretCreateValidateAndSubmit(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/mail"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/gabriel-vasile/mimetype"
 )
 
 // Message defines a generic email message struct.

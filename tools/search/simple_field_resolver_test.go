@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/search"
+	"github.com/pocketbase/dbx"
 )
 
 func TestSimpleFieldResolverUpdateQuery(t *testing.T) {

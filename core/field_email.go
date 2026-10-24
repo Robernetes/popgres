@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Robernetes/popgres/core/validators"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/ozzo-validation/v4/is"
-	"github.com/Robernetes/popgres/core/validators"
 	"github.com/spf13/cast"
 )
 

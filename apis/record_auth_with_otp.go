@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/core"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 func recordAuthWithOTP(e *core.RequestEvent) error {

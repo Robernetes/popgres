@@ -5,9 +5,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/pocketbase/dbx"
 )
 
 func TestFindAllExternalAuthsByRecord(t *testing.T) {

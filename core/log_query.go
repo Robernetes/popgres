@@ -3,8 +3,8 @@ package core
 import (
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/types"
+	"github.com/pocketbase/dbx"
 )
 
 // LogQuery returns a new Log select query.

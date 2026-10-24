@@ -6,8 +6,8 @@ import (
 	"encoding/json/v2"
 	"testing"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/search"
+	"github.com/pocketbase/dbx"
 )
 
 func TestMultiMatchSubqueryBuild(t *testing.T) {

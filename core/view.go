@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/inflector"
 	"github.com/Robernetes/popgres/tools/security"
 	"github.com/Robernetes/popgres/tools/tokenizer"
+	"github.com/pocketbase/dbx"
 )
 
 // DeleteView drops the specified view name.

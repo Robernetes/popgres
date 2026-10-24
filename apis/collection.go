@@ -6,12 +6,12 @@ import (
 	"slices"
 	"strings"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/auth"
 	"github.com/Robernetes/popgres/tools/router"
 	"github.com/Robernetes/popgres/tools/search"
 	"github.com/Robernetes/popgres/tools/security"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
 // bindCollectionApi registers the collection api endpoints and the corresponding handlers.

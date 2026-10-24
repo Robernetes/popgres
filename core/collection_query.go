@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/tools/list"
+	"github.com/pocketbase/dbx"
 )
 
 const StoreKeyCachedCollections = "pbAppCachedCollections"

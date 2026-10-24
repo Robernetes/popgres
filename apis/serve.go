@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/routine"
 	"github.com/Robernetes/popgres/ui"
+	"github.com/fatih/color"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )

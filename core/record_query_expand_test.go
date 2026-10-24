@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/list"
+	"github.com/pocketbase/dbx"
 )
 
 func TestExpandRecords(t *testing.T) {
