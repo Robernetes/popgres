@@ -1,8 +1,9 @@
 name: basebuild
 
+# Inherited PocketBase release workflow, disabled until phase 8 (PLAN.md):
+# it can only be started manually.
 on:
-  pull_request:
-  push:
+  workflow_dispatch:
 
 jobs:
   goreleaser:

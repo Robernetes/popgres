@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.14.0
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+
+      - name: Lint
+        run: golangci-lint run -c ./golangci.yml ./...
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '>=25.2.1'
+
+      - name: Build admin dashboard UI
+        run: npm --prefix=./ui ci && npm --prefix=./ui run build
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+
+      - name: Build and vet
+        run: go build ./... && go vet ./...
+
+      - name: Build the popgres binary
+        run: go build -o popgres ./examples/base && ./popgres --help
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['17', '18']
+    env:
+      # throwaway credentials of the CI container only
+      PGPASSWORD: ci-superuser
+      APP_PASSWORD: ci-popgres-app
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+
+      # GitHub Actions services can't pass -c flags to postgres, so the
+      # container is started manually with the same settings as docker-compose.dev.yml
+      - name: Start Postgres ${{ matrix.postgres }}
+        run: |
+          docker run -d --name popgres_ci -p 5432:5432 \
+            -e POSTGRES_PASSWORD="$PGPASSWORD" \
+            pgvector/pgvector:0.8.7-pg${{ matrix.postgres }}-trixie \
+            postgres -c wal_level=logical -c max_replication_slots=10 \
+            -c max_wal_senders=10 -c max_slot_wal_keep_size=1GB
+          for i in $(seq 1 60); do
+            docker exec popgres_ci pg_isready -U postgres -q && break
+            sleep 1
+          done
+          docker exec popgres_ci pg_isready -U postgres
+
+      - name: Prepare the test databases
+        run: |
+          docker cp scripts/ci-db-setup.sql popgres_ci:/tmp/ci-db-setup.sql
+          docker exec popgres_ci psql -U postgres -v ON_ERROR_STOP=1 \
+            -v app_password="$APP_PASSWORD" -f /tmp/ci-db-setup.sql
+          docker exec popgres_ci psql -U postgres -d popgres_test -Atc \
+            "select version(), current_setting('wal_level'), (select string_agg(extname, ',') from pg_extension)"
+
+      # Phase 0: the inherited SQLite suite runs as the last reference (ADR-0013).
+      # From phase 1 this step runs the acceptance command of the current phase
+      # against POPGRES_TEST_URL with the non-superuser role popgres_app.
+      - name: Test
+        env:
+          POPGRES_TEST_URL: postgres://popgres_app:${{ env.APP_PASSWORD }}@localhost:5432/popgres_test?sslmode=disable
+        run: go test -count=1 ./...
