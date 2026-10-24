@@ -1,0 +1,41 @@
+# Postgres de desarrollo de popgres (dedicado, no compartido con otros proyectos).
+# PostgreSQL 18 + pgvector, wal_level=logical para el realtime por replicación.
+# Credenciales en .env (no versionado): POSTGRES_USER y POSTGRES_PASSWORD.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Expuesto en localhost:5433 para no chocar con otros Postgres en 5432.
+name: popgres-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    container_name: popgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: popgres
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_slot_wal_keep_size=1GB
+    ports:
+      - "5433:5432"
+    volumes:
+      # PG18 images keep PGDATA under /var/lib/postgresql/18/docker.
+      - popgres_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d popgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  popgres_pgdata:
