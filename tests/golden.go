@@ -20,7 +20,7 @@ import (
 )
 
 // GoldenEnvVar is the env variable that controls the capture of the API golden
-// files used to verify the response compatibility with PocketBase (ADR-0010, ADR-0013).
+// files used to verify the response compatibility with PocketBase.
 //
 // The response of every passing [ApiScenario] is saved in
 // tests/golden/api/<package>/<test>/<subtest>.json when it is set to:

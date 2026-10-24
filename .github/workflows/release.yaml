@@ -1,7 +1,7 @@
 name: basebuild
 
-# Inherited PocketBase release workflow, disabled until phase 8 (PLAN.md):
-# it can only be started manually.
+# Inherited PocketBase release workflow, disabled until the first popgres
+# release: it can only be started manually.
 on:
   workflow_dispatch:
 

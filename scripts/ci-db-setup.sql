@@ -1,4 +1,4 @@
--- Prepares a fresh Postgres server for the popgres test suite (ADR-0013).
+-- Prepares a fresh Postgres server for the popgres test suite.
 --
 -- Run it as the container superuser. It is idempotent:
 --

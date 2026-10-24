@@ -10,6 +10,6 @@ popgres is an independent project. It is not affiliated with, endorsed by, or su
 - Horizontal scaling (multiple instances sharing one database), API rules compiled to Postgres row level security, realtime through logical replication, an embedded Postgres for development, a vector field type (pgvector) and a built-in MCP server.
 - The binary is named `popgres`, the Go module is `github.com/Robernetes/popgres` and the default data directory is `popgres_data`.
 
-The REST API and the official PocketBase SDKs are kept compatible (see `docs/DECISIONS.md`, ADR-0010).
+The REST API and the official PocketBase SDKs are kept compatible.
 
 The upstream git history up to `v0.40.6` is preserved in this repository to keep authorship and to allow porting upstream fixes.
