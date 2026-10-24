@@ -95,7 +95,7 @@ function backupRestoreModal(key) {
                             t.p(
                                 null,
                                 "The restore operation will attempt to replace your existing ",
-                                t.code(null, "pb_data"),
+                                t.code(null, "popgres_data"),
                                 " with the one from the backup and will restart the application process.",
                             ),
                             t.p(
@@ -114,14 +114,14 @@ function backupRestoreModal(key) {
                                 t.li(
                                     null,
                                     "Replaces the current ",
-                                    t.code(null, "pb_data"),
+                                    t.code(null, "popgres_data"),
                                     " with the content from the backup.",
                                 ),
                                 t.li(null, "Triggers app restart."),
                                 t.li(
                                     null,
                                     "Applies all migrations that are missing in the restored ",
-                                    t.code(null, "pb_data"),
+                                    t.code(null, "popgres_data"),
                                     ".",
                                 ),
                                 t.li(null, "Initializes the app server as usual."),

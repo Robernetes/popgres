@@ -129,16 +129,16 @@ export function trustedProxyAccordion(pageData) {
             t.p(
                 null,
                 `
-                When PocketBase is deployed on platforms like Fly or it is accessible through proxies such as
+                When popgres is deployed on platforms like Fly or it is accessible through proxies such as
                 NGINX, requests from different users will originate from the same IP address (the IP of the proxy
-                connecting to your PocketBase app).
+                connecting to your popgres app).
             `,
             ),
             t.p(
                 null,
                 `
                 In this case to retrieve the actual user IP (used for rate limiting, logging, etc.) you need to
-                properly configure your proxy and list below the trusted headers that PocketBase could use to
+                properly configure your proxy and list below the trusted headers that popgres could use to
                 extract the user IP.
             `,
             ),
@@ -149,9 +149,9 @@ export function trustedProxyAccordion(pageData) {
                     null,
                     "use headers that are controlled only by the proxy and cannot be manually set by the users",
                 ),
-                t.li(null, "make sure that the PocketBase server can be accessed ONLY through the proxy"),
+                t.li(null, "make sure that the popgres server can be accessed ONLY through the proxy"),
             ),
-            t.p(null, "You can clear the headers field if PocketBase is not deployed behind a proxy."),
+            t.p(null, "You can clear the headers field if popgres is not deployed behind a proxy."),
         ),
         t.div(
             { className: "grid sm" },
