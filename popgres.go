@@ -1,4 +1,4 @@
-package pocketbase
+package popgres
 
 import (
 	"errors"
@@ -10,15 +10,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pocketbase/pocketbase/cmd"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/osutils"
-	"github.com/pocketbase/pocketbase/tools/routine"
+	"github.com/Robernetes/popgres/cmd"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/osutils"
+	"github.com/Robernetes/popgres/tools/routine"
 	"github.com/spf13/cobra"
 
-	_ "github.com/pocketbase/pocketbase/migrations"
+	_ "github.com/Robernetes/popgres/migrations"
 )
 
 var _ core.App = (*PocketBase)(nil)
@@ -50,7 +50,7 @@ type Config struct {
 
 	// optional default values for the console flags
 	DefaultDev           bool
-	DefaultDataDir       string // if not set, it will fallback to "./pb_data"
+	DefaultDataDir       string // if not set, it will fallback to "./popgres_data"
 	DefaultEncryptionEnv string
 	DefaultQueryTimeout  time.Duration // default to core.DefaultQueryTimeout (in seconds)
 
@@ -89,7 +89,7 @@ func NewWithConfig(config Config) *PocketBase {
 	// initialize a default data directory based on the executable baseDir
 	if config.DefaultDataDir == "" {
 		baseDir, _ := inspectRuntime()
-		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
+		config.DefaultDataDir = filepath.Join(baseDir, "popgres_data")
 	}
 
 	if config.DefaultQueryTimeout == 0 {
@@ -221,7 +221,7 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		&pb.dataDirFlag,
 		"dir",
 		config.DefaultDataDir,
-		"the PocketBase data directory",
+		"the popgres data directory",
 	)
 
 	pb.RootCmd.PersistentFlags().StringVar(

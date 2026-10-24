@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/Robernetes/popgres/apis"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
 )
 
 // ApiScenario defines a single api request test case/scenario.

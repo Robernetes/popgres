@@ -19,11 +19,11 @@ import (
 
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/auth"
-	"github.com/pocketbase/pocketbase/tools/dbutils"
-	"github.com/pocketbase/pocketbase/tools/filesystem"
-	"github.com/pocketbase/pocketbase/tools/inflector"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/auth"
+	"github.com/Robernetes/popgres/tools/dbutils"
+	"github.com/Robernetes/popgres/tools/filesystem"
+	"github.com/Robernetes/popgres/tools/inflector"
 	"golang.org/x/oauth2"
 )
 

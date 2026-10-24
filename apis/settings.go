@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/forms"
-	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/forms"
+	"github.com/Robernetes/popgres/tools/router"
 )
 
 // bindSettingsApi registers the settings api endpoints.

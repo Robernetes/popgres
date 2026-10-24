@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/router"
 )
 
 // bindHealthApi registers the health api endpoint.

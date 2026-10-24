@@ -6,18 +6,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/jsvm"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-	"github.com/pocketbase/pocketbase/plugins/update"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/osutils"
+	"github.com/Robernetes/popgres"
+	"github.com/Robernetes/popgres/apis"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/plugins/jsvm"
+	"github.com/Robernetes/popgres/plugins/migratecmd"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/tools/osutils"
 )
 
 func main() {
-	app := pocketbase.New()
+	app := popgres.New()
 
 	// ---------------------------------------------------------------
 	// Optional plugin flags:
@@ -98,13 +97,6 @@ func main() {
 		TemplateLang: migratecmd.TemplateLangJS,
 		Automigrate:  automigrate,
 		Dir:          migrationsDir,
-	})
-
-	// update command
-	update.MustRegister(app, app.RootCmd, update.Config{
-		BaseURL:    "https://ganigeorgiev.com",
-		Project:    "pocketbase",
-		Repository: "pocketbase",
 	})
 
 	// static route to serves files from the provided public dir

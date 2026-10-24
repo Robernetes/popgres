@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/store"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/tools/store"
 )
 
 const (

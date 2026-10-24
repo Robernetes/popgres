@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/store"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/store"
 	"golang.org/x/sync/semaphore"
 )
 

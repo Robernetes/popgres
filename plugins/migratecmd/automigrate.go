@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/Robernetes/popgres/core"
 )
 
 // automigrateOnCollectionChange handles the automigration snapshot

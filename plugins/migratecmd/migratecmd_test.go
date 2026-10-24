@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/plugins/migratecmd"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func TestAutomigrateCollectionCreate(t *testing.T) {
@@ -202,8 +202,8 @@ package _test_migrations
 import (
 	"encoding/json/v2"
 
-	"github.com/pocketbase/pocketbase/core"
-	m "github.com/pocketbase/pocketbase/migrations"
+	"github.com/Robernetes/popgres/core"
+	m "github.com/Robernetes/popgres/migrations"
 )
 
 func init() {
@@ -651,8 +651,8 @@ package _test_migrations
 import (
 	"encoding/json/v2"
 
-	"github.com/pocketbase/pocketbase/core"
-	m "github.com/pocketbase/pocketbase/migrations"
+	"github.com/Robernetes/popgres/core"
+	m "github.com/Robernetes/popgres/migrations"
 )
 
 func init() {
@@ -1043,8 +1043,8 @@ package _test_migrations
 import (
 	"encoding/json/v2"
 
-	"github.com/pocketbase/pocketbase/core"
-	m "github.com/pocketbase/pocketbase/migrations"
+	"github.com/Robernetes/popgres/core"
+	m "github.com/Robernetes/popgres/migrations"
 )
 
 func init() {

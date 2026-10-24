@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/jsvm"
-	"github.com/pocketbase/pocketbase/tools/list"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/plugins/jsvm"
+	"github.com/Robernetes/popgres/tools/list"
 	"github.com/pocketbase/tygoja"
 )
 
@@ -128,7 +128,7 @@ type excludeHooks<Type> = {
 // core.App without the on* hook methods
 type CoreApp = excludeHooks<ORIGINAL_CORE_APP>
 
-// pocketbase.PocketBase without the on* hook methods
+// popgres.PocketBase without the on* hook methods
 interface PocketBase extends excludeHooks<ORIGINAL_POCKETBASE>{}
 
 /**
@@ -1291,14 +1291,14 @@ func main() {
 		Packages: map[string][]string{
 			"github.com/pocketbase/ozzo-validation/v4":          {"Error"},
 			"github.com/pocketbase/dbx":                         {"*"},
-			"github.com/pocketbase/pocketbase/tools/security":   {"*"},
-			"github.com/pocketbase/pocketbase/tools/filesystem": {"*"},
-			"github.com/pocketbase/pocketbase/tools/template":   {"*"},
-			"github.com/pocketbase/pocketbase/mails":            {"*"},
-			"github.com/pocketbase/pocketbase/apis":             {"*"},
-			"github.com/pocketbase/pocketbase/core":             {"*"},
-			"github.com/pocketbase/pocketbase/forms":            {"*"},
-			"github.com/pocketbase/pocketbase":                  {"*"},
+			"github.com/Robernetes/popgres/tools/security":   {"*"},
+			"github.com/Robernetes/popgres/tools/filesystem": {"*"},
+			"github.com/Robernetes/popgres/tools/template":   {"*"},
+			"github.com/Robernetes/popgres/mails":            {"*"},
+			"github.com/Robernetes/popgres/apis":             {"*"},
+			"github.com/Robernetes/popgres/core":             {"*"},
+			"github.com/Robernetes/popgres/forms":            {"*"},
+			"github.com/Robernetes/popgres":                  {"*"},
 			"path/filepath":                                     {"*"},
 			"os":                                                {"*"},
 			"os/exec":                                           {"Command"},
@@ -1344,9 +1344,9 @@ func main() {
 
 	// replace the original app interfaces with their non-"on*"" hooks equivalents
 	result = strings.ReplaceAll(result, "core.App", "CoreApp")
-	result = strings.ReplaceAll(result, "pocketbase.PocketBase", "PocketBase")
+	result = strings.ReplaceAll(result, "popgres.PocketBase", "PocketBase")
 	result = strings.ReplaceAll(result, "ORIGINAL_CORE_APP", "core.App")
-	result = strings.ReplaceAll(result, "ORIGINAL_POCKETBASE", "pocketbase.PocketBase")
+	result = strings.ReplaceAll(result, "ORIGINAL_POCKETBASE", "popgres.PocketBase")
 
 	// prepend a timestamp with the generation time
 	// so that it can be compared without reading the entire file

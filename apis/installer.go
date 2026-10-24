@@ -10,9 +10,9 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/osutils"
-	"github.com/pocketbase/pocketbase/ui"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/osutils"
+	"github.com/Robernetes/popgres/ui"
 )
 
 // DefaultInstallerFunc is the default PocketBase installer function.

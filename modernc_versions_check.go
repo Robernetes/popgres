@@ -1,4 +1,4 @@
-package pocketbase
+package popgres
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/fatih/color"
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/Robernetes/popgres/core"
 )
 
 const (

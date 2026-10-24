@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/Robernetes/popgres/core"
 )
 
 func collectionsImport(e *core.RequestEvent) error {

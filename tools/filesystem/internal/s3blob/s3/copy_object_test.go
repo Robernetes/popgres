@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/tools/filesystem/internal/s3blob/s3"
-	"github.com/pocketbase/pocketbase/tools/filesystem/internal/s3blob/s3/tests"
+	"github.com/Robernetes/popgres/tools/filesystem/internal/s3blob/s3"
+	"github.com/Robernetes/popgres/tools/filesystem/internal/s3blob/s3/tests"
 )
 
 func TestS3CopyObject(t *testing.T) {

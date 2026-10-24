@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/core/validators"
-	"github.com/pocketbase/pocketbase/tools/list"
+	"github.com/Robernetes/popgres/core/validators"
+	"github.com/Robernetes/popgres/tools/list"
 )
 
 var fieldNameRegex = regexp.MustCompile(`^\w+$`)

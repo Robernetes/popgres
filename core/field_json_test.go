@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func TestJSONFieldBaseMethods(t *testing.T) {

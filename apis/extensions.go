@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/ui"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/ui"
 )
 
 // bindUIExtensions binds the superuser UI extensions routes to the ServeEvent.Router.

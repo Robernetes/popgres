@@ -9,9 +9,9 @@ import (
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/ozzo-validation/v4/is"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/dbutils"
-	"github.com/pocketbase/pocketbase/tools/list"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/dbutils"
+	"github.com/Robernetes/popgres/tools/list"
 )
 
 func recordAuthWithPassword(e *core.RequestEvent) error {

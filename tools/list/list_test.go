@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func TestSubtractSliceString(t *testing.T) {

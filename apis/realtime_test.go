@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/subscriptions"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/apis"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/subscriptions"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func TestRealtimeConnect(t *testing.T) {

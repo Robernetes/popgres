@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
 )
 
 func TestHasTable(t *testing.T) {

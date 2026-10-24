@@ -11,8 +11,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/logger"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/logger"
 )
 
 func TestBaseAppLoggerLevelDevPrint(t *testing.T) {

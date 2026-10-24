@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
 )
 
 const (

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/ui"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/ui"
 )
 
 // note: don't run in parallel to avoid conflicts with the ui.DistDirFS nil test

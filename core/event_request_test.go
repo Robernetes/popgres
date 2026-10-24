@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
 )
 
 func TestEventRequestRealIP(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func init() {

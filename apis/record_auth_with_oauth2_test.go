@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/auth"
-	"github.com/pocketbase/pocketbase/tools/dbutils"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/auth"
+	"github.com/Robernetes/popgres/tools/dbutils"
 	"golang.org/x/oauth2"
 )
 

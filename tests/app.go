@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
 
-	_ "github.com/pocketbase/pocketbase/migrations"
+	_ "github.com/Robernetes/popgres/migrations"
 )
 
 // TestApp is a wrapper app instance used for testing.

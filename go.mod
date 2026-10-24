@@ -1,4 +1,4 @@
-module github.com/pocketbase/pocketbase
+module github.com/Robernetes/popgres
 
 go 1.27
 

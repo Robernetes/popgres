@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 // Register is a short alias for `AppMigrations.Register()`

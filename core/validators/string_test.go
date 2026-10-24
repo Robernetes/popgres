@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core/validators"
+	"github.com/Robernetes/popgres/core/validators"
 )
 
 func TestIsRegex(t *testing.T) {

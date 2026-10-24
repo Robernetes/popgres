@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
 )
 
 func TestRecordRequestVerification(t *testing.T) {

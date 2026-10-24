@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/filesystem"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/filesystem"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func TestFileFieldBaseMethods(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/security"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/security"
+	"github.com/Robernetes/popgres/tools/types"
 	"github.com/spf13/cast"
 	"golang.org/x/crypto/bcrypt"
 )

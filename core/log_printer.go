@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/pocketbase/pocketbase/tools/logger"
-	"github.com/pocketbase/pocketbase/tools/store"
+	"github.com/Robernetes/popgres/tools/logger"
+	"github.com/Robernetes/popgres/tools/store"
 	"github.com/spf13/cast"
 )
 

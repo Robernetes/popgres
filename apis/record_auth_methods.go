@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/auth"
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/auth"
+	"github.com/Robernetes/popgres/tools/security"
 	"golang.org/x/oauth2"
 )
 

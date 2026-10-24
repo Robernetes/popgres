@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/tools/router"
 )
 
 func TestRouter(t *testing.T) {

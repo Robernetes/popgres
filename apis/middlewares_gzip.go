@@ -17,9 +17,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/hook"
+	"github.com/Robernetes/popgres/tools/router"
 )
 
 const (

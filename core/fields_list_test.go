@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/Robernetes/popgres/core"
 )
 
 func TestNewFieldsList(t *testing.T) {

@@ -3,8 +3,8 @@ package subscriptions
 import (
 	"fmt"
 
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/store"
+	"github.com/Robernetes/popgres/tools/list"
+	"github.com/Robernetes/popgres/tools/store"
 )
 
 // Broker defines a struct for managing subscriptions clients.

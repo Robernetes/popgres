@@ -3,7 +3,7 @@ package core_test
 import (
 	"testing"
 
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/Robernetes/popgres/core"
 )
 
 func TestBaseRecordProxy(t *testing.T) {

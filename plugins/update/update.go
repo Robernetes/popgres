@@ -38,9 +38,9 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/archive"
-	"github.com/pocketbase/pocketbase/tools/osutils"
+	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/archive"
+	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/spf13/cobra"
 )
 

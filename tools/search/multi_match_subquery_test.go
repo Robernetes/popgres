@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/tools/search"
+	"github.com/Robernetes/popgres/tools/search"
 )
 
 func TestMultiMatchSubqueryBuild(t *testing.T) {

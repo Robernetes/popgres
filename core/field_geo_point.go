@@ -4,8 +4,8 @@ import (
 	"context"
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/core/validators"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/Robernetes/popgres/core/validators"
+	"github.com/Robernetes/popgres/tools/types"
 )
 
 func init() {
