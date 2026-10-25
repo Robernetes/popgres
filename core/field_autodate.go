@@ -106,7 +106,7 @@ func (f *AutodateField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *AutodateField) ColumnType(app App) string {
-	return "TEXT DEFAULT '' NOT NULL" // note: sqlite doesn't allow adding new columns with non-constant defaults
+	return "TIMESTAMPTZ DEFAULT NULL" // note: the value is always set by the app on create/update
 }
 
 // PrepareValue implements [Field.PrepareValue] interface method.

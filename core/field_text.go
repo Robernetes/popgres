@@ -164,7 +164,7 @@ func (f *TextField) ColumnType(app App) string {
 		// note: the default is just a last resort fallback to avoid empty
 		// string values in case the record was inserted with raw sql and
 		// it is not actually used when operating with the db abstraction
-		return "TEXT PRIMARY KEY DEFAULT ('r'||lower(hex(randomblob(7)))) NOT NULL"
+		return "TEXT PRIMARY KEY DEFAULT popgres_id() NOT NULL"
 	}
 
 	return "TEXT DEFAULT '' NOT NULL"
@@ -206,7 +206,7 @@ func (f *TextField) ValidateValue(ctx context.Context, app App, record *Record) 
 				err := app.ConcurrentDB().
 					Select("(1)").
 					From(record.TableName()).
-					Where(dbx.NewExp("id = {:id} COLLATE NOCASE", dbx.Params{"id": newVal})).
+					Where(dbx.NewExp("lower([[id]]) = lower({:id})", dbx.Params{"id": newVal})).
 					Limit(1).
 					Row(&exists)
 				if exists > 0 || (err != nil && !errors.Is(err, sql.ErrNoRows)) {

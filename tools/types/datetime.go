@@ -120,7 +120,13 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 }
 
 // Value implements the [driver.Valuer] interface.
+//
+// The zero DateTime is stored as NULL.
 func (d DateTime) Value() (driver.Value, error) {
+	if d.IsZero() {
+		return nil, nil
+	}
+
 	return d.String(), nil
 }
 
