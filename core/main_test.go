@@ -11,6 +11,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// never use the DATABASE_URL/POPGRES_LOGS_URL of the environment
+	// (eg. a local development database) for the tests
+	os.Unsetenv(core.DatabaseURLEnv)
+	os.Unsetenv(core.LogsDatabaseURLEnv)
+
 	var mu sync.Mutex
 	created := []string{}
 

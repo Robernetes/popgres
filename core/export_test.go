@@ -5,3 +5,8 @@ package core
 func SetTestDatabaseURLFunc(f func() string) {
 	testDatabaseURLFunc = f
 }
+
+// NormalizeViewQueryId exports normalizeViewQueryId for the tests.
+func NormalizeViewQueryId(app App, query string) (string, error) {
+	return normalizeViewQueryId(app, query)
+}

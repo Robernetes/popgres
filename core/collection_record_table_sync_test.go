@@ -119,9 +119,8 @@ func getTotalViews(app core.App) (int, error) {
 	var total int
 
 	err := app.DB().Select("count(*)").
-		From("sqlite_master").
-		AndWhere(dbx.NewExp("sql is not null")).
-		AndWhere(dbx.HashExp{"type": "view"}).
+		From("pg_views").
+		AndWhere(dbx.NewExp("[[schemaname]] = current_schema()")).
 		Row(&total)
 
 	return total, err
@@ -179,14 +178,15 @@ func TestSingleVsMultipleValuesNormalization(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// popgres: the default values are reported by Postgres with their type
 	tableInfoExpectations := map[string]string{
-		"select_one":   `'[]'`,
-		"select_many":  `''`,
-		"file_one":     `'[]'`,
-		"file_many":    `''`,
-		"rel_one":      `'[]'`,
-		"rel_many":     `''`,
-		"new_multiple": `'[]'`,
+		"select_one":   `'[]'::jsonb`,
+		"select_many":  `''::text`,
+		"file_one":     `'[]'::jsonb`,
+		"file_many":    `''::text`,
+		"rel_one":      `'[]'::jsonb`,
+		"rel_many":     `''::text`,
+		"new_multiple": `'[]'::jsonb`,
 	}
 	for col, dflt := range tableInfoExpectations {
 		t.Run("check default for "+col, func(t *testing.T) {
