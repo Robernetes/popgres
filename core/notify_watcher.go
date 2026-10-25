@@ -1,83 +1,111 @@
 package core
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+	"log/slog"
+	"sync"
 	"time"
 
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/hook"
-	"github.com/Robernetes/popgres/tools/routine"
-	"github.com/Robernetes/popgres/tools/security"
-	"github.com/fatih/color"
-	"github.com/fsnotify/fsnotify"
 )
 
 const systemHookIdNotifyWatcher = "__pbNotifyWatcherSystemHook__"
 
+// the cluster topics of the cached app state changes
+const (
+	clusterTopicSettings    = "settings"
+	clusterTopicCollections = "collections"
+)
+
+// notifyWatcherDebounce is the delay used to group the reloads of
+// multiple consecutive changes (eg. an import of several collections).
+const notifyWatcherDebounce = 50 * time.Millisecond
+
+// debounced returns a function that calls fn notifyWatcherDebounce after its last call.
+func debounced(fn func()) func() {
+	var mu sync.Mutex
+	var timer *time.Timer
+
+	return func() {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if timer != nil {
+			timer.Stop()
+		}
+		timer = time.AfterFunc(notifyWatcherDebounce, fn)
+	}
+}
+
+// registerNotifyWatcherHooks synchronizes the cached settings and collections
+// of the app instances (nodes) that share the same database.
+//
+// After a successful settings or collection change the node publishes a cluster
+// message (LISTEN/NOTIFY) and the other nodes reload their cached state.
 func (app *BaseApp) registerNotifyWatcherHooks() {
-	var notifyWatcher *fsnotify.Watcher
+	reloadSettings := debounced(func() {
+		if !app.IsBootstrapped() {
+			return
+		}
 
-	instanceId := "@" + security.PseudorandomString(10)
+		app.Logger().Debug("Reloading settings after cluster notify event")
 
-	localNotifyDirPath := filepath.Join(app.DataDir(), LocalNotifyDirName)
-	settingsFile := filepath.Join(localNotifyDirPath, "settings"+instanceId)
-	collectionsFile := filepath.Join(localNotifyDirPath, "collections"+instanceId)
-
-	// init
-	app.OnBootstrap().Bind(&hook.Handler[*BootstrapEvent]{
-		Id: systemHookIdNotifyWatcher,
-		Func: func(e *BootstrapEvent) error {
-			err := e.Next()
-			if err != nil {
-				return err
-			}
-
-			if notifyWatcher != nil {
-				_ = notifyWatcher.Close()
-			}
-
-			notifyWatcher, err = createNotifyDirWatcher(e.App, instanceId, localNotifyDirPath)
-			if err != nil {
-				e.App.Logger().Warn("Notify dir watcher failure.", "error", err)
-			}
-
-			return nil
-		},
-		Priority: -998,
+		if err := app.ReloadSettings(); err != nil {
+			app.Logger().Warn("Failed to reload app settings after cluster notify", slog.String("error", err.Error()))
+		}
 	})
 
-	// cleanup
-	app.OnTerminate().Bind(&hook.Handler[*TerminateEvent]{
-		Id: systemHookIdNotifyWatcher,
-		Func: func(e *TerminateEvent) error {
-			if notifyWatcher != nil {
-				_ = notifyWatcher.Close()
-			}
+	reloadCollections := debounced(func() {
+		if !app.IsBootstrapped() {
+			return
+		}
 
-			_ = os.Remove(settingsFile)
-			_ = os.Remove(collectionsFile)
+		app.Logger().Debug("Reloading cached collections after cluster notify event")
 
-			return e.Next()
-		},
-		Priority: -998,
+		if err := app.ReloadCachedCollections(); err != nil {
+			app.Logger().Warn("Failed to reload cached collections after cluster notify", slog.String("error", err.Error()))
+		}
 	})
+
+	app.cluster.Subscribe(clusterTopicSettings, func(msg cluster.Message) {
+		if msg.NodeId != app.cluster.NodeId() {
+			reloadSettings()
+		}
+	})
+
+	app.cluster.Subscribe(clusterTopicCollections, func(msg cluster.Message) {
+		if msg.NodeId != app.cluster.NodeId() {
+			reloadCollections()
+		}
+	})
+
+	// the messages published while the LISTEN connection was down are lost
+	app.cluster.OnReconnect(func() {
+		reloadSettings()
+		reloadCollections()
+	})
+
+	publish := func(topic string) {
+		db := app.NonconcurrentDB()
+		if db == nil {
+			return
+		}
+
+		if err := app.cluster.Publish(db, topic, ""); err != nil {
+			app.Logger().Warn("Failed to publish cluster notify event", slog.String("topic", topic), slog.String("error", err.Error()))
+		}
+	}
 
 	// ---------------------------------------------------------------
 
+	// note: the After*Success hooks are triggered only after the transaction commit (if any)
 	settingsNotify := func(e *ModelEvent) error {
 		err := e.Next()
 		if err != nil || e.Model.PK() != paramsKeySettings {
 			return err
 		}
 
-		if notifyWatcher != nil {
-			if err := os.WriteFile(settingsFile, nil, 0644); err != nil {
-				e.App.Logger().Warn("Failed to write watcher file", "error", err, "file", settingsFile)
-			}
-			_ = os.Remove(settingsFile)
-		}
+		publish(clusterTopicSettings)
 
 		return nil
 	}
@@ -99,12 +127,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 			return err
 		}
 
-		if notifyWatcher != nil {
-			if err := os.WriteFile(collectionsFile, nil, 0644); err != nil {
-				e.App.Logger().Warn("Failed to write watcher file", "error", err, "file", collectionsFile)
-			}
-			_ = os.Remove(collectionsFile)
-		}
+		publish(clusterTopicCollections)
 
 		return nil
 	}
@@ -123,89 +146,4 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 		Func:     collectionsNotify,
 		Priority: 999,
 	})
-}
-
-func createNotifyDirWatcher(app App, instanceId string, localNotifyDirPath string) (*fsnotify.Watcher, error) {
-	// create the notify dir (if not already)
-	err := os.MkdirAll(localNotifyDirPath, os.ModePerm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a notify dir: %w", err)
-	}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("failed to init notify dir watcher: %w", err)
-	}
-
-	err = watcher.Add(localNotifyDirPath)
-	if err != nil {
-		_ = watcher.Close()
-		return nil, fmt.Errorf("unable to watch notify dir: %w", err)
-	}
-
-	var debounceTimer *time.Timer
-
-	stopDebounceTimer := func() {
-		if debounceTimer != nil {
-			debounceTimer.Stop()
-			debounceTimer = nil
-		}
-	}
-
-	// watch
-	routine.FireAndForget(func() {
-		defer stopDebounceTimer()
-
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-
-				// modified from within the current app instance or cleanup event
-				if strings.HasSuffix(event.Name, instanceId) || event.Has(fsnotify.Remove) || !app.IsBootstrapped() {
-					continue
-				}
-
-				stopDebounceTimer()
-
-				debounceTimer = time.AfterFunc(50*time.Millisecond, func() {
-					filename := filepath.Base(event.Name)
-
-					// settings changed
-					if strings.HasPrefix(filename, "settings@") {
-						app.Logger().Debug("Reloading settings after notify event")
-
-						err := app.ReloadSettings()
-						if err != nil {
-							app.Logger().Warn("Failed to reload app settings after notify", "error", err)
-						}
-						return
-					}
-
-					// collections changed
-					if strings.HasPrefix(filename, "collections@") {
-						app.Logger().Debug("Reloading cached collections after notify event")
-
-						err := app.ReloadCachedCollections()
-						if err != nil {
-							app.Logger().Warn("Failed to reload cached collections after notify", "error", err)
-						}
-						return
-					}
-				})
-			case err, ok := <-watcher.Errors:
-				if app.IsDev() && err != nil {
-					color.Red("Notify dir watch error:", err)
-				}
-
-				if !ok {
-					return
-				}
-			}
-		}
-	})
-
-	return watcher, err
 }

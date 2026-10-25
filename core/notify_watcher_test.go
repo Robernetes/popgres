@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/store"
 	"github.com/pocketbase/dbx"
-	"golang.org/x/sync/semaphore"
 )
 
 func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
@@ -46,6 +46,15 @@ func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 	})
 	if err := app2.Bootstrap(); err != nil {
 		t.Fatal(err)
+	}
+
+	defer app1.ClearBootstrap()
+	defer app2.ClearBootstrap()
+
+	select {
+	case <-app2.Cluster().Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("app2 cluster LISTEN timeout")
 	}
 
 	timeout := time.After(3 * time.Second)
@@ -101,8 +110,6 @@ func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 }
 
 func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
-	t.Skip("popgres: the test counts the queries of the concurrent and nonconcurrent pools that are a single pool on Postgres (the instances sync is reimplemented with LISTEN/NOTIFY)")
-
 	t.Parallel()
 
 	tmpDir, err := os.MkdirTemp("", "pb_notify_test*")
@@ -111,66 +118,54 @@ func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	// popgres: both instances share the same database
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
 	app1 := core.NewBaseApp(core.BaseAppConfig{
-		DataDir: tmpDir,
+		DataDir:     tmpDir,
+		DatabaseURL: db.URL,
 	})
 	if err := app1.Bootstrap(); err != nil {
 		t.Fatal(err)
 	}
+	defer app1.ClearBootstrap()
 
 	app2 := core.NewBaseApp(core.BaseAppConfig{
-		DataDir: tmpDir,
+		DataDir:     tmpDir,
+		DatabaseURL: db.URL,
 	})
 	if err := app2.Bootstrap(); err != nil {
 		t.Fatal(err)
 	}
+	defer app2.ClearBootstrap()
 
+	select {
+	case <-app2.Cluster().Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("app2 cluster LISTEN timeout")
+	}
+
+	// popgres: the concurrent and nonconcurrent builders share the same pool
 	testQueries := store.New[string, []string](nil)
+	logQuery := func(sql string) {
+		if strings.Contains(sql, `FROM "_collections"`) {
+			testQueries.SetFunc("collections", func(old []string) []string {
+				return append(old, sql)
+			})
+		}
+	}
 	app2.ConcurrentDB().(*dbx.DB).QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
-		testQueries.SetFunc("concurrent", func(old []string) []string {
-			return append(old, sql)
-		})
+		logQuery(sql)
 	}
 	app2.ConcurrentDB().(*dbx.DB).ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
-		testQueries.SetFunc("concurrent", func(old []string) []string {
-			return append(old, sql)
-		})
-	}
-	app2.NonconcurrentDB().(*dbx.DB).QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
-		testQueries.SetFunc("nonconcurrent", func(old []string) []string {
-			return append(old, sql)
-		})
-	}
-	app2.NonconcurrentDB().(*dbx.DB).ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
-		testQueries.SetFunc("nonconcurrent", func(old []string) []string {
-			return append(old, sql)
-		})
+		logQuery(sql)
 	}
 
-	ctx, cancelCtx := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancelCtx()
-
-	sem := semaphore.NewWeighted(1)
-	sem.Acquire(ctx, 1)
-
-	// currently there is no hook for the collections cache reload so we pool instead
-	done := make(chan bool, 1)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if len(testQueries.Get("concurrent")) == 1 {
-					sem.Release(1)
-					return
-				}
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	// create/update/delete app1 collections should trigger a reload in app2
+	// create/update/delete app1 collections should trigger a single (debounced) reload in app2
 	dummyCollection := core.NewBaseCollection("test")
 	if err := app1.Save(dummyCollection); err != nil {
 		t.Fatal(err)
@@ -183,23 +178,39 @@ func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// block until released or timeouted
-	sem.Acquire(ctx, 1)
-	ticker.Stop()
-	done <- true
-
-	nonconcurrentQueries := testQueries.Get("nonconcurrent")
-	concurrentQueries := testQueries.Get("concurrent")
-
-	if len(nonconcurrentQueries) != 0 {
-		t.Fatalf("Expected 0 concurrent queries, got %d (%v)", len(nonconcurrentQueries), nonconcurrentQueries)
-	}
-	if len(concurrentQueries) != 1 {
-		t.Fatalf("Expected 1 concurrent query, got %d (%v)", len(concurrentQueries), concurrentQueries)
+	// currently there is no hook for the collections cache reload so we poll instead
+	deadline := time.Now().Add(1 * time.Second)
+	for len(testQueries.Get("collections")) == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
 	}
 
-	expectedQuery := "SELECT {{_collections}}.* FROM `_collections` ORDER BY `rowid` ASC"
-	if concurrentQueries[0] != expectedQuery {
-		t.Fatalf("Expected query\n%s\ngot\n%s", expectedQuery, concurrentQueries[0])
+	// wait a little longer to ensure that there are no other reloads
+	time.Sleep(200 * time.Millisecond)
+
+	collectionsQueries := testQueries.Get("collections")
+	if len(collectionsQueries) != 1 {
+		t.Fatalf("Expected 1 collections query, got %d (%v)", len(collectionsQueries), collectionsQueries)
+	}
+
+	expectedQuery := `SELECT {{_collections}}.* FROM "_collections" ORDER BY "created" ASC, "id" ASC`
+	if collectionsQueries[0] != expectedQuery {
+		t.Fatalf("Expected query\n%s\ngot\n%s", expectedQuery, collectionsQueries[0])
+	}
+
+	// a collection created in app1 should be visible in app2
+	visible := core.NewBaseCollection("test_visible")
+	if err := app1.Save(visible); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline = time.Now().Add(1 * time.Second)
+	for {
+		if _, err := app2.FindCachedCollectionByNameOrId("test_visible"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Expected the new app1 collection to be cached in app2 in less than 1s")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }

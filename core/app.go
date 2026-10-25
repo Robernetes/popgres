@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/cron"
 	"github.com/Robernetes/popgres/tools/filesystem"
 	"github.com/Robernetes/popgres/tools/hook"
@@ -89,6 +90,10 @@ type App interface {
 
 	// SubscriptionsBroker returns the app realtime subscriptions broker instance.
 	SubscriptionsBroker() *subscriptions.Broker
+
+	// Cluster returns the app cluster instance used to coordinate
+	// the app instances (nodes) that share the same database.
+	Cluster() *cluster.Cluster
 
 	// NewMailClient creates and returns a new SMTP or Sendmail client
 	// based on the current app settings.

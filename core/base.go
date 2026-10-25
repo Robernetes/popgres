@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/cron"
 	"github.com/Robernetes/popgres/tools/filesystem"
 	"github.com/Robernetes/popgres/tools/hook"
@@ -106,6 +107,7 @@ type BaseApp struct {
 	cron                *cron.Cron
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
+	cluster             *cluster.Cluster
 	logger              *slog.Logger
 	concurrentDB        dbx.Builder
 	nonconcurrentDB     dbx.Builder
@@ -243,6 +245,11 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		subscriptionsBroker: subscriptions.NewBroker(),
 		config:              &config,
 	}
+
+	app.cluster = cluster.New(
+		func() string { return app.config.DatabaseURL },
+		app.Logger,
+	)
 
 	// apply config defaults
 	if app.config.DBConnect == nil {
@@ -468,6 +475,10 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		// listen for the messages of the other nodes before loading the
+		// collections and settings so that no change is missed
+		app.cluster.Start()
+
 		if err := app.RunSystemMigrations(); err != nil {
 			return err
 		}
@@ -516,6 +527,8 @@ func (app *BaseApp) ClearBootstrap() error {
 		type closer interface {
 			Close() error
 		}
+
+		app.cluster.Stop()
 
 		var errs []error
 
@@ -681,6 +694,12 @@ func (app *BaseApp) Store() *store.Store[string, any] {
 // Cron returns the app cron instance.
 func (app *BaseApp) Cron() *cron.Cron {
 	return app.cron
+}
+
+// Cluster returns the app cluster instance used to coordinate
+// the app instances (nodes) that share the same database.
+func (app *BaseApp) Cluster() *cluster.Cluster {
+	return app.cluster
 }
 
 // SubscriptionsBroker returns the app realtime subscriptions broker instance.
