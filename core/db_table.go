@@ -116,12 +116,16 @@ func (app *BaseApp) TableIndexes(tableName string) (map[string]string, error) {
 // NB! Be aware that this method is vulnerable to SQL injection and the
 // "dangerousTableName" argument must come only from trusted input!
 func (app *BaseApp) DeleteTable(dangerousTableName string) error {
-	_, err := app.NonconcurrentDB().NewQuery(fmt.Sprintf(
-		"DROP TABLE IF EXISTS {{%s}}",
-		dangerousTableName,
-	)).Execute()
+	// the views that depend on the table are dropped too (and recreated if possible)
+	// because unlike SQLite Postgres doesn't allow leaving them broken
+	return withDependentViews(app, dangerousTableName, func(txApp App) error {
+		_, err := txApp.NonconcurrentDB().NewQuery(fmt.Sprintf(
+			"DROP TABLE IF EXISTS {{%s}}",
+			dangerousTableName,
+		)).Execute()
 
-	return err
+		return err
+	})
 }
 
 // HasTable checks if a table (or view) with the provided name exists (case insensitive).

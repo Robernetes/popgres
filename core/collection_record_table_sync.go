@@ -82,7 +82,11 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 				continue // exist
 			}
 
-			_, err := txApp.DB().DropColumn(newTableName, oldField.GetName()).Execute()
+			// note: Postgres doesn't allow dropping a column used by a view
+			err := withDependentViews(txApp, newTableName, func(txApp App) error {
+				_, err := txApp.DB().DropColumn(newTableName, oldField.GetName()).Execute()
+				return err
+			})
 			if err != nil {
 				return fmt.Errorf("failed to drop column %s - %w", oldField.GetName(), err)
 			}

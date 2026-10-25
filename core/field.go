@@ -227,7 +227,7 @@ func DefaultFieldIdValidationRule(value any) error {
 
 // exclude special filter and system literals
 var excludeNames = append([]any{
-	"null", "true", "false",
+	"null", "true", "false", "_rowid_",
 }, list.ToInterfaceSlice(SystemDynamicFieldNames)...)
 
 // DefaultFieldIdValidationRule performs base validation on a field name value.

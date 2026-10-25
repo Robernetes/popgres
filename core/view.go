@@ -22,12 +22,16 @@ import (
 // NB! Be aware that this method is vulnerable to SQL injection and the
 // "dangerousViewName" argument must come only from trusted input!
 func (app *BaseApp) DeleteView(dangerousViewName string) error {
-	_, err := app.DB().NewQuery(fmt.Sprintf(
-		"DROP VIEW IF EXISTS {{%s}}",
-		dangerousViewName,
-	)).Execute()
+	// the views that depend on the deleted one are dropped too (and recreated if possible)
+	// because unlike SQLite Postgres doesn't allow leaving them broken
+	return withDependentViews(app, dangerousViewName, func(txApp App) error {
+		_, err := txApp.DB().NewQuery(fmt.Sprintf(
+			"DROP VIEW IF EXISTS {{%s}}",
+			dangerousViewName,
+		)).Execute()
 
-	return err
+		return err
+	})
 }
 
 // SaveView creates (or updates already existing) persistent SQL view.
@@ -35,9 +39,10 @@ func (app *BaseApp) DeleteView(dangerousViewName string) error {
 // NB! Be aware that this method is vulnerable to SQL injection and
 // its arguments must come only from trusted input!
 func (app *BaseApp) SaveView(dangerousViewName string, dangerousSelectQuery string) error {
-	return app.RunInTransaction(func(txApp App) error {
+	// the views that depend on the old view are recreated after the new one is saved
+	return withDependentViews(app, dangerousViewName, func(txApp App) error {
 		// delete old view (if exists)
-		err := txApp.DeleteView(dangerousViewName)
+		_, err := txApp.DB().NewQuery(fmt.Sprintf("DROP VIEW IF EXISTS {{%s}}", dangerousViewName)).Execute()
 		if err != nil {
 			return err
 		}

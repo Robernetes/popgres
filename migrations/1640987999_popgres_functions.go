@@ -20,14 +20,23 @@ func init() {
 				FROM (SELECT gen_random_bytes(15) AS bytes) b, generate_series(0, 14) AS i
 			$$;
 
+			-- note: the text overloads are plpgsql because a non inlined sql function
+			-- is planned with its argument as constant and the planner could evaluate
+			-- the v::jsonb cast of a CASE branch that is never taken (and fail)
+
 			-- popgres_jsonb normalizes a column value to jsonb
 			-- (valid json text is parsed and any other value is converted with to_jsonb).
 			CREATE OR REPLACE FUNCTION popgres_jsonb(v JSONB) RETURNS JSONB
 			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT v $$;
 
 			CREATE OR REPLACE FUNCTION popgres_jsonb(v TEXT) RETURNS JSONB
-			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-				SELECT CASE WHEN v IS JSON THEN v::jsonb ELSE to_jsonb(v) END
+			LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+			BEGIN
+				IF v IS JSON THEN
+					RETURN v::jsonb;
+				END IF;
+				RETURN to_jsonb(v);
+			END
 			$$;
 
 			CREATE OR REPLACE FUNCTION popgres_jsonb(v ANYELEMENT) RETURNS JSONB
@@ -41,8 +50,13 @@ func init() {
 			$$;
 
 			CREATE OR REPLACE FUNCTION popgres_json_array(v TEXT) RETURNS JSONB
-			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-				SELECT CASE WHEN v IS JSON ARRAY THEN v::jsonb ELSE jsonb_build_array(v) END
+			LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+			BEGIN
+				IF v IS JSON ARRAY THEN
+					RETURN v::jsonb;
+				END IF;
+				RETURN jsonb_build_array(v);
+			END
 			$$;
 
 			CREATE OR REPLACE FUNCTION popgres_json_array(v ANYELEMENT) RETURNS JSONB
@@ -60,12 +74,16 @@ func init() {
 			$$;
 
 			CREATE OR REPLACE FUNCTION popgres_json_array_length(v TEXT) RETURNS INTEGER
-			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-				SELECT CASE
-					WHEN v IS NULL OR v = '' THEN 0
-					WHEN v IS JSON ARRAY THEN jsonb_array_length(v::jsonb)
-					ELSE 1
-				END
+			LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+			BEGIN
+				IF v IS NULL OR v = '' THEN
+					RETURN 0;
+				END IF;
+				IF v IS JSON ARRAY THEN
+					RETURN jsonb_array_length(v::jsonb);
+				END IF;
+				RETURN 1;
+			END
 			$$;
 
 			CREATE OR REPLACE FUNCTION popgres_json_array_length(v ANYELEMENT) RETURNS INTEGER
