@@ -35,7 +35,16 @@ func (idx Index) IsValid() bool {
 	return idx.IndexName != "" && idx.TableName != "" && len(idx.Columns) > 0
 }
 
-// Build returns a "CREATE INDEX" SQL string from the current index parts.
+// Build returns a PostgreSQL "CREATE INDEX" SQL string from the current index parts.
+//
+// The identifiers are double quoted and the backtick quoted identifiers
+// inside the column expressions and the WHERE clause (the PocketBase/SQLite
+// index format) are converted to double quoted ones.
+//
+// The SQLite collations are translated as follows:
+//   - NOCASE is replaced with a lower(col) expression;
+//   - BINARY is omitted since it is the Postgres default behavior;
+//   - any other collation name is used as it is (eg. "C").
 //
 // Returns empty string if idx.IsValid() is false.
 func (idx Index) Build() string {
@@ -57,19 +66,16 @@ func (idx Index) Build() string {
 		str.WriteString("IF NOT EXISTS ")
 	}
 
+	str.WriteString(quoteIdentifier(idx.IndexName))
+	str.WriteString(" ON ")
+
 	if idx.SchemaName != "" {
-		str.WriteString("`")
-		str.WriteString(idx.SchemaName)
-		str.WriteString("`.")
+		str.WriteString(quoteIdentifier(idx.SchemaName))
+		str.WriteString(".")
 	}
 
-	str.WriteString("`")
-	str.WriteString(idx.IndexName)
-	str.WriteString("` ")
-
-	str.WriteString("ON `")
-	str.WriteString(idx.TableName)
-	str.WriteString("` (")
+	str.WriteString(quoteIdentifier(idx.TableName))
+	str.WriteString(" (")
 
 	if len(idx.Columns) > 1 {
 		str.WriteString("\n  ")
@@ -86,20 +92,31 @@ func (idx Index) Build() string {
 			str.WriteString(",\n  ")
 		}
 
-		if strings.Contains(col.Name, "(") || strings.Contains(col.Name, " ") {
+		var colExpr string
+		isExpr := strings.Contains(col.Name, "(") || strings.Contains(col.Name, " ")
+		if isExpr {
 			// most likely an expression
-			str.WriteString(trimmedColName)
+			colExpr = NormalizeIdentifierQuotes(trimmedColName)
 		} else {
 			// regular identifier
-			str.WriteString("`")
-			str.WriteString(trimmedColName)
-			str.WriteString("`")
+			colExpr = quoteIdentifier(trimmedColName)
 		}
 
-		if col.Collate != "" {
-			str.WriteString(" COLLATE ")
-			str.WriteString(col.Collate)
+		collate := strings.TrimSpace(col.Collate)
+		switch {
+		case strings.EqualFold(collate, "nocase"):
+			if isExpr {
+				colExpr = "(lower(" + colExpr + "))"
+			} else {
+				colExpr = "lower(" + colExpr + ")"
+			}
+		case collate == "", strings.EqualFold(collate, "binary"):
+			// nothing to add
+		default:
+			colExpr += " COLLATE " + quoteIdentifier(strings.Trim(collate, `"`))
 		}
+
+		str.WriteString(colExpr)
 
 		if col.Sort != "" {
 			str.WriteString(" ")
@@ -117,10 +134,54 @@ func (idx Index) Build() string {
 
 	if idx.Where != "" {
 		str.WriteString(" WHERE ")
-		str.WriteString(idx.Where)
+		str.WriteString(NormalizeIdentifierQuotes(idx.Where))
 	}
 
 	return str.String()
+}
+
+// quoteIdentifier double quotes the provided identifier (escaping the inner double quotes).
+func quoteIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
+// NormalizeIdentifierQuotes replaces the backtick quoted identifiers
+// in the provided SQL expression with double quoted ones.
+//
+// Single quoted string literals (and the double quoted identifiers) are left untouched.
+func NormalizeIdentifierQuotes(expr string) string {
+	if !strings.Contains(expr, "`") {
+		return expr
+	}
+
+	var result strings.Builder
+	result.Grow(len(expr))
+
+	var quote rune // the currently open quote character (if any)
+	for _, ch := range expr {
+		switch {
+		case quote == 0 && (ch == '\'' || ch == '"'):
+			quote = ch
+			result.WriteRune(ch)
+		case quote == 0 && ch == '`':
+			quote = ch
+			result.WriteRune('"')
+		case quote != 0 && ch == quote:
+			quote = 0
+			if ch == '`' {
+				result.WriteRune('"')
+			} else {
+				result.WriteRune(ch)
+			}
+		case quote == '`' && ch == '"':
+			// escape the double quote inside the converted identifier
+			result.WriteString(`""`)
+		default:
+			result.WriteRune(ch)
+		}
+	}
+
+	return result.String()
 }
 
 // ParseIndex parses the provided "CREATE INDEX" SQL string into Index struct.

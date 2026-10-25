@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -138,18 +137,7 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 
 		return nil
 	})
-	if txErr != nil {
-		return txErr
-	}
-
-	// run optimize per the SQLite recommendations
-	// (https://www.sqlite.org/pragma.html#pragma_optimize)
-	_, optimizeErr := app.NonconcurrentDB().NewQuery("PRAGMA optimize").Execute()
-	if optimizeErr != nil {
-		app.Logger().Warn("Failed to run PRAGMA optimize after record table sync", slog.String("error", optimizeErr.Error()))
-	}
-
-	return nil
+	return txErr
 }
 
 func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, oldCollection *Collection) error {
@@ -181,17 +169,17 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 			// update the field column definition
 			// -------------------------------------------------------
 
-			// temporary drop all views to prevent reference errors during the columns renaming
-			// (this is used as an "alternative" to the writable_schema PRAGMA)
+			// temporary drop all views to prevent dependency errors during the columns renaming
+			// (Postgres doesn't allow dropping a column that is used by a view)
 			views := []struct {
 				Name string `db:"name"`
 				SQL  string `db:"sql"`
 			}{}
-			err := txApp.DB().Select("name", "sql").
-				From("sqlite_master").
-				AndWhere(dbx.NewExp("sql is not null")).
-				AndWhere(dbx.HashExp{"type": "view"}).
-				All(&views)
+			err := txApp.DB().NewQuery(`
+				SELECT [[viewname]] AS [[name]], format('CREATE VIEW %I AS %s', [[viewname]], [[definition]]) AS [[sql]]
+				FROM {{pg_views}}
+				WHERE [[schemaname]] = current_schema()
+			`).All(&views)
 			if err != nil {
 				return err
 			}
@@ -222,22 +210,15 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 			if !isOldMultiple && isNewMultiple {
 				// single -> multiple (convert to array)
 				copyQuery = txApp.DB().NewQuery(fmt.Sprintf(
-					`UPDATE {{%s}} set [[%s]] = (
-							CASE
-								WHEN COALESCE([[%s]], '') = ''
-								THEN '[]'
-								ELSE (
-									CASE
-										WHEN json_valid([[%s]]) AND json_type([[%s]]) == 'array'
-										THEN [[%s]]
-										ELSE json_array([[%s]])
-									END
-								)
-							END
-						)`,
+					`UPDATE {{%s}} SET [[%s]] = (
+						CASE
+							WHEN COALESCE([[%s]], '') = '' THEN '[]'::jsonb
+							WHEN [[%s]] IS JSON ARRAY THEN [[%s]]::jsonb
+							ELSE jsonb_build_array([[%s]])
+						END
+					)`,
 					newCollection.Name,
 					originalName,
-					oldTempName,
 					oldTempName,
 					oldTempName,
 					oldTempName,
@@ -249,22 +230,15 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 				// note: for file fields the actual file objects are not
 				// deleted allowing additional custom handling via migration
 				copyQuery = txApp.DB().NewQuery(fmt.Sprintf(
-					`UPDATE {{%s}} set [[%s]] = (
+					`UPDATE {{%s}} SET [[%s]] = (
 						CASE
-							WHEN COALESCE([[%s]], '[]') = '[]'
-							THEN ''
-							ELSE (
-								CASE
-									WHEN json_valid([[%s]]) AND json_type([[%s]]) == 'array'
-									THEN COALESCE(json_extract([[%s]], '$[#-1]'), '')
-									ELSE [[%s]]
-								END
-							)
+							WHEN [[%s]] IS NULL THEN ''
+							WHEN jsonb_typeof([[%s]]) = 'array' THEN COALESCE([[%s]] ->> -1, '')
+							ELSE COALESCE([[%s]] #>> '{}', '')
 						END
 					)`,
 					newCollection.Name,
 					originalName,
-					oldTempName,
 					oldTempName,
 					oldTempName,
 					oldTempName,

@@ -211,7 +211,7 @@ func TestIndexBuild(t *testing.T) {
 				TableName: "table",
 				Columns:   []dbutils.IndexColumn{{Name: "col"}},
 			},
-			"CREATE INDEX `index` ON `table` (`col`)",
+			`CREATE INDEX "index" ON "table" ("col")`,
 		},
 		{
 			"all fields",
@@ -224,11 +224,28 @@ func TestIndexBuild(t *testing.T) {
 				Columns: []dbutils.IndexColumn{
 					{Name: "col1", Collate: "NOCASE", Sort: "asc"},
 					{Name: "col2", Sort: "desc"},
-					{Name: `json_extract("col3", "$.a")`, Collate: "NOCASE"},
+					{Name: "(`col3` ->> 'a')", Collate: "NOCASE"},
+					{Name: "col4", Collate: "BINARY"},
+					{Name: "col5", Collate: "C"},
 				},
 				Where: "test = 1 OR test = 2",
 			},
-			"CREATE UNIQUE INDEX IF NOT EXISTS `schema`.`index` ON `table` (\n  `col1` COLLATE NOCASE ASC,\n  `col2` DESC,\n  " + `json_extract("col3", "$.a")` + " COLLATE NOCASE\n) WHERE test = 1 OR test = 2",
+			"CREATE UNIQUE INDEX IF NOT EXISTS \"index\" ON \"schema\".\"table\" (\n  lower(\"col1\") ASC,\n  \"col2\" DESC,\n  (lower((\"col3\" ->> 'a'))),\n  \"col4\",\n  \"col5\" COLLATE \"C\"\n)" +
+				" WHERE test = 1 OR test = 2",
+		},
+		{
+			"PocketBase system index format",
+			dbutils.ParseIndex("CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"),
+			`CREATE UNIQUE INDEX "idx_email__pb_users_auth_" ON "users" ("email") WHERE "email" != ''`,
+		},
+		{
+			"identifier with double quote",
+			dbutils.Index{
+				IndexName: `idx"1`,
+				TableName: "table",
+				Columns:   []dbutils.IndexColumn{{Name: `col"a`}},
+			},
+			`CREATE INDEX "idx""1" ON "table" ("col""a")`,
 		},
 	}
 
@@ -409,6 +426,30 @@ func TestFindSingleColumnUniqueIndex(t *testing.T) {
 
 			if exists && !strings.EqualFold(index.Columns[0].Name, s.column) {
 				t.Fatalf("Expected to find column %q in %v", s.column, index)
+			}
+		})
+	}
+}
+
+func TestNormalizeIdentifierQuotes(t *testing.T) {
+	scenarios := []struct {
+		expr     string
+		expected string
+	}{
+		{"", ""},
+		{"a = 1", "a = 1"},
+		{"`a` = 1", `"a" = 1`},
+		{"`a`.`b` != ''", `"a"."b" != ''`},
+		{"`a` = 'it''s `not` quoted'", `"a" = 'it''s ` + "`not`" + ` quoted'`},
+		{"\"a`b\" = `c`", "\"a`b\" = \"c\""},
+		{"`a\"b`", `"a""b"`},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.expr, func(t *testing.T) {
+			result := dbutils.NormalizeIdentifierQuotes(s.expr)
+			if result != s.expected {
+				t.Fatalf("Expected \n%v \ngot \n%v", s.expected, result)
 			}
 		})
 	}

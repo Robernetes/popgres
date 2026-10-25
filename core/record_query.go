@@ -542,7 +542,8 @@ func (app *BaseApp) FindAuthRecordByToken(token string, validTypes ...string) (*
 // FindAuthRecordByEmail finds the auth record associated with the provided email.
 //
 // The email check would be case-insensitive if the related collection
-// email unique index has COLLATE NOCASE specified for the email column.
+// email unique index has COLLATE NOCASE specified for the email column
+// (on Postgres the index is created as lower(email)).
 //
 // Returns an error if it is not an auth collection or the record is not found.
 func (app *BaseApp) FindAuthRecordByEmail(collectionModelOrIdentifier any, email string) (*Record, error) {
@@ -562,7 +563,7 @@ func (app *BaseApp) FindAuthRecordByEmail(collectionModelOrIdentifier any, email
 	index, ok := dbutils.FindSingleColumnUniqueIndex(collection.Indexes, FieldNameEmail)
 	if ok && strings.EqualFold(index.Columns[0].Collate, "nocase") {
 		// case-insensitive search
-		expr = dbx.NewExp("[["+FieldNameEmail+"]] = {:email} COLLATE NOCASE", dbx.Params{"email": email})
+		expr = dbx.NewExp("lower([["+FieldNameEmail+"]]) = lower({:email})", dbx.Params{"email": email})
 	} else {
 		expr = dbx.HashExp{FieldNameEmail: email}
 	}
