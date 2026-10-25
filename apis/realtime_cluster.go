@@ -108,7 +108,7 @@ func bindRealtimeClusterEvents(app core.App) {
 		Func: func(e *core.ModelEvent) error {
 			if app.Cluster().Enabled() {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
-					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("create", collection.Id, e.Model.PK()))
+					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("create", collection, e.Model.PK()))
 				}
 			}
 			return e.Next()
@@ -120,7 +120,7 @@ func bindRealtimeClusterEvents(app core.App) {
 		Func: func(e *core.ModelEvent) error {
 			if app.Cluster().Enabled() {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
-					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("update", collection.Id, e.Model.PK()))
+					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("update", collection, e.Model.PK()))
 				}
 			}
 			return e.Next()
@@ -168,7 +168,7 @@ func bindRealtimeClusterEvents(app core.App) {
 							slog.String("error", err.Error()),
 						)
 					} else {
-						notify(clusterTopicRealtimeRecord, "delete|"+eventId)
+						notify(clusterTopicRealtimeRecord, "delete|"+eventId+"|"+collection.Name)
 					}
 				}
 			}
@@ -203,8 +203,24 @@ func realtimeNotifyAuthCollectionChange(app core.App, collectionName string) {
 	})
 }
 
-func realtimeRecordPayload(action string, collectionId string, pk any) string {
-	return action + "|" + collectionId + "|" + fmt.Sprint(pk)
+// realtimeRecordPayload returns the create/update cluster message payload
+// (action|collectionId|collectionName|recordId).
+func realtimeRecordPayload(action string, collection *core.Collection, pk any) string {
+	return action + "|" + collection.Id + "|" + collection.Name + "|" + fmt.Sprint(pk)
+}
+
+// realtimeFindClusterCollection finds the collection of a cluster record event.
+//
+// The collection is searched also by name because the node that published the
+// event could have used a stale cached collection (eg. a collection that was
+// just deleted and created again with the same name by another node).
+func realtimeFindClusterCollection(app core.App, collectionId string, collectionName string) (*core.Collection, error) {
+	collection, err := app.FindCachedCollectionByNameOrId(collectionId)
+	if err == nil {
+		return collection, nil
+	}
+
+	return app.FindCachedCollectionByNameOrId(collectionName)
 }
 
 // realtimeRecordSnapshot returns the json representation of the stored record row.
@@ -241,13 +257,14 @@ func realtimeStoreDeleteEvent(app core.App, collectionId string, pk any, snapsho
 
 // realtimeHandleClusterRecordMessage broadcasts a record event of another node to the local clients.
 func realtimeHandleClusterRecordMessage(app core.App, payload string) error {
-	parts := strings.Split(payload, "|")
+	// note: the record id is the last part because a custom id could contain "|"
+	parts := strings.SplitN(payload, "|", 4)
 
 	switch {
-	case len(parts) == 3 && (parts[0] == "create" || parts[0] == "update"):
-		action, collectionId, recordId := parts[0], parts[1], parts[2]
+	case len(parts) == 4 && (parts[0] == "create" || parts[0] == "update"):
+		action, collectionId, collectionName, recordId := parts[0], parts[1], parts[2], parts[3]
 
-		collection, err := app.FindCachedCollectionByNameOrId(collectionId)
+		collection, err := realtimeFindClusterCollection(app, collectionId, collectionName)
 		if err != nil {
 			return err
 		}
@@ -267,14 +284,15 @@ func realtimeHandleClusterRecordMessage(app core.App, payload string) error {
 		}
 
 		return realtimeBroadcastRecord(app, action, record, false)
-	case len(parts) == 2 && parts[0] == "delete":
-		return realtimeBroadcastClusterDeleteEvent(app, parts[1])
+	case len(parts) == 3 && parts[0] == "delete":
+		// delete|eventId|collectionName
+		return realtimeBroadcastClusterDeleteEvent(app, parts[1], parts[2])
 	default:
 		return errors.New("invalid realtime record message")
 	}
 }
 
-func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string) error {
+func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string, collectionName string) error {
 	event := struct {
 		CollectionId string `db:"collection_id"`
 		Snapshot     string `db:"snapshot"`
@@ -288,7 +306,7 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string) error {
 		return err
 	}
 
-	collection, err := app.FindCachedCollectionByNameOrId(event.CollectionId)
+	collection, err := realtimeFindClusterCollection(app, event.CollectionId, collectionName)
 	if err != nil {
 		return err
 	}
@@ -319,8 +337,12 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string) error {
 func realtimeSnapshotCTE(cteName string, collectionName string, snapshot string) (string, dbx.Params) {
 	param := "__pb_rt_snapshot"
 
+	// note: the NULL row of the table type is selected from the table itself instead of
+	// casting to the type name (eg. NULL::posts) so that the cached prepared statement
+	// depends on the table and it is invalidated if the collection table is recreated
+	// (otherwise it fails with "cache lookup failed for type")
 	withFrom := fmt.Sprintf(
-		"WITH {{%s}} AS (SELECT (jsonb_populate_record(NULL::{{%s}}, {:%s}::jsonb)).*)",
+		"WITH {{%s}} AS (SELECT (jsonb_populate_record((SELECT [[__pb_rt_row]] FROM {{%s}} [[__pb_rt_row]] WHERE FALSE), {:%s}::jsonb)).*)",
 		inflector.Columnify(cteName),
 		inflector.Columnify(collectionName),
 		param,

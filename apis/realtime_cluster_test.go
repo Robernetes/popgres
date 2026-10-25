@@ -385,3 +385,71 @@ func TestRealtimeClusterForwardOAuth2Redirect(t *testing.T) {
 		t.Fatal("Expected the @oauth2 subscription to be removed")
 	}
 }
+
+func TestRealtimeClusterRecreatedCollection(t *testing.T) {
+	t.Parallel()
+
+	testDB, err := tests.NewFixturesTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(testDB.Name)
+
+	// a single connection so that the cached prepared statements are reused
+	newNode := func() *tests.TestApp {
+		app, err := tests.NewTestAppWithConfig(core.BaseAppConfig{
+			DatabaseURL:      testDB.URL,
+			ClusterMode:      true,
+			DataMaxOpenConns: 1,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(app.Cleanup)
+
+		if _, err := apis.NewRouter(app); err != nil {
+			t.Fatal(err)
+		}
+		<-app.Cluster().Ready()
+
+		return app
+	}
+
+	nodeA := newNode()
+	nodeB := newNode()
+
+	client := subscriptions.NewDefaultClient()
+	client.Subscribe("cluster_rc/*")
+	nodeA.SubscriptionsBroker().Register(client)
+
+	for i := range 2 {
+		// (re)create the collection
+		if existing, err := nodeB.FindCollectionByNameOrId("cluster_rc"); err == nil {
+			if err := nodeB.Delete(existing); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		collection := core.NewBaseCollection("cluster_rc")
+		collection.ListRule = new(string)
+		collection.ViewRule = new(string)
+		collection.Fields.Add(&core.TextField{Name: "title"})
+		if err := nodeB.Save(collection); err != nil {
+			t.Fatal(err)
+		}
+
+		record := core.NewRecord(collection)
+		record.Set("title", "test")
+		if err := nodeB.Save(record); err != nil {
+			t.Fatal(err)
+		}
+		expectRealtimeMessage(t, client, "create", record.Id)
+
+		if err := nodeB.Delete(record); err != nil {
+			t.Fatal(err)
+		}
+		expectRealtimeMessage(t, client, "delete", record.Id)
+
+		t.Logf("iteration %d completed", i)
+	}
+}

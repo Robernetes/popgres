@@ -110,6 +110,24 @@ func (app *BaseApp) FindCachedCollectionByNameOrId(nameOrId string) (*Collection
 		}
 	}
 
+	// popgres: in cluster mode the collection could have been just created
+	// by another app instance (node) and the local cache could be not reloaded yet
+	// (the committed state is loaded with the main pool and not with the current transaction)
+	if app.cluster.Enabled() && app.dataDB != nil {
+		m := &Collection{}
+
+		err := app.modelQuery(app.dataDB, m).
+			AndWhere(dbx.NewExp("[[id]]={:id} OR LOWER([[name]])={:name}", dbx.Params{
+				"id":   nameOrId,
+				"name": strings.ToLower(nameOrId),
+			})).
+			Limit(1).
+			One(m)
+		if err == nil {
+			return m, nil
+		}
+	}
+
 	return nil, sql.ErrNoRows
 }
 

@@ -165,7 +165,8 @@ func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
 		logQuery(sql)
 	}
 
-	// create/update/delete app1 collections should trigger a single (debounced) reload in app2
+	// create/update/delete app1 collections should trigger an immediate reload in app2
+	// (the changes received while reloading are coalesced into a single extra reload)
 	dummyCollection := core.NewBaseCollection("test")
 	if err := app1.Save(dummyCollection); err != nil {
 		t.Fatal(err)
@@ -187,14 +188,21 @@ func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
 	// wait a little longer to ensure that there are no other reloads
 	time.Sleep(200 * time.Millisecond)
 
+	// popgres: at most one reload per change
 	collectionsQueries := testQueries.Get("collections")
-	if len(collectionsQueries) != 1 {
-		t.Fatalf("Expected 1 collections query, got %d (%v)", len(collectionsQueries), collectionsQueries)
+	if len(collectionsQueries) < 1 || len(collectionsQueries) > 3 {
+		t.Fatalf("Expected 1-3 collections queries, got %d (%v)", len(collectionsQueries), collectionsQueries)
 	}
 
 	expectedQuery := `SELECT {{_collections}}.* FROM "_collections" ORDER BY "created" ASC, "id" ASC`
-	if collectionsQueries[0] != expectedQuery {
-		t.Fatalf("Expected query\n%s\ngot\n%s", expectedQuery, collectionsQueries[0])
+	for _, q := range collectionsQueries {
+		if q != expectedQuery {
+			t.Fatalf("Expected query\n%s\ngot\n%s", expectedQuery, q)
+		}
+	}
+
+	if _, err := app2.FindCachedCollectionByNameOrId("test"); err == nil {
+		t.Fatal("Expected the deleted collection to be removed from the app2 cache")
 	}
 
 	// a collection created in app1 should be visible in app2
@@ -212,5 +220,46 @@ func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
 			t.Fatal("Expected the new app1 collection to be cached in app2 in less than 1s")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestFindCachedCollectionClusterFallback(t *testing.T) {
+	t.Parallel()
+
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
+	newApp := func(clusterMode bool) *core.BaseApp {
+		app := core.NewBaseApp(core.BaseAppConfig{DataDir: t.TempDir(), DatabaseURL: db.URL, ClusterMode: clusterMode})
+		if err := app.Bootstrap(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { app.ClearBootstrap() })
+		return app
+	}
+
+	app1 := newApp(true)
+	app2 := newApp(true)
+	app3 := newApp(false)
+
+	// stop the listeners so that the caches are not reloaded
+	app2.Cluster().Stop()
+	app3.Cluster().Stop()
+
+	if err := app1.Save(core.NewBaseCollection("fallback_test")); err != nil {
+		t.Fatal(err)
+	}
+
+	// cluster mode: loaded from the database
+	if _, err := app2.FindCachedCollectionByNameOrId("FALLBACK_test"); err != nil {
+		t.Fatalf("Expected the collection to be found in cluster mode, got %v", err)
+	}
+
+	// single node: the cache only
+	if _, err := app3.FindCachedCollectionByNameOrId("fallback_test"); err == nil {
+		t.Fatal("Expected the collection to be missing from the stale cache without cluster mode")
 	}
 }

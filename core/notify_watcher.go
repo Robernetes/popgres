@@ -3,7 +3,6 @@ package core
 import (
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/hook"
@@ -17,23 +16,37 @@ const (
 	clusterTopicCollections = "collections"
 )
 
-// notifyWatcherDebounce is the delay used to group the reloads of
-// multiple consecutive changes (eg. an import of several collections).
-const notifyWatcherDebounce = 50 * time.Millisecond
-
-// debounced returns a function that calls fn notifyWatcherDebounce after its last call.
-func debounced(fn func()) func() {
+// coalesced returns a function that runs fn in the background immediately,
+// or once more after the current run if it is already running
+// (eg. a reload for multiple consecutive changes like an import of several collections).
+func coalesced(fn func()) func() {
 	var mu sync.Mutex
-	var timer *time.Timer
+	var running, pending bool
 
 	return func() {
 		mu.Lock()
-		defer mu.Unlock()
-
-		if timer != nil {
-			timer.Stop()
+		if running {
+			pending = true
+			mu.Unlock()
+			return
 		}
-		timer = time.AfterFunc(notifyWatcherDebounce, fn)
+		running = true
+		mu.Unlock()
+
+		go func() {
+			for {
+				fn()
+
+				mu.Lock()
+				if !pending {
+					running = false
+					mu.Unlock()
+					return
+				}
+				pending = false
+				mu.Unlock()
+			}
+		}()
 	}
 }
 
@@ -43,7 +56,7 @@ func debounced(fn func()) func() {
 // After a successful settings or collection change the node publishes a cluster
 // message (LISTEN/NOTIFY) and the other nodes reload their cached state.
 func (app *BaseApp) registerNotifyWatcherHooks() {
-	reloadSettings := debounced(func() {
+	reloadSettings := coalesced(func() {
 		if !app.IsBootstrapped() {
 			return
 		}
@@ -55,7 +68,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 		}
 	})
 
-	reloadCollections := debounced(func() {
+	reloadCollections := coalesced(func() {
 		if !app.IsBootstrapped() {
 			return
 		}
