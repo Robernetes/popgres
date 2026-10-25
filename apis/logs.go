@@ -84,11 +84,7 @@ func logsTruncate(e *core.RequestEvent) error {
 		return e.InternalServerError("Failed to truncate all logs.", err)
 	}
 
-	// try to free the unused disk space
-	err = e.App.AuxVacuum()
-	if err != nil {
-		e.App.Logger().Warn("Failed to VACUUM aux database", "error", err)
-	}
+	// note: the deleted rows space is reclaimed by the Postgres autovacuum
 
 	return e.NoContent(http.StatusNoContent)
 }

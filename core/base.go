@@ -1646,13 +1646,7 @@ func (app *BaseApp) initLogger() error {
 				e.App.Logger().Debug("Failed to cleanup old logs", "error", err)
 			}
 
-			// no logs are allowed -> try to reclaim preserved disk space after the previous delete operation
-			if e.App.Settings().Logs.MaxDays == 0 {
-				err = e.App.AuxVacuum()
-				if err != nil {
-					e.App.Logger().Debug("Failed to VACUUM aux database", "error", err)
-				}
-			}
+			// note: the deleted rows space is reclaimed by the Postgres autovacuum
 
 			return nil
 		},

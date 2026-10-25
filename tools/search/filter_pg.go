@@ -26,13 +26,18 @@ var plainParamRegex = regexp.MustCompile(`^\{:(\w+)\}$`)
 
 // normalizeOperands returns normalized copies of the provided resolved operands.
 //
+// Set convertJSON to false for the operators that compare the text
+// representation of the operands (eg. LIKE).
+//
 // The original results (and their params maps) are not modified because they
 // could be reused for building the multi-match expressions.
-func normalizeOperands(left, right *ResolverResult) (*ResolverResult, *ResolverResult) {
+func normalizeOperands(left, right *ResolverResult, convertJSON bool) (*ResolverResult, *ResolverResult) {
 	l := *left
 	r := *right
 
 	switch {
+	case !convertJSON:
+		// nothing to convert
 	case l.JSON && !r.JSON:
 		r.Identifier = jsonbOperand(&r)
 		r.JSON = true

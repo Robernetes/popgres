@@ -189,7 +189,7 @@ func buildResolversExpr(
 	// (they are normalized separately when built)
 	originalLeft, originalRight := left, right
 
-	left, right = normalizeOperands(left, right)
+	left, right = normalizeOperands(left, right, !isLikeOp(op))
 
 	switch op {
 	case fexpr.SignEq, fexpr.SignAnyEq:
@@ -759,4 +759,13 @@ func (e *manyVsOneExpr) Build(db *dbx.DB, params dbx.Params) string {
 		alias,
 		whereExpr.Build(db, params),
 	)
+}
+
+func isLikeOp(op fexpr.SignOp) bool {
+	switch op {
+	case fexpr.SignLike, fexpr.SignAnyLike, fexpr.SignNlike, fexpr.SignAnyNlike:
+		return true
+	}
+
+	return false
 }

@@ -22,7 +22,10 @@ func init() {
 				CREATE INDEX IF NOT EXISTS idx_logs_level ON {{_logs}} ([[level]]);
 				CREATE INDEX IF NOT EXISTS idx_logs_message ON {{_logs}} ([[message]]);
 				CREATE INDEX IF NOT EXISTS idx_logs_created_hour ON {{_logs}} (date_trunc('hour', [[created]] AT TIME ZONE 'UTC'));
-			`).Execute()
+
+				-- the json helpers are created in the _aux schema too because
+				-- the logs could be stored in a separate database
+			` + popgresJSONFunctions).Execute()
 
 			return execErr
 		},

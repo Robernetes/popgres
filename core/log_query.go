@@ -38,9 +38,11 @@ type LogsStatsItem struct {
 func (app *BaseApp) LogsStats(expr dbx.Expression) ([]*LogsStatsItem, error) {
 	result := []*LogsStatsItem{}
 
+	// note: the same expression as the idx_logs_created_hour index
 	query := app.LogQuery().
-		Select("count(id) as total", "strftime('%Y-%m-%d %H:00:00', created) as date").
-		GroupBy("date")
+		Select("count(id) as total", "date_trunc('hour', [[created]] AT TIME ZONE 'UTC') as date").
+		GroupBy("date").
+		OrderBy("date ASC")
 
 	if expr != nil {
 		query.AndWhere(expr)
