@@ -868,6 +868,18 @@ CREATE TABLE public._collections (
 
 
 --
+-- Name: _cron_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE UNLOGGED TABLE public._cron_runs (
+    job_id text NOT NULL,
+    slot timestamp with time zone NOT NULL,
+    node_id text NOT NULL,
+    created timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: _externalAuths; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -879,6 +891,17 @@ CREATE TABLE public."_externalAuths" (
     "providerId" text DEFAULT ''::text NOT NULL,
     "recordRef" text DEFAULT ''::text NOT NULL,
     updated timestamp with time zone
+);
+
+
+--
+-- Name: _kv_ttl; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE UNLOGGED TABLE public._kv_ttl (
+    key text NOT NULL,
+    value text DEFAULT ''::text NOT NULL,
+    expires_at timestamp with time zone NOT NULL
 );
 
 
@@ -930,6 +953,33 @@ CREATE TABLE public._params (
     value text,
     created timestamp with time zone DEFAULT now() NOT NULL,
     updated timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: _rate_limits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE UNLOGGED TABLE public._rate_limits (
+    key text NOT NULL,
+    window_start timestamp with time zone NOT NULL,
+    hits integer DEFAULT 0 NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: _realtime_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE UNLOGGED TABLE public._realtime_events (
+    id text NOT NULL,
+    source text NOT NULL,
+    op text NOT NULL,
+    collection_id text NOT NULL,
+    record_id text NOT NULL,
+    snapshot jsonb,
+    created timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -1214,6 +1264,12 @@ INSERT INTO public._collections VALUES
 
 
 --
+-- Data for Name: _cron_runs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
 -- Data for Name: _externalAuths; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1222,6 +1278,12 @@ INSERT INTO public."_externalAuths" VALUES
 	('_pb_users_auth_', '2022-01-01 01:01:01.123+00', 'dlmflokuq1xl342', 'gitlab', 'test123', '4q1xlclmfloku33', '2022-01-01 01:01:01.123+00'),
 	('v851q4r790rhknl', '2024-07-29 11:56:28.439+00', 'f1z5b3843pzc964', 'google', 'test456', 'gk390qegs4y47wn', '2024-07-29 11:56:35.151+00'),
 	('_pb_users_auth_', '2024-07-29 11:57:28.598+00', '5eto7nmys833164', 'github', 'test456', 'bgs820n361vj1qd', '2024-07-29 11:57:28.598+00');
+
+
+--
+-- Data for Name: _kv_ttl; Type: TABLE DATA; Schema: public; Owner: -
+--
+
 
 
 --
@@ -1235,9 +1297,10 @@ INSERT INTO public."_externalAuths" VALUES
 --
 
 INSERT INTO public._migrations VALUES
-	('1640987999_popgres_functions.go', 1792899037771663),
-	('1640988000_aux_init.go', 1792899037776289),
-	('1640988000_init.go', 1792899037847153);
+	('1640987999_popgres_functions.go', 1792941038864754),
+	('1640988000_aux_init.go', 1792941038870031),
+	('1640988000_init.go', 1792941038945727),
+	('1761400000_popgres_cluster.go', 1792941038949392);
 
 
 --
@@ -1251,7 +1314,19 @@ INSERT INTO public._migrations VALUES
 --
 
 INSERT INTO public._params VALUES
-	('settings', '{"superuserIPs":[],"smtp":{"enabled":false,"port":587,"host":"smtp.example.com","username":"","password":"","authMethod":"","tls":false,"localName":""},"backups":{"cron":"","cronMaxKeep":0,"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false}},"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false},"meta":{"accentColor":"#1055c9","appName":"acme_test","appURL":"http://localhost:8090","senderName":"Support","senderAddress":"support@example.com","hideControls":false},"rateLimits":{"rules":[{"label":"*:auth","audience":"","duration":3,"maxRequests":2},{"label":"*:create","audience":"","duration":5,"maxRequests":20},{"label":"/api/batch","audience":"","duration":1,"maxRequests":3},{"label":"/api/","audience":"","duration":10,"maxRequests":300}],"excludedIPs":[],"enabled":false},"trustedProxy":{"headers":[],"useLeftmostIP":false},"batch":{"enabled":true,"maxRequests":50,"timeout":5,"maxBodySize":0},"logs":{"maxDays":5,"minLevel":0,"logIP":false,"logAuthId":false}}', '2026-10-25 03:30:38.26+00', '2026-05-14 18:15:28.522+00');
+	('settings', '{"superuserIPs":[],"smtp":{"enabled":false,"port":587,"host":"smtp.example.com","username":"","password":"","authMethod":"","tls":false,"localName":""},"backups":{"cron":"","cronMaxKeep":0,"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false}},"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false},"meta":{"accentColor":"#1055c9","appName":"acme_test","appURL":"http://localhost:8090","senderName":"Support","senderAddress":"support@example.com","hideControls":false},"rateLimits":{"rules":[{"label":"*:auth","audience":"","duration":3,"maxRequests":2},{"label":"*:create","audience":"","duration":5,"maxRequests":20},{"label":"/api/batch","audience":"","duration":1,"maxRequests":3},{"label":"/api/","audience":"","duration":10,"maxRequests":300}],"excludedIPs":[],"enabled":false},"trustedProxy":{"headers":[],"useLeftmostIP":false},"batch":{"enabled":true,"maxRequests":50,"timeout":5,"maxBodySize":0},"logs":{"maxDays":5,"minLevel":0,"logIP":false,"logAuthId":false}}', '2026-10-25 15:10:39.403+00', '2026-05-14 18:15:28.522+00');
+
+
+--
+-- Data for Name: _rate_limits; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: _realtime_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
 
 
 --
@@ -1376,11 +1451,27 @@ ALTER TABLE ONLY public._collections
 
 
 --
+-- Name: _cron_runs _cron_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._cron_runs
+    ADD CONSTRAINT _cron_runs_pkey PRIMARY KEY (job_id, slot);
+
+
+--
 -- Name: _externalAuths _externalAuths_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."_externalAuths"
     ADD CONSTRAINT "_externalAuths_pkey" PRIMARY KEY (id);
+
+
+--
+-- Name: _kv_ttl _kv_ttl_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._kv_ttl
+    ADD CONSTRAINT _kv_ttl_pkey PRIMARY KEY (key);
 
 
 --
@@ -1413,6 +1504,22 @@ ALTER TABLE ONLY public._otps
 
 ALTER TABLE ONLY public._params
     ADD CONSTRAINT _params_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: _rate_limits _rate_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._rate_limits
+    ADD CONSTRAINT _rate_limits_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: _realtime_events _realtime_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._realtime_events
+    ADD CONSTRAINT _realtime_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -1632,6 +1739,34 @@ CREATE UNIQUE INDEX "idx_IjL94ze" ON public.demo4 USING btree (rel_many_unique) 
 --
 
 CREATE INDEX idx__collections_type ON public._collections USING btree (type);
+
+
+--
+-- Name: idx__cron_runs_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx__cron_runs_created ON public._cron_runs USING btree (created);
+
+
+--
+-- Name: idx__kv_ttl_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx__kv_ttl_expires_at ON public._kv_ttl USING btree (expires_at);
+
+
+--
+-- Name: idx__rate_limits_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx__rate_limits_expires_at ON public._rate_limits USING btree (expires_at);
+
+
+--
+-- Name: idx__realtime_events_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx__realtime_events_created ON public._realtime_events USING btree (created);
 
 
 --
