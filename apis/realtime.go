@@ -443,6 +443,11 @@ func bindRealtimeEvents(app core.App) {
 
 	app.OnModelAfterCreateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
+			// popgres: broadcasted from the replication events
+			if realtimeFromReplication(e.App) {
+				return e.Next()
+			}
+
 			record := realtimeResolveRecord(e.App, e.Model, "")
 			if record != nil {
 				err := realtimeBroadcastRecord(e.App, "create", record, false)
@@ -463,6 +468,11 @@ func bindRealtimeEvents(app core.App) {
 
 	app.OnModelAfterUpdateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
+			// popgres: broadcasted from the replication events
+			if realtimeFromReplication(e.App) {
+				return e.Next()
+			}
+
 			record := realtimeResolveRecord(e.App, e.Model, "")
 			if record != nil {
 				err := realtimeBroadcastRecord(e.App, "update", record, false)
@@ -484,6 +494,11 @@ func bindRealtimeEvents(app core.App) {
 	// delete: dry cache
 	app.OnModelDelete().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
+			// popgres: broadcasted from the replication events
+			if realtimeFromReplication(e.App) {
+				return e.Next()
+			}
+
 			record := realtimeResolveRecord(e.App, e.Model, "")
 			if record != nil {
 				// note: use the outside scoped app instance for the access checks so that the API rules
@@ -508,6 +523,11 @@ func bindRealtimeEvents(app core.App) {
 	// delete: broadcast
 	app.OnModelAfterDeleteSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
+			// popgres: broadcasted from the replication events
+			if realtimeFromReplication(e.App) {
+				return e.Next()
+			}
+
 			// note: only ensure that it is a collection record
 			// and don't use realtimeResolveRecord because in case of a
 			// custom model it'll fail to resolve since the record is already deleted

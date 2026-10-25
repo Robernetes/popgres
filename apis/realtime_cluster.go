@@ -78,6 +78,26 @@ func bindRealtimeClusterEvents(app core.App) {
 		}
 	})
 
+	// the replication events (published by the replication leader, eg. the current node)
+	dedup := cluster.NewEventsDeduplicator(10000)
+	app.Cluster().Subscribe(cluster.TopicRealtimeEvents, func(msg cluster.Message) {
+		if !realtimeFromReplication(app) {
+			return
+		}
+
+		ids := dedup.Filter(strings.Split(msg.Payload, ","))
+		if len(ids) == 0 {
+			return
+		}
+
+		if err := realtimeBroadcastReplicationEvents(app, ids); err != nil {
+			app.Logger().Debug(
+				"Failed to broadcast the realtime replication events",
+				slog.String("error", err.Error()),
+			)
+		}
+	})
+
 	// publish
 	// ---------------------------------------------------------------
 
@@ -106,7 +126,7 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterCreateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() {
+			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("create", collection, e.Model.PK()))
 				}
@@ -118,7 +138,7 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterUpdateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() {
+			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("update", collection, e.Model.PK()))
 				}
@@ -131,7 +151,7 @@ func bindRealtimeClusterEvents(app core.App) {
 	// delete: snapshot the record row before the delete (inside the delete transaction)
 	app.OnModelDelete().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() {
+			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
 					snapshot, err := realtimeRecordSnapshot(e.App, collection, e.Model.PK())
 					if err != nil {
@@ -311,10 +331,16 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string, collectio
 		return err
 	}
 
-	withFrom, params := realtimeSnapshotCTE(collection.Name, collection.Name, event.Snapshot)
+	return realtimeBroadcastDeletedSnapshot(app, collection, event.Snapshot)
+}
+
+// realtimeBroadcastDeletedSnapshot broadcasts the delete event of a record
+// loaded from its snapshot (the API rules are checked against the snapshot).
+func realtimeBroadcastDeletedSnapshot(app core.App, collection *core.Collection, snapshot string) error {
+	withFrom, params := realtimeSnapshotCTE(collection.Name, collection.Name, snapshot)
 
 	record := &core.Record{}
-	err = app.RecordQuery(collection).PreFragment(withFrom).Bind(params).Limit(1).One(record)
+	err := app.RecordQuery(collection).PreFragment(withFrom).Bind(params).Limit(1).One(record)
 	if err != nil {
 		return err
 	}
@@ -326,7 +352,7 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string, collectio
 	}
 
 	canAccess := func(record *core.Record, requestInfo *core.RequestInfo, rule *string) bool {
-		return realtimeCanAccessRecordSnapshot(app, record, event.Snapshot, requestInfo, rule)
+		return realtimeCanAccessRecordSnapshot(app, record, snapshot, requestInfo, rule)
 	}
 
 	return realtimeBroadcastRecordWithAccessCheck(app, "delete", record, false, canAccess)
@@ -427,4 +453,56 @@ func realtimeSnapshotMatches(
 	err = query.Limit(1).Row(&exists)
 
 	return err == nil && exists > 0
+}
+
+// realtimeFromReplication reports whether the realtime record events of the
+// app instance come from the Postgres logical replication.
+func realtimeFromReplication(app core.App) bool {
+	return app.Cluster().RealtimeSource() == cluster.RealtimeSourceReplication
+}
+
+// realtimeBroadcastReplicationEvents broadcasts the stored replication events to the local clients.
+func realtimeBroadcastReplicationEvents(app core.App, ids []string) error {
+	events, err := app.Cluster().FindRealtimeEvents(ids)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+
+	for _, event := range events {
+		if err := realtimeBroadcastReplicationEvent(app, event); err != nil {
+			errs = append(errs, fmt.Errorf("event %s: %w", event.Id, err))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func realtimeBroadcastReplicationEvent(app core.App, event *cluster.RealtimeEvent) error {
+	// note: the collection id could be the table name if it was not resolved by the leader
+	collection, err := realtimeFindClusterCollection(app, event.CollectionId, event.CollectionId)
+	if err != nil {
+		return err
+	}
+
+	if event.Op == "delete" {
+		return realtimeBroadcastDeletedSnapshot(app, collection, event.Snapshot)
+	}
+
+	record, err := app.FindRecordById(collection, event.RecordId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil // already deleted
+		}
+		return err
+	}
+
+	if event.Op == "update" && collection.IsAuth() {
+		if err := realtimeUpdateClientsAuth(app, record); err != nil {
+			return err
+		}
+	}
+
+	return realtimeBroadcastRecord(app, event.Op, record, false)
 }

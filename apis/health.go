@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/router"
 )
 
@@ -46,6 +47,17 @@ func healthCheck(e *core.RequestEvent) error {
 			}
 		}
 		resp.Data["possibleProxyHeader"] = possibleProxyHeader
+
+		// popgres: the realtime source and the replication slot metrics (if any)
+		realtime := map[string]any{
+			"source": e.App.Cluster().RealtimeSource(),
+			"slot":   nil,
+		}
+		if metrics, err := e.App.Cluster().SlotMetrics(e.Request.Context()); err == nil && metrics != nil {
+			realtime["slot"] = metrics
+			realtime["retainedWALWarning"] = metrics.RetainedBytes > cluster.RetainedWALWarningSize
+		}
+		resp.Data["realtime"] = realtime
 	} else {
 		resp.Data = map[string]any{} // ensure that it is returned as object
 	}

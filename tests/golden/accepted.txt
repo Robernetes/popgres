@@ -23,3 +23,6 @@ apis/TestSQLRun/query_with_length_equal_to_the_limit.json body.columns
 apis/TestSQLRun/query_with_length_equal_to_the_limit.json body.execTime
 apis/TestSQLRun/superuser.json body.columns
 apis/TestSQLRun/superuser.json body.execTime
+
+# the superuser health data includes the realtime source and slot metrics (see "Realtime")
+apis/TestHealthAPI/GET_health_status__superuser.json body.data.realtime
