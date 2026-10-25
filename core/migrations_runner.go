@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/fatih/color"
 	"github.com/pocketbase/dbx"
@@ -128,6 +129,12 @@ func (r *MigrationsRunner) Up() ([]string, error) {
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
 		return txApp.RunInTransaction(func(txApp App) error {
+			// prevent applying the same migrations by multiple app instances
+			// (the applied migrations check below waits for the lock)
+			if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
+				return err
+			}
+
 			for _, m := range r.migrationsList.Items() {
 				// applied migrations check
 				if r.isMigrationApplied(txApp, m.File) {
@@ -190,6 +197,10 @@ func (r *MigrationsRunner) Down(toRevertCount int) ([]string, error) {
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
 		return txApp.RunInTransaction(func(txApp App) error {
+			if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
+				return err
+			}
+
 			for _, name := range names {
 				for _, m := range r.migrationsList.Items() {
 					if m.File != name {
@@ -253,13 +264,26 @@ func (r *MigrationsRunner) initMigrationsTable() error {
 		r.tableName,
 	)
 
-	_, err := r.app.DB().NewQuery(rawQuery).Execute()
+	// the lock prevents the "duplicate key" error of concurrent CREATE TABLE IF NOT EXISTS
+	err := r.app.RunInTransaction(func(txApp App) error {
+		if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
+			return err
+		}
+
+		_, err := txApp.DB().NewQuery(rawQuery).Execute()
+		return err
+	})
 
 	if err == nil {
 		r.inited = true
 	}
 
 	return err
+}
+
+// lockName returns the name of the advisory lock of the runner migrations table.
+func (r *MigrationsRunner) lockName() string {
+	return "migrations:" + r.tableName
 }
 
 func (r *MigrationsRunner) isMigrationApplied(txApp App, file string) bool {

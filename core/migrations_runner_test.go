@@ -3,6 +3,7 @@ package core_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -209,4 +210,65 @@ func isMigrationApplied(app core.App, file string) bool {
 		Row(&exists)
 
 	return err == nil && exists > 0
+}
+
+func TestMigrationsRunnerConcurrentUp(t *testing.T) {
+	t.Parallel()
+
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
+	const totalApps = 3
+
+	// bootstrap the app instances at the same time (the system migrations are applied on bootstrap)
+	apps := make([]*core.BaseApp, totalApps)
+	errs := make(chan error, totalApps)
+	for i := range totalApps {
+		apps[i] = core.NewBaseApp(core.BaseAppConfig{
+			DataDir:     t.TempDir(),
+			DatabaseURL: db.URL,
+		})
+	}
+	for _, app := range apps {
+		go func() { errs <- app.Bootstrap() }()
+	}
+	for range totalApps {
+		if err := <-errs; err != nil {
+			t.Fatalf("Failed to bootstrap: %v", err)
+		}
+	}
+	defer func() {
+		for _, app := range apps {
+			app.ClearBootstrap()
+		}
+	}()
+
+	var calls atomic.Int32
+
+	l := core.MigrationsList{}
+	l.Register(func(app core.App) error {
+		calls.Add(1)
+		_, err := app.DB().NewQuery("CREATE TABLE {{concurrent_test}} ([[id]] TEXT PRIMARY KEY)").Execute()
+		return err
+	}, nil, "1_concurrent_test.go")
+
+	// apply the same migrations by all app instances at the same time
+	for _, app := range apps {
+		go func() {
+			_, err := core.NewMigrationsRunner(app, l).Up()
+			errs <- err
+		}()
+	}
+	for range totalApps {
+		if err := <-errs; err != nil {
+			t.Fatalf("Failed to apply the migrations: %v", err)
+		}
+	}
+
+	if total := calls.Load(); total != 1 {
+		t.Fatalf("Expected the migration to be applied once, got %d", total)
+	}
 }
