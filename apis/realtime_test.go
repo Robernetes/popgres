@@ -999,7 +999,8 @@ type CustomModelResolve struct {
 	core.BaseModel
 	tableName string
 
-	Created string `db:"created"`
+	// popgres: the created column is timestamptz (any text was valid in SQLite)
+	Created types.DateTime `db:"created"`
 }
 
 func (m *CustomModelResolve) TableName() string {
@@ -1121,7 +1122,7 @@ func TestRealtimeRecordResolve(t *testing.T) {
 				}
 
 				// update
-				m.Created = "123"
+				m.Created = types.NowDateTime()
 				err = testApp.Save(m)
 				if err != nil {
 					return err

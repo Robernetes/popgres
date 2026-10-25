@@ -163,8 +163,11 @@ func openSQLite(path string) (*dbx.DB, error) {
 
 // sourceCollection is a raw collection row of the PocketBase _collections table.
 type sourceCollection struct {
-	id   string
-	name string
+	id      string
+	name    string
+	created string
+	updated string
+	indexes string // the raw source indexes json
 
 	// data is the collection in the import (export) format with the
 	// options flattened (including the secrets, eg. the OAuth2 client secrets,
@@ -218,9 +221,12 @@ func readCollections(src *dbx.DB) ([]*sourceCollection, error) {
 		data["system"] = system
 
 		result = append(result, &sourceCollection{
-			id:   row["id"].String,
-			name: row["name"].String,
-			data: data,
+			id:      row["id"].String,
+			name:    row["name"].String,
+			created: row["created"].String,
+			updated: row["updated"].String,
+			indexes: row["indexes"].String,
+			data:    data,
 		})
 	}
 
@@ -285,7 +291,29 @@ func importCollections(app core.App, collections []*sourceCollection, report *Re
 		report.Collections = append(report.Collections, view.name)
 	}
 
-	return nil
+	// restore the source creation and update dates and the indexes definitions
+	// (ImportCollections saves the collections as new ones and normalizes the indexes)
+	for _, c := range collections {
+		params := dbx.Params{}
+		if c.indexes != "" && json.Valid([]byte(c.indexes)) {
+			params["indexes"] = c.indexes
+		}
+		for col, value := range map[string]string{"created": c.created, "updated": c.updated} {
+			if dt, _ := types.ParseDateTime(value); !dt.IsZero() {
+				params[col] = dt.String()
+			}
+		}
+		if len(params) == 0 {
+			continue
+		}
+
+		_, err := app.DB().Update("_collections", params, dbx.HashExp{"id": c.id}).Execute()
+		if err != nil {
+			return fmt.Errorf("failed to restore the %q collection dates: %w", c.name, err)
+		}
+	}
+
+	return app.ReloadCachedCollections()
 }
 
 func importRecords(txApp core.App, src *dbx.DB, collection *core.Collection) (int, error) {

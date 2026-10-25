@@ -270,3 +270,20 @@ func checkForVia(value any) error {
 func noopSetter(record *Record, raw any) {
 	// do nothing
 }
+
+// ColumnBaseType returns the data type part of a column definition
+// (eg. "DOUBLE PRECISION" for "DOUBLE PRECISION DEFAULT 0 NOT NULL").
+func ColumnBaseType(columnDefinition string) string {
+	parts := strings.Fields(columnDefinition)
+
+	typeParts := make([]string, 0, 2)
+	for _, p := range parts {
+		switch strings.ToUpper(p) {
+		case "DEFAULT", "PRIMARY", "NOT", "NULL", "UNIQUE", "CHECK", "REFERENCES", "COLLATE", "GENERATED":
+			return strings.Join(typeParts, " ")
+		}
+		typeParts = append(typeParts, p)
+	}
+
+	return strings.Join(typeParts, " ")
+}

@@ -318,3 +318,27 @@ func testDefaultFieldHelpValidation[T any](t *testing.T) {
 		})
 	}
 }
+
+func TestColumnBaseType(t *testing.T) {
+	t.Parallel()
+
+	scenarios := []struct {
+		definition string
+		expected   string
+	}{
+		{"", ""},
+		{"TEXT", "TEXT"},
+		{"TEXT DEFAULT '' NOT NULL", "TEXT"},
+		{"TEXT PRIMARY KEY DEFAULT popgres_id() NOT NULL", "TEXT"},
+		{"DOUBLE PRECISION DEFAULT 0 NOT NULL", "DOUBLE PRECISION"},
+		{"TIMESTAMPTZ DEFAULT NULL", "TIMESTAMPTZ"},
+		{"JSONB DEFAULT '[]' NOT NULL", "JSONB"},
+		{"vector(3) NULL", "vector(3)"},
+	}
+
+	for _, s := range scenarios {
+		if v := core.ColumnBaseType(s.definition); v != s.expected {
+			t.Errorf("[%q] Expected %q, got %q", s.definition, s.expected, v)
+		}
+	}
+}

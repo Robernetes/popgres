@@ -169,6 +169,12 @@ func newTestApp(config core.BaseAppConfig) (*TestApp, error) {
 		return nil, err
 	}
 
+	// the SQLite databases of the default tests data directory are only
+	// the source of the Postgres fixtures (see scripts/gen-fixtures.sh)
+	for _, name := range []string{"data.db", "auxiliary.db"} {
+		_ = os.Remove(filepath.Join(tempDir, name))
+	}
+
 	// replace with the clone
 	config.DataDir = tempDir
 

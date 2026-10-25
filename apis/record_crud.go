@@ -291,10 +291,17 @@ func recordCreate(responseWriteAfterTx bool, optFinalizer func(data any) error) 
 			selects := make([]string, 0, len(dummyExport))
 			var param string
 			for k, v := range dummyExport {
+				// note: the params are casted to the field column type because
+				// Postgres treats the untyped params of a select list as text
+				var cast string
+				if f := collection.Fields.GetByName(k); f != nil {
+					cast = "::" + core.ColumnBaseType(f.ColumnType(e.App))
+				}
+
 				k = inflector.Columnify(k) // columnify is just as extra measure in case of custom fields
 				param = "__pb_create__" + k
 				dummyParams[param] = v
-				selects = append(selects, "{:"+param+"} AS [["+k+"]]")
+				selects = append(selects, "{:"+param+"}"+cast+" AS [["+k+"]]")
 			}
 
 			// shallow clone the current collection

@@ -123,10 +123,10 @@ func verifyBackupContent(app core.App, path string) error {
 		return err
 	}
 
+	// popgres: the database is a pg_dump (with the logs schema)
 	expectedRootEntries := []string{
 		"storage",
-		"data.db",
-		"auxiliary.db",
+		"data.dump",
 		".gitignore",
 	}
 
