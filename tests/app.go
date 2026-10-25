@@ -129,6 +129,12 @@ func newTestAppWithDatabase(config core.BaseAppConfig, newDatabase func() (*Test
 		config.DatabaseURL = testDatabase.URL
 	}
 
+	// the realtime tests expect the hooks source unless explicitly set
+	// (eg. ignore a POPGRES_REALTIME_SOURCE env variable of the developer environment)
+	if config.RealtimeSource == "" {
+		config.RealtimeSource = "hooks"
+	}
+
 	// keep the connections budget small since all test databases share the same server
 	// (see also "go test -p 4" in the Makefile)
 	if config.DataMaxOpenConns <= 0 {

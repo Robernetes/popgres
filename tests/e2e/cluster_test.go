@@ -44,32 +44,41 @@ func newTestCluster(t *testing.T, total int) []*clusterNode {
 			t.Fatal(err)
 		}
 
-		pbRouter, err := apis.NewRouter(app)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		mux, err := pbRouter.BuildMux()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		srv := httptest.NewServer(mux)
-
-		// note: registered in reverse order so that the server is closed before the app cleanup
-		t.Cleanup(app.Cleanup)
-		t.Cleanup(srv.Close)
-
-		select {
-		case <-app.Cluster().Ready():
-		case <-time.After(5 * time.Second):
-			t.Fatal("cluster LISTEN timeout")
-		}
-
-		nodes[i] = &clusterNode{app: app, srv: srv}
+		nodes[i] = newClusterNode(t, app)
 	}
 
 	return nodes
+}
+
+// newClusterNode starts an HTTP server for the test app (closed on the test cleanup).
+func newClusterNode(t *testing.T, app *tests.TestApp) *clusterNode {
+	t.Helper()
+
+	pbRouter, err := apis.NewRouter(app)
+	if err != nil {
+		app.Cleanup()
+		t.Fatal(err)
+	}
+
+	mux, err := pbRouter.BuildMux()
+	if err != nil {
+		app.Cleanup()
+		t.Fatal(err)
+	}
+
+	srv := httptest.NewServer(mux)
+
+	// note: registered in reverse order so that the server is closed before the app cleanup
+	t.Cleanup(app.Cleanup)
+	t.Cleanup(srv.Close)
+
+	select {
+	case <-app.Cluster().Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("cluster LISTEN timeout")
+	}
+
+	return &clusterNode{app: app, srv: srv}
 }
 
 func superuserToken(t *testing.T, app core.App) string {

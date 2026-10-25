@@ -115,9 +115,41 @@ func DropTestDatabase(name string) error {
 		return err
 	}
 
+	// the logical replication slots of the database (eg. of the realtime
+	// replication tests) are global objects that would block the drop
+	if err := dropReplicationSlots(db, name); err != nil {
+		return err
+	}
+
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", quoteIdent(name)))
 
 	return err
+}
+
+// dropReplicationSlots drops the replication slots of the specified
+// database (terminating their consumers first).
+func dropReplicationSlots(db *sql.DB, name string) error {
+	var lastErr error
+
+	for range 20 {
+		_, err := db.Exec(
+			"SELECT pg_terminate_backend(active_pid) FROM pg_replication_slots WHERE database = $1 AND active_pid IS NOT NULL",
+			name,
+		)
+		if err != nil {
+			return err
+		}
+
+		// note: the slot could be still active right after the termination of its consumer
+		_, lastErr = db.Exec("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE database = $1", name)
+		if lastErr == nil {
+			return nil
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return lastErr
 }
 
 // DropOrphanTestDatabases drops all test and fixtures databases of the
@@ -239,4 +271,43 @@ func isURLDSN(dsn string) bool {
 
 func quoteIdent(name string) string {
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
+// DropOrphanTestRoles drops the leftover test roles ("popgres_t_*", eg. created
+// by the replication fallback tests) of the TestDatabaseURLEnv server and
+// returns the names of the dropped ones.
+//
+// It must be used only when there are no running tests and after the
+// orphan test databases drop (eg. "make test-clean").
+func DropOrphanTestRoles() ([]string, error) {
+	db, err := testAdminDB(os.Getenv(TestDatabaseURLEnv))
+	if err != nil {
+		return nil, err
+	}
+
+	names := []string{}
+
+	rows, err := db.Query("SELECT rolname FROM pg_roles WHERE starts_with(rolname, $1)", TestDatabasePrefix)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	rows.Close()
+
+	dropped := make([]string, 0, len(names))
+	for _, name := range names {
+		if _, err := db.Exec("DROP ROLE IF EXISTS " + quoteIdent(name)); err != nil {
+			return dropped, err
+		}
+		dropped = append(dropped, name)
+	}
+
+	return dropped, nil
 }

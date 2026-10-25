@@ -1,5 +1,5 @@
 // Command testclean drops the leftover test databases ("popgres_t_*" and
-// "popgres_fx_*") of the POPGRES_TEST_URL server.
+// "popgres_fx_*") and test roles ("popgres_t_*") of the POPGRES_TEST_URL server.
 //
 // Run it only when there are no running tests (eg. "make test-clean").
 package main
@@ -21,4 +21,14 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("%d test database(s) dropped\n", len(dropped))
+
+	roles, err := tests.DropOrphanTestRoles()
+	for _, name := range roles {
+		fmt.Println("dropped role", name)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("%d test role(s) dropped\n", len(roles))
 }
