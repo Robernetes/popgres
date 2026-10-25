@@ -350,7 +350,7 @@ func resolveToken(token fexpr.Token, fieldResolver FieldResolver) (*ResolverResu
 // with a seek while the COALESCE will induce a table scan.
 func resolveEqualExpr(equal bool, left, right *ResolverResult) dbx.Expression {
 	equalOp := "="
-	nullEqualOp := "IS"
+	nullEqualOp := "IS NOT DISTINCT FROM"
 	concatOp := "OR"
 	nullExpr := "IS NULL"
 	if !equal {
@@ -364,8 +364,6 @@ func resolveEqualExpr(equal bool, left, right *ResolverResult) dbx.Expression {
 		nullEqualOp = equalOp
 		concatOp = "AND"
 		nullExpr = "IS NOT NULL"
-	} else {
-		nullEqualOp = "IS NOT DISTINCT FROM"
 	}
 
 	// no coalesce fallback (eg. compare to a json field)
