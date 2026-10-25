@@ -58,6 +58,15 @@ func settingsSet(e *core.RequestEvent) error {
 		return e.BadRequestError("An error occurred while loading the submitted data.", err)
 	}
 
+	// popgres: the nodes of a cluster can't share local files
+	if e.App.Cluster().Enabled() && !event.NewSettings.S3.Enabled {
+		return e.BadRequestError("An error occurred while saving the new settings.", validation.Errors{
+			"s3": validation.Errors{
+				"enabled": validation.NewError("validation_cluster_s3_required", "The S3 storage is required in cluster mode."),
+			},
+		})
+	}
+
 	return e.App.OnSettingsUpdateRequest().Trigger(event, func(e *core.SettingsUpdateRequestEvent) error {
 		err := e.App.Save(e.NewSettings)
 		if err != nil {

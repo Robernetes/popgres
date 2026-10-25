@@ -279,6 +279,12 @@ func (p *plugin) registerHooks() error {
 		}
 	}
 
+	// popgres: restarting a single node on a local file change is not supported in cluster mode
+	if p.config.HooksWatch && p.app.Cluster().Enabled() {
+		color.Yellow("The hooksWatch option is disabled in cluster mode.")
+		p.config.HooksWatch = false
+	}
+
 	// initialize the hooks dir watcher
 	if p.config.HooksWatch {
 		if err := p.watchHooks(); err != nil {

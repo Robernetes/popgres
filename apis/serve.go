@@ -63,6 +63,10 @@ func Serve(app core.App, config ServeConfig) error {
 		config.AllowedOrigins = []string{"*"}
 	}
 
+	if err := checkClusterServeConfig(app, config); err != nil {
+		return err
+	}
+
 	// ensure that the latest migrations are applied before starting the server
 	err := app.RunAllMigrations()
 	if err != nil {

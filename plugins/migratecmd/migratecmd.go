@@ -26,6 +26,7 @@ import (
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/inflector"
 	"github.com/Robernetes/popgres/tools/osutils"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -76,6 +77,12 @@ func Register(app core.App, rootCmd *cobra.Command, config Config) error {
 	// attach the migrate command
 	if rootCmd != nil {
 		rootCmd.AddCommand(p.createCommand())
+	}
+
+	// popgres: the migration files are written on the local disk of a single node
+	if p.config.Automigrate && p.app.Cluster().Enabled() {
+		color.Yellow("The automigrate option is disabled in cluster mode.")
+		p.config.Automigrate = false
 	}
 
 	// watch for collection changes
