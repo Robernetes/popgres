@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Robernetes/popgres/tools/archive"
+	"github.com/pocketbase/dbx"
 )
 
 const (
@@ -103,7 +104,11 @@ func runPgTool(ctx context.Context, name string, env string, dsn string, args ..
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, bin, append(args, "--dbname", conn)...)
+	if dsn != "" {
+		args = append(args, "--dbname", conn)
+	}
+
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = os.Environ()
 	if password != "" {
 		cmd.Env = append(cmd.Env, "PGPASSWORD="+password)
@@ -131,7 +136,35 @@ func dumpDatabase(ctx context.Context, dsn string, outPath string) error {
 
 // restoreDatabaseDump restores a custom format pg_dump into the specified
 // database (the existing objects of the dump are dropped first).
+//
+// The extensions of the dump are not dropped and recreated by pg_restore
+// because they are usually owned by a superuser (eg. on managed Postgres
+// services the app role can't drop them). They are created instead with
+// "CREATE EXTENSION IF NOT EXISTS" before the restore.
 func restoreDatabaseDump(ctx context.Context, dsn string, dumpPath string) error {
+	listPath := dumpPath + ".list"
+	defer os.Remove(listPath)
+
+	err := runPgTool(ctx, "pg_restore", PgRestoreEnv, "", "--list", "--file", listPath, dumpPath)
+	if err != nil {
+		return err
+	}
+
+	rawList, err := os.ReadFile(listPath)
+	if err != nil {
+		return err
+	}
+
+	list, extensions := withoutExtensionEntries(string(rawList))
+
+	if err := os.WriteFile(listPath, []byte(list), 0o600); err != nil {
+		return err
+	}
+
+	if err := ensureExtensions(ctx, dsn, extensions); err != nil {
+		return err
+	}
+
 	return runPgTool(ctx, "pg_restore", PgRestoreEnv, dsn,
 		"--clean",
 		"--if-exists",
@@ -139,8 +172,60 @@ func restoreDatabaseDump(ctx context.Context, dsn string, dumpPath string) error
 		"--no-privileges",
 		"--single-transaction",
 		"--exit-on-error",
+		"--use-list", listPath,
 		dumpPath,
 	)
+}
+
+var (
+	// eg. "3; 3079 16386 EXTENSION - vector " (dumpId; tableoid oid type schema name owner)
+	tocExtensionRegex = regexp.MustCompile(`^\s*\d+;\s+\d+\s+\d+\s+EXTENSION\s+\S+\s+(\S+)`)
+
+	// eg. "4296; 0 0 COMMENT - EXTENSION vector "
+	tocExtensionCommentRegex = regexp.MustCompile(`^\s*\d+;\s+\d+\s+\d+\s+COMMENT\s+\S+\s+EXTENSION\s+`)
+)
+
+// withoutExtensionEntries returns the pg_restore list without the
+// extension entries and the names of the removed extensions.
+func withoutExtensionEntries(list string) (string, []string) {
+	lines := strings.Split(list, "\n")
+	result := make([]string, 0, len(lines))
+	extensions := []string{}
+
+	for _, line := range lines {
+		if m := tocExtensionRegex.FindStringSubmatch(line); len(m) == 2 {
+			extensions = append(extensions, m[1])
+			continue
+		}
+		if tocExtensionCommentRegex.MatchString(line) {
+			continue
+		}
+		result = append(result, line)
+	}
+
+	return strings.Join(result, "\n"), extensions
+}
+
+// ensureExtensions creates the specified extensions if they don't exist.
+func ensureExtensions(ctx context.Context, dsn string, extensions []string) error {
+	if len(extensions) == 0 {
+		return nil
+	}
+
+	db, err := dbx.Open("pgx", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	for _, name := range extensions {
+		_, err := db.NewQuery("CREATE EXTENSION IF NOT EXISTS " + db.QuoteSimpleTableName(name)).WithContext(ctx).Execute()
+		if err != nil {
+			return fmt.Errorf("failed to create the %q extension of the backup (it may require a superuser): %w", name, err)
+		}
+	}
+
+	return nil
 }
 
 // RestoreBackupArchive restores a popgres backup zip archive created with
