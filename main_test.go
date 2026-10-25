@@ -10,6 +10,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// the embedded Postgres tests could run without a Postgres server
+	// (eg. the CI job on the operating systems without Postgres)
+	if os.Getenv(tests.TestDatabaseURLEnv) == "" && os.Getenv("POPGRES_TEST_EMBEDDED") != "" {
+		os.Exit(m.Run())
+	}
+
 	// the apps of this package are created from the DATABASE_URL env variable
 	db, err := tests.NewTestDatabase()
 	if err != nil {

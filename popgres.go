@@ -2,8 +2,10 @@ package popgres
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -37,6 +39,9 @@ type PocketBase struct {
 	encryptionEnvFlag string
 	queryTimeout      int
 	hideStartBanner   bool
+
+	// devPostgres is the embedded Postgres of the dev mode (if used)
+	devPostgres *devPostgres
 
 	// RootCmd is the main console command
 	RootCmd *cobra.Command
@@ -126,6 +131,16 @@ func NewWithConfig(config Config) *PocketBase {
 	// (errors are ignored, since the full flags parsing happens on Execute())
 	pb.eagerParseFlags(&config)
 
+	// popgres: the embedded Postgres of the dev mode (started before the app bootstrap)
+	if shouldUseDevPostgres(pb.devFlag, config.DatabaseURL) {
+		if dp, err := newDevPostgres(pb.dataDirFlag); err == nil {
+			pb.devPostgres = dp
+			config.DatabaseURL = dp.URL()
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}
+
 	// initialize the app instance
 	pb.App = core.NewBaseApp(core.BaseAppConfig{
 		IsDev:            pb.devFlag,
@@ -154,6 +169,7 @@ func (pb *PocketBase) Start() error {
 	pb.RootCmd.AddCommand(cmd.NewSuperuserCommand(pb))
 	pb.RootCmd.AddCommand(cmd.NewServeCommand(pb, !pb.hideStartBanner))
 	pb.RootCmd.AddCommand(cmd.NewRestoreCommand(pb))
+	pb.RootCmd.AddCommand(newDevCommand(pb))
 
 	return pb.Execute()
 }
@@ -165,8 +181,14 @@ func (pb *PocketBase) Start() error {
 // system commands!
 func (pb *PocketBase) Execute() error {
 	if !pb.skipBootstrap() {
+		if pb.devPostgres != nil {
+			if err := pb.startDevPostgres(); err != nil {
+				return err
+			}
+		}
+
 		if err := pb.Bootstrap(); err != nil {
-			return err
+			return errors.Join(err, pb.stopDevPostgres())
 		}
 	}
 
@@ -196,8 +218,35 @@ func (pb *PocketBase) Execute() error {
 	event := new(core.TerminateEvent)
 	event.App = pb
 	return pb.OnTerminate().Trigger(event, func(e *core.TerminateEvent) error {
-		return errors.Join(e.App.ClearBootstrap(), execErr)
+		return errors.Join(e.App.ClearBootstrap(), pb.stopDevPostgres(), execErr)
 	})
+}
+
+func (pb *PocketBase) startDevPostgres() error {
+	if !pb.hideStartBanner {
+		fmt.Println("Starting the embedded Postgres of the dev mode (the first start downloads it)...")
+	}
+
+	if err := pb.devPostgres.Start(); err != nil {
+		return err
+	}
+
+	// the embedded binaries don't include pg_dump
+	if !pb.hideStartBanner && os.Getenv(core.PgDumpEnv) == "" {
+		if _, err := exec.LookPath("pg_dump"); err != nil {
+			fmt.Println("The embedded Postgres doesn't include pg_dump, the backups are not available (install the Postgres client tools to enable them).")
+		}
+	}
+
+	return nil
+}
+
+func (pb *PocketBase) stopDevPostgres() error {
+	if pb.devPostgres == nil {
+		return nil
+	}
+
+	return pb.devPostgres.Stop()
 }
 
 // eagerParseFlags parses the global app flags before calling pb.RootCmd.Execute().
@@ -221,7 +270,7 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		&pb.devFlag,
 		"dev",
 		config.DefaultDev,
-		"enable dev mode, aka. printing logs and sql statements to the console",
+		"enable dev mode, aka. printing logs and sql statements to the console\n(without a DATABASE_URL it starts an embedded Postgres in the data directory)",
 	)
 
 	pb.RootCmd.PersistentFlags().IntVar(
@@ -252,6 +301,11 @@ func (pb *PocketBase) skipBootstrap() bool {
 
 	if pb.IsBootstrapped() {
 		return true // already bootstrapped
+	}
+
+	// popgres: the dev commands don't need the database
+	if isDevCommand(pb.RootCmd) {
+		return true
 	}
 
 	cmd, _, err := pb.RootCmd.Find(os.Args[1:])
