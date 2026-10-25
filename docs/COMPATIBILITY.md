@@ -94,6 +94,16 @@ The result columns are described by Postgres:
 - The backups require `pg_dump` (and `pg_restore` to restore) in the `PATH`, with the same or a newer major version than the server. The paths can be changed with `POPGRES_PG_DUMP` and `POPGRES_PG_RESTORE`.
 - A backup can be restored only from the command line with `popgres restore <backup> --yes` (stop all the app instances first). The restore API (`POST /api/backups/{key}/restore`) and the dashboard button return an error.
 
+## Multiple instances
+
+popgres can run multiple instances with the same database (see [CLUSTER.md](CLUSTER.md)). This adds a few differences even for a single instance:
+
+- `GET /api/crons` lists the `__popgresClusterCleanup__` system job, which deletes the expired rows of the cluster tables every 5 minutes.
+- The database has the `UNLOGGED` tables `_kv_ttl`, `_cron_runs`, `_rate_limits` and `_realtime_events`.
+- The resend timeouts of the password reset and verification emails and the Apple OAuth2 user name are stored in the `_kv_ttl` table instead of the app memory store (`$app.store()`).
+
+In cluster mode (`POPGRES_CLUSTER=true`) the realtime client ids start with the id of their node (`<node>_<random>`, with the same length of 40 characters).
+
 ## Removed features
 
 - The `__pbDBOptimize__` cron job (`PRAGMA optimize`, `VACUUM`). Postgres autovacuum is used instead, so the job is not listed by `GET /api/crons`.
