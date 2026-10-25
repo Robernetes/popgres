@@ -1,6 +1,7 @@
 import { settingsSidebar } from "../settingsSidebar";
 import { batchAccordion } from "./batchAccordion";
 import { rateLimitAccordion, sortRules } from "./rateLimitAccordion";
+import { realtimeAccordion } from "./realtimeAccordion";
 import { superuserAccordion } from "./superuserAccordion";
 import { trustedProxyAccordion } from "./trustedProxyAccordion";
 
@@ -234,6 +235,7 @@ export function pageApplicationSettings() {
                             () => trustedProxyAccordion(data),
                             () => rateLimitAccordion(data),
                             () => superuserAccordion(data),
+                            () => realtimeAccordion(),
                         ),
                         t.div(
                             { className: "col-lg-12" },
