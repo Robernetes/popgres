@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Robernetes/popgres/tools/dbutils"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pocketbase/dbx"
 )
@@ -66,6 +67,13 @@ func OpenTestPgDB() (*dbx.DB, func(), error) {
 		return nil, nil, err
 	}
 	db.DB().SetMaxOpenConns(2)
+
+	// the popgres helper SQL functions (json, strftime, etc.)
+	if _, err := db.NewQuery(dbutils.PostgresFunctionsSQL).Execute(); err != nil {
+		db.Close()
+		dropDB()
+		return nil, nil, err
+	}
 
 	return db, func() {
 		db.Close()

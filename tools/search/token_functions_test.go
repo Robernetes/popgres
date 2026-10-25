@@ -117,7 +117,7 @@ func TestTokenFunctionsGeoDistance(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackDisabled,
-				Identifier:   `(6371 * acos(min(1, max(-1, cos(radians({:latA})) * cos(radians({:latB})) * cos(radians({:lonB}) - radians({:lonA})) + sin(radians({:latA})) * sin(radians({:latB}))))))`,
+				Identifier:   `(6371 * acos(LEAST(1, GREATEST(-1, cos(radians({:latA})) * cos(radians({:latB})) * cos(radians({:lonB}) - radians({:lonA})) + sin(radians({:latA})) * sin(radians({:latB}))))))`,
 				Params: map[string]any{
 					"lonA": 1,
 					"latA": 2,
@@ -138,7 +138,7 @@ func TestTokenFunctionsGeoDistance(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackDisabled,
-				Identifier:   `(6371 * acos(min(1, max(-1, cos(radians({:latA})) * cos(radians({:latB})) * cos(radians({:lonB}) - radians({:lonA})) + sin(radians({:latA})) * sin(radians({:latB}))))))`,
+				Identifier:   `(6371 * acos(LEAST(1, GREATEST(-1, cos(radians({:latA})) * cos(radians({:latB})) * cos(radians({:lonB}) - radians({:lonA})) + sin(radians({:latA})) * sin(radians({:latB}))))))`,
 				Params: map[string]any{
 					"lonA": "null",
 					"latA": 2,
@@ -319,7 +319,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format})`,
+				Identifier:   `popgres_strftime({:format})`,
 				Params:       map[string]any{"format": "abc"},
 			},
 			false,
@@ -356,7 +356,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format},{:time})`,
+				Identifier:   `popgres_strftime({:format},{:time})`,
 				Params:       map[string]any{"format": "1", "time": "2"},
 			},
 			false,
@@ -370,7 +370,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format},{:time})`,
+				Identifier:   `popgres_strftime({:format},{:time})`,
 				Params:       map[string]any{"format": "1", "time": "2"},
 			},
 			false,
@@ -384,7 +384,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format},{:time})`,
+				Identifier:   `popgres_strftime({:format},{:time})`,
 				Params:       map[string]any{"format": "1", "time": "2"},
 			},
 			false,
@@ -451,7 +451,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format},{:time},{:m1},{:m2})`,
+				Identifier:   `popgres_strftime({:format},{:time},{:m1},{:m2})`,
 				Params:       map[string]any{"format": "1", "time": "2", "m1": "3", "m2": "4"},
 			},
 			false,
@@ -476,7 +476,7 @@ func TestTokenFunctionsStrftime(t *testing.T) {
 			baseTokenResolver,
 			&ResolverResult{
 				NullFallback: NullFallbackEnforced,
-				Identifier:   `strftime({:format},{:time},{:m1},{:m2},{:m3},{:m4},{:m5},{:m6},{:m7},{:m8})`,
+				Identifier:   `popgres_strftime({:format},{:time},{:m1},{:m2},{:m3},{:m4},{:m5},{:m6},{:m7},{:m8})`,
 				Params: map[string]any{
 					"format": "1",
 					"time":   "2",

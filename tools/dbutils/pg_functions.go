@@ -1,12 +1,98 @@
-package migrations
+package dbutils
 
-// popgresStrftimeFunctions creates the popgres_strftime SQL functions used by the
+// The SQL functions used by the Postgres expressions of this package
+// (and by the strftime/geoDistance filter functions).
+//
+// They are created by the popgres system migrations in the main and in the logs schema.
+
+// PostgresJSONFunctionsSQL creates the json helper functions used by the
+// tools/dbutils json expressions (in the main and in the logs schema).
+const PostgresJSONFunctionsSQL = `
+	-- note: the text overloads are plpgsql because a non inlined sql function
+	-- is planned with its argument as constant and the planner could evaluate
+	-- the v::jsonb cast of a CASE branch that is never taken (and fail)
+
+	-- popgres_jsonb normalizes a column value to jsonb
+	-- (valid json text is parsed and any other value is converted with to_jsonb).
+	CREATE OR REPLACE FUNCTION popgres_jsonb(v JSONB) RETURNS JSONB
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT v $$;
+
+	CREATE OR REPLACE FUNCTION popgres_jsonb(v TEXT) RETURNS JSONB
+	LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+	BEGIN
+		IF v IS JSON THEN
+			RETURN v::jsonb;
+		END IF;
+		RETURN to_jsonb(v);
+	END
+	$$;
+
+	CREATE OR REPLACE FUNCTION popgres_jsonb(v ANYELEMENT) RETURNS JSONB
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT to_jsonb(v) $$;
+
+	-- popgres_json_array normalizes a column value to a jsonb array
+	-- (a non-array value is wrapped in a single element array).
+	CREATE OR REPLACE FUNCTION popgres_json_array(v JSONB) RETURNS JSONB
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+		SELECT CASE WHEN jsonb_typeof(v) = 'array' THEN v ELSE jsonb_build_array(v) END
+	$$;
+
+	CREATE OR REPLACE FUNCTION popgres_json_array(v TEXT) RETURNS JSONB
+	LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+	BEGIN
+		IF v IS JSON ARRAY THEN
+			RETURN v::jsonb;
+		END IF;
+		RETURN jsonb_build_array(v);
+	END
+	$$;
+
+	CREATE OR REPLACE FUNCTION popgres_json_array(v ANYELEMENT) RETURNS JSONB
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT jsonb_build_array(v) $$;
+
+	-- popgres_json_array_length returns the number of elements of a json array
+	-- column value (0 for NULL and empty string, 1 for any other non-array value).
+	CREATE OR REPLACE FUNCTION popgres_json_array_length(v JSONB) RETURNS INTEGER
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+		SELECT CASE
+			WHEN v IS NULL THEN 0
+			WHEN jsonb_typeof(v) = 'array' THEN jsonb_array_length(v)
+			ELSE 1
+		END
+	$$;
+
+	CREATE OR REPLACE FUNCTION popgres_json_array_length(v TEXT) RETURNS INTEGER
+	LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+	BEGIN
+		IF v IS NULL OR v = '' THEN
+			RETURN 0;
+		END IF;
+		IF v IS JSON ARRAY THEN
+			RETURN jsonb_array_length(v::jsonb);
+		END IF;
+		RETURN 1;
+	END
+	$$;
+
+	CREATE OR REPLACE FUNCTION popgres_json_array_length(v ANYELEMENT) RETURNS INTEGER
+	LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+		SELECT CASE WHEN v IS NULL THEN 0 ELSE 1 END
+	$$;
+`
+
+const DropPostgresJSONFunctionsSQL = `
+	DROP FUNCTION IF EXISTS popgres_json_array_length(JSONB), popgres_json_array_length(TEXT), popgres_json_array_length(ANYELEMENT);
+	DROP FUNCTION IF EXISTS popgres_json_array(JSONB), popgres_json_array(TEXT), popgres_json_array(ANYELEMENT);
+	DROP FUNCTION IF EXISTS popgres_jsonb(JSONB), popgres_jsonb(TEXT), popgres_jsonb(ANYELEMENT);
+`
+
+// PostgresStrftimeFunctionsSQL creates the popgres_strftime SQL functions used by the
 // strftime() filter function (an emulation of the SQLite strftime with its
 // time values, modifiers and format substitutions).
 //
 // The functions run with the UTC time zone (the same as SQLite) and return
 // NULL for invalid time values, modifiers or format substitutions.
-const popgresStrftimeFunctions = `
+const PostgresStrftimeFunctionsSQL = `
 	-- popgres_strftime_apply applies the SQLite date modifiers to the provided timestamp.
 	CREATE OR REPLACE FUNCTION popgres_strftime_apply(ts TIMESTAMPTZ, mods TEXT[]) RETURNS TIMESTAMPTZ
 	LANGUAGE plpgsql STABLE PARALLEL SAFE
@@ -223,7 +309,7 @@ const popgresStrftimeFunctions = `
 	$$;
 `
 
-const dropPopgresStrftimeFunctions = `
+const DropPostgresStrftimeFunctionsSQL = `
 	DROP FUNCTION IF EXISTS popgres_to_number(JSONB);
 	DROP FUNCTION IF EXISTS
 		popgres_strftime(TEXT),
@@ -232,3 +318,9 @@ const dropPopgresStrftimeFunctions = `
 		popgres_strftime(TEXT, DOUBLE PRECISION), popgres_strftime(TEXT, DOUBLE PRECISION, VARIADIC TEXT[]);
 	DROP FUNCTION IF EXISTS popgres_strftime_format(TEXT, TIMESTAMPTZ), popgres_strftime_value(TEXT, TEXT[]), popgres_strftime_apply(TIMESTAMPTZ, TEXT[]);
 `
+
+// PostgresFunctionsSQL creates all popgres helper SQL functions.
+const PostgresFunctionsSQL = PostgresJSONFunctionsSQL + PostgresStrftimeFunctionsSQL
+
+// DropPostgresFunctionsSQL drops all popgres helper SQL functions.
+const DropPostgresFunctionsSQL = DropPostgresStrftimeFunctionsSQL + DropPostgresJSONFunctionsSQL

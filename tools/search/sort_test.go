@@ -31,7 +31,8 @@ func TestSortFieldBuildExpr(t *testing.T) {
 		// special @random field (ignore direction)
 		{search.SortField{"@random", search.SortDesc}, false, "RANDOM()"},
 		// special _rowid_ field
-		{search.SortField{"@rowid", search.SortDesc}, false, "[[_rowid_]] DESC"},
+		// popgres: there is no rowid in Postgres
+		{search.SortField{"@rowid", search.SortDesc}, true, ""},
 	}
 
 	for _, s := range scenarios {

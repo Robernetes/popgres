@@ -45,8 +45,14 @@ func normalizeOperands(left, right *ResolverResult, convertJSON bool) (*Resolver
 		l.Identifier = jsonbOperand(&l)
 		l.JSON = true
 	case !l.JSON && !r.JSON && isPlainParam(&l) && isPlainParam(&r):
-		l.Identifier = castedParam(&l)
-		r.Identifier = castedParam(&r)
+		// cast only params of the same kind (eg. 10 > 9); the mixed
+		// values (eg. 1 = 'a') are compared as text (they are never equal in SQLite)
+		lCasted := castedParam(&l)
+		rCasted := castedParam(&r)
+		if paramKind(&l) == paramKind(&r) {
+			l.Identifier = lCasted
+			r.Identifier = rCasted
+		}
 	}
 
 	l.Params = stringifyParams(l.Params)
@@ -80,6 +86,18 @@ func castedParam(result *ResolverResult) string {
 		return result.Identifier + "::boolean"
 	default:
 		return result.Identifier
+	}
+}
+
+// paramKind returns the kind of the plain param value ("number", "bool" or "text").
+func paramKind(result *ResolverResult) string {
+	switch plainParamValue(result).(type) {
+	case float64, float32, int, int64, int32, int16, int8, uint, uint64, uint32, uint16, uint8:
+		return "number"
+	case bool:
+		return "bool"
+	default:
+		return "text"
 	}
 }
 

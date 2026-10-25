@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tools/dbutils"
 )
 
 func init() {
@@ -25,7 +26,7 @@ func init() {
 
 				-- the json helpers are created in the _aux schema too because
 				-- the logs could be stored in a separate database
-			` + popgresJSONFunctions + popgresStrftimeFunctions).Execute()
+			` + dbutils.PostgresFunctionsSQL).Execute()
 
 			return execErr
 		},
