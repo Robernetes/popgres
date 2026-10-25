@@ -143,7 +143,7 @@ function recordFilePickerModal(settings = defaultSettings) {
                 requestKey: RECORDS_REQUEST_KEY,
                 filter: normalizedFilter,
                 skipTotal: 1,
-                sort: data.activeCollection.type != "view" ? "-@rowid" : "",
+                sort: app.utils.defaultRecordsSort(data.activeCollection),
             });
 
             data.lastRecordsPage = result.page;

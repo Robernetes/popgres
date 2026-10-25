@@ -1390,6 +1390,21 @@ const utils = {
 
     // ---------------------------------------------------------------
 
+    /**
+     * Returns the default records list sort of the provided collection
+     * (popgres has no "@rowid" so the newest records are listed first by created and id).
+     *
+     * @param  {Object} collection
+     * @return {string}
+     */
+    defaultRecordsSort(collection) {
+        if (!collection || collection.type == "view") {
+            return "";
+        }
+
+        return collection.fields?.find((f) => f.name == "created") ? "-created,-id" : "-id";
+    },
+
     fallbackFieldIcon: "ri-puzzle-line",
     fallbackCollectionIcon: "ri-puzzle-line",
     fallbackProviderIcon: "ri-puzzle-line",

@@ -119,8 +119,8 @@ window.app.components.recordsList = function(propsArg = {}) {
                 ? props.collection.fields.find((f) => !f.hidden && f.name === sortMatch[2])
                 : null;
             if (!sortField) {
-                // default fallback to -@rowid when available
-                normalizedSort = props.collection.type != "view" ? "-@rowid" : undefined;
+                // default fallback to the newest records first (when available)
+                normalizedSort = app.utils.defaultRecordsSort(props.collection) || undefined;
             } else if (sortField?.type == "relation") {
                 const sortCollection = app.store.collections?.find((c) => c.id == sortField.collectionId);
 

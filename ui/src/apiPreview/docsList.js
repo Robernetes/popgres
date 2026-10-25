@@ -207,8 +207,6 @@ export function docsList(collection) {
                             null,
                             "In addition to the collection non-hidden fields, the following special sort fields could be also used: ",
                             t.code(null, "@random"),
-                            " ",
-                            t.code({ hidden: () => collection.type == "view" }, "@rowid"),
                             ".",
                         ),
                     ),
