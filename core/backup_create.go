@@ -20,7 +20,6 @@ import (
 	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/security"
 	"github.com/Robernetes/popgres/tools/store"
-	"github.com/pocketbase/dbx"
 )
 
 var errIsDir = errors.New("the specified path is a directory and not a regular file")
@@ -40,8 +39,8 @@ var errIsDir = errors.New("the specified path is a directory and not a regular f
 // When using S3 storage for the uploaded collection files, you have to
 // take care manually to backup those since they are not part of the pb_data.
 //
-// DB write locks are minimal and isolated only for the duration of the
-// VACUUM INTO statement that creates a live copy of the app database.
+// The databases are copied with pg_dump (a consistent snapshot that doesn't
+// block the writes), so the pg_dump binary must be available (see [ErrPgToolsMissing]).
 //
 // The backup works as follow:
 //
@@ -49,13 +48,13 @@ var errIsDir = errors.New("the specified path is a directory and not a regular f
 //     In case a file is being deleted while the backup is still ongoing,
 //     we directly copy it in the zip before the deletion and mark it as "excluded".
 //
-//  2. Copy the main database with VACUUM INTO, write it in the zip and mark it as "excluded".
+//  2. Dump the main database with pg_dump, write it in the zip and mark it as "excluded".
 //
 //  3. Stop listening for DELETED files.
 //
 //  4. Start listening for NEW storage files and mark all new files from this point as "excluded".
 //
-//  5. Copy the logs database with VACUUM INTO, write it in the zip and mark it as "excluded".
+//  5. Dump the separate logs database (if any) with pg_dump, write it in the zip and mark it as "excluded".
 //
 //  6. Copy the rest of the pb_data files in the zip while ignoring the "excluded" list (it should be concurrent safe).
 //
@@ -202,12 +201,20 @@ func createZip(be *BackupEvent, tempZipPath string) error {
 		},
 	})
 
-	// copy data.db
+	urls, ok := be.App.(interface {
+		DatabaseURL() string
+		LogsDatabaseURL() string
+	})
+	if !ok {
+		return errors.New("the app doesn't expose its database connection strings")
+	}
+
+	// dump the main database
 	// ---------------------------------------------------------------
 	dataStartTime := time.Now()
-	tempDataDBPath := filepath.Join(localTempDir, dataDBFilename)
+	tempDataDBPath := filepath.Join(localTempDir, backupDataDumpFilename)
 
-	_, err = be.App.ConcurrentDB().NewQuery("VACUUM INTO {:path}").Bind(dbx.Params{"path": tempDataDBPath}).Execute()
+	err = dumpDatabase(be.Context, urls.DatabaseURL(), tempDataDBPath)
 	if err != nil {
 		return err
 	}
@@ -216,20 +223,18 @@ func createZip(be *BackupEvent, tempZipPath string) error {
 	be.App.onFilesystemDelete().Unbind(tempFilesHookId)
 
 	be.App.Logger().Debug(
-		logPrefix+dataDBFilename+" copy completed",
+		logPrefix+backupDataDumpFilename+" dump completed",
 		slog.Float64("execTime", float64(time.Since(dataStartTime))/float64(time.Millisecond)),
 	)
 
-	err = zipper.copyFileToZip(tempDataDBPath, dataDBFilename)
+	err = zipper.copyFileToZip(tempDataDBPath, backupDataDumpFilename)
 	if err != nil {
 		_ = os.Remove(tempDataDBPath)
 		return err
 	}
 	_ = os.Remove(tempDataDBPath)
 
-	excluded.Set(normalizePathExclude(dataDBFilename), struct{}{})
-	excluded.Set(normalizePathExclude(dataDBFilename+"-wal"), struct{}{})
-	excluded.Set(normalizePathExclude(dataDBFilename+"-shm"), struct{}{})
+	excluded.Set(normalizePathExclude(backupDataDumpFilename), struct{}{})
 
 	// init to-be-created files tracker
 	// ---------------------------------------------------------------
@@ -248,38 +253,32 @@ func createZip(be *BackupEvent, tempZipPath string) error {
 		},
 	})
 
-	// copy auxiliary.db
+	// dump the separate logs database
+	// (the logs are part of the main dump when they are in the same database)
 	// ---------------------------------------------------------------
-	auxStartTime := time.Now()
-	tempAuxDBPath := filepath.Join(localTempDir, auxDBFilename)
+	if logsURL := urls.LogsDatabaseURL(); logsURL != "" && logsURL != urls.DatabaseURL() {
+		auxStartTime := time.Now()
+		tempAuxDBPath := filepath.Join(localTempDir, backupAuxDumpFilename)
 
-	_, err = be.App.AuxConcurrentDB().NewQuery("VACUUM INTO {:path}").Bind(dbx.Params{"path": tempAuxDBPath}).Execute()
-	if err != nil {
-		return err
-	}
+		err = dumpDatabase(be.Context, logsURL, tempAuxDBPath)
+		if err != nil {
+			return err
+		}
 
-	be.App.Logger().Debug(
-		logPrefix+auxDBFilename+" copy completed",
-		slog.Float64("execTime", float64(time.Since(auxStartTime))/float64(time.Millisecond)),
-	)
+		be.App.Logger().Debug(
+			logPrefix+backupAuxDumpFilename+" dump completed",
+			slog.Float64("execTime", float64(time.Since(auxStartTime))/float64(time.Millisecond)),
+		)
 
-	err = zipper.copyFileToZip(tempAuxDBPath, auxDBFilename)
-	if err != nil {
+		err = zipper.copyFileToZip(tempAuxDBPath, backupAuxDumpFilename)
+		if err != nil {
+			_ = os.Remove(tempAuxDBPath)
+			return err
+		}
 		_ = os.Remove(tempAuxDBPath)
-		return err
 	}
-	_ = os.Remove(tempAuxDBPath)
 
-	excluded.Set(normalizePathExclude(auxDBFilename), struct{}{})
-	excluded.Set(normalizePathExclude(auxDBFilename+"-wal"), struct{}{})
-	excluded.Set(normalizePathExclude(auxDBFilename+"-shm"), struct{}{})
-
-	// try to run manual checkpoints to ensure that all wal writes during the
-	// previous VACUUM INTO are transferred and don't accumulate
-	// (errors are ignore because some drivers may not support the wal_checkpoint pragma)
-	// ---------------------------------------------------------------
-	_, _ = be.App.NonconcurrentDB().NewQuery("PRAGMA wal_checkpoint(TRUNCATE)").Execute()
-	_, _ = be.App.AuxNonconcurrentDB().NewQuery("PRAGMA wal_checkpoint(TRUNCATE)").Execute()
+	excluded.Set(normalizePathExclude(backupAuxDumpFilename), struct{}{})
 
 	// copy the rest of the pb_data
 	// ---------------------------------------------------------------

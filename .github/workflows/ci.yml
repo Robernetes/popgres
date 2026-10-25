@@ -90,6 +90,15 @@ jobs:
           done
           docker exec popgres_ci pg_isready -h 127.0.0.1 -U postgres
 
+      # pg_dump/pg_restore for the backups (same or newer major version than the server)
+      - name: Install the Postgres client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          pg_dump --version
+
       - name: Prepare the test databases
         run: |
           docker cp scripts/ci-db-setup.sql popgres_ci:/tmp/ci-db-setup.sql

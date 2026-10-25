@@ -1,0 +1,217 @@
+package core
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/Robernetes/popgres/tools/archive"
+)
+
+const (
+	// backupDataDumpFilename is the name of the main database dump in a backup archive.
+	backupDataDumpFilename = "data.dump"
+
+	// backupAuxDumpFilename is the name of the separate logs database
+	// dump in a backup archive (if POPGRES_LOGS_URL is used).
+	backupAuxDumpFilename = "auxiliary.dump"
+
+	// PgDumpEnv and PgRestoreEnv are optional env variables with the
+	// paths of the pg_dump and pg_restore binaries (default to the ones in PATH).
+	PgDumpEnv    = "POPGRES_PG_DUMP"
+	PgRestoreEnv = "POPGRES_PG_RESTORE"
+)
+
+// ErrPgToolsMissing is returned when the pg_dump or pg_restore binary couldn't be found.
+var ErrPgToolsMissing = errors.New("the backups require the pg_dump and pg_restore binaries " +
+	"(same or newer major version than the server) in PATH or in the " + PgDumpEnv + " and " + PgRestoreEnv + " env variables")
+
+// ErrRestoreNotSupported is returned by RestoreBackup because restoring a
+// Postgres database of a running app (or cluster) is not safe.
+var ErrRestoreNotSupported = errors.New("restoring a backup from a running app is not supported, " +
+	"stop the app and use the \"popgres restore <backup>\" command instead")
+
+// DatabaseURL returns the connection string of the main database.
+func (app *BaseApp) DatabaseURL() string {
+	return app.config.DatabaseURL
+}
+
+// LogsDatabaseURL returns the connection string of the logs database
+// (empty if the logs are stored in the main database).
+func (app *BaseApp) LogsDatabaseURL() string {
+	return app.config.LogsDatabaseURL
+}
+
+func pgToolPath(name string, env string) (string, error) {
+	if p := os.Getenv(env); p != "" {
+		return p, nil
+	}
+
+	p, err := exec.LookPath(name)
+	if err != nil {
+		return "", ErrPgToolsMissing
+	}
+
+	return p, nil
+}
+
+var dsnPasswordRegex = regexp.MustCompile(`(?:^|\s)password\s*=\s*('(?:[^'\\]|\\.)*'|\S*)`)
+
+// pgToolConnection returns the connection string to pass as command argument
+// (without the password) and the password that should be passed in the
+// PGPASSWORD env variable (so that it is not visible in the processes list).
+func pgToolConnection(dsn string) (string, string, error) {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		u, err := url.Parse(dsn)
+		if err != nil {
+			return "", "", err
+		}
+
+		var password string
+		if u.User != nil {
+			password, _ = u.User.Password()
+			u.User = url.User(u.User.Username())
+		}
+
+		return u.String(), password, nil
+	}
+
+	var password string
+	if m := dsnPasswordRegex.FindStringSubmatch(dsn); len(m) == 2 {
+		password = strings.Trim(m[1], "'")
+		password = strings.ReplaceAll(strings.ReplaceAll(password, `\'`, `'`), `\\`, `\`)
+	}
+
+	return strings.TrimSpace(dsnPasswordRegex.ReplaceAllString(dsn, " ")), password, nil
+}
+
+func runPgTool(ctx context.Context, name string, env string, dsn string, args ...string) error {
+	bin, err := pgToolPath(name, env)
+	if err != nil {
+		return err
+	}
+
+	conn, password, err := pgToolConnection(dsn)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.CommandContext(ctx, bin, append(args, "--dbname", conn)...)
+	cmd.Env = os.Environ()
+	if password != "" {
+		cmd.Env = append(cmd.Env, "PGPASSWORD="+password)
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+	}
+
+	return nil
+}
+
+// dumpDatabase writes a custom format pg_dump of the specified database to outPath.
+func dumpDatabase(ctx context.Context, dsn string, outPath string) error {
+	return runPgTool(ctx, "pg_dump", PgDumpEnv, dsn,
+		"--format=custom",
+		"--no-owner",
+		"--no-privileges",
+		"--file", outPath,
+	)
+}
+
+// restoreDatabaseDump restores a custom format pg_dump into the specified
+// database (the existing objects of the dump are dropped first).
+func restoreDatabaseDump(ctx context.Context, dsn string, dumpPath string) error {
+	return runPgTool(ctx, "pg_restore", PgRestoreEnv, dsn,
+		"--clean",
+		"--if-exists",
+		"--no-owner",
+		"--no-privileges",
+		"--single-transaction",
+		"--exit-on-error",
+		dumpPath,
+	)
+}
+
+// RestoreBackupArchive restores a popgres backup zip archive created with
+// [App.CreateBackup] into the specified databases and data directory.
+//
+// It is intended to be used only when the app is not running
+// (eg. by the "popgres restore" command).
+//
+// The database objects of the dumps are dropped and recreated, and the
+// local files of the archive (eg. the storage files) replace the ones in dataDir.
+func RestoreBackupArchive(ctx context.Context, zipPath string, databaseURL string, logsDatabaseURL string, dataDir string) error {
+	if databaseURL == "" {
+		return errors.New("missing database connection string")
+	}
+
+	if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	// extract inside the data dir so that the final renames are on the same volume
+	tempDir, err := os.MkdirTemp(dataDir, ".popgres_restore_")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := archive.Extract(zipPath, tempDir); err != nil {
+		return fmt.Errorf("failed to extract the backup: %w", err)
+	}
+
+	dataDump := filepath.Join(tempDir, backupDataDumpFilename)
+	if _, err := os.Stat(dataDump); err != nil {
+		return fmt.Errorf("invalid popgres backup - missing %s", backupDataDumpFilename)
+	}
+
+	if err := restoreDatabaseDump(ctx, databaseURL, dataDump); err != nil {
+		return err
+	}
+	if err := os.Remove(dataDump); err != nil {
+		return err
+	}
+
+	auxDump := filepath.Join(tempDir, backupAuxDumpFilename)
+	if _, err := os.Stat(auxDump); err == nil {
+		target := logsDatabaseURL
+		if target == "" {
+			target = databaseURL
+		}
+		if err := restoreDatabaseDump(ctx, target, auxDump); err != nil {
+			return err
+		}
+		if err := os.Remove(auxDump); err != nil {
+			return err
+		}
+	}
+
+	// replace the local files (only the ones that are part of the backup)
+	entries, err := os.ReadDir(tempDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		target := filepath.Join(dataDir, entry.Name())
+		if err := os.RemoveAll(target); err != nil {
+			return err
+		}
+		if err := os.Rename(filepath.Join(tempDir, entry.Name()), target); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
