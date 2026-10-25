@@ -67,6 +67,25 @@ jobs:
             exit 1
           fi
 
+  # the embedded Postgres of the dev mode ("popgres serve --dev" without a DATABASE_URL)
+  dev:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+
+      - name: Test the embedded Postgres
+        env:
+          POPGRES_TEST_EMBEDDED: '1'
+        run: go test -count=1 -v -run "TestDevPostgres|TestShouldUseDevPostgres|TestResetDevPostgres" .
+
   test:
     runs-on: ubuntu-latest
     strategy:
