@@ -1,7 +1,7 @@
 // Package importer copies the collections and the data of a PocketBase
 // SQLite pb_data directory into a popgres (Postgres) app.
 //
-// It is the only popgres package allowed to depend on a SQLite driver (ADR-0012).
+// It is the only popgres package allowed to depend on a SQLite driver.
 package importer
 
 import (
@@ -428,7 +428,7 @@ func importRecords(txApp core.App, src *dbx.DB, collection *core.Collection) (in
 }
 
 // convertValue converts a SQLite column value to the equivalent Postgres one
-// based on the field type (see ADR-0003).
+// based on the field type.
 func convertValue(field core.Field, value string, valid bool) any {
 	if mv, ok := field.(core.MultiValuer); ok && mv.IsMultiple() {
 		return toJSONArray(value, valid)

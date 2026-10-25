@@ -1,7 +1,7 @@
 // Command popgres-import imports a PocketBase pb_data directory
 // (data.db, auxiliary.db and the local storage files) into a popgres database.
 //
-// It is a separate binary so that the main popgres binary doesn't link any SQLite driver (ADR-0012).
+// It is a separate binary so that the main popgres binary doesn't link any SQLite driver.
 //
 // Usage:
 //
