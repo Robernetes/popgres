@@ -108,7 +108,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y --no-install-recommends postgresql-client-18
-          pg_dump --version
+          # use the version 18 binaries explicitly because the /usr/bin wrappers pick the
+          # version of the runner preinstalled local cluster that listens on the same port
+          echo "POPGRES_PG_DUMP=/usr/lib/postgresql/18/bin/pg_dump" >> "$GITHUB_ENV"
+          echo "POPGRES_PG_RESTORE=/usr/lib/postgresql/18/bin/pg_restore" >> "$GITHUB_ENV"
+          /usr/lib/postgresql/18/bin/pg_dump --version
+          /usr/lib/postgresql/18/bin/pg_restore --version
 
       - name: Prepare the test databases
         run: |
