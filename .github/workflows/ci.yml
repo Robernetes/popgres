@@ -98,10 +98,21 @@ jobs:
           docker exec popgres_ci psql -U postgres -d popgres_test -Atc \
             "select version(), current_setting('wal_level'), (select string_agg(extname, ',') from pg_extension)"
 
-      # For now the inherited SQLite suite runs as the last reference. Once the
-      # Postgres port starts it runs against POPGRES_TEST_URL with the
-      # non-superuser role popgres_app.
+      # Acceptance tests of the current phase against POPGRES_TEST_URL with the
+      # non-superuser role popgres_app (the whole suite runs once it passes on Postgres).
       - name: Test
         env:
           POPGRES_TEST_URL: postgres://popgres_app:${{ env.APP_PASSWORD }}@localhost:5432/popgres_test?sslmode=disable
-        run: go test -count=1 ./...
+        run: make test-accept
+
+      - name: Leftover test databases
+        if: always()
+        run: |
+          docker exec popgres_ci psql -U postgres -Atc "select datname from pg_database where starts_with(datname, 'popgres_t_') or starts_with(datname, 'popgres_fx_')"
+
+      - name: The main binary doesn't link SQLite
+        run: |
+          if go list -deps ./examples/base | grep -E 'modernc.org/sqlite|mattn/go-sqlite3'; then
+            echo "the popgres binary must not depend on a SQLite driver"
+            exit 1
+          fi
