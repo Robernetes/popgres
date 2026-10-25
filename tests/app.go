@@ -100,15 +100,29 @@ func NewTestApp(optTestDataDir ...string) (*TestApp, error) {
 //
 // config.DataDir is cloned for each new test application instance.
 //
-// If config.DatabaseURL is not set, a new empty database is created from the
-// POPGRES_TEST_URL template (see [NewTestDatabase]) and dropped on app.Cleanup().
+// If config.DatabaseURL is not set, a new database with the default test
+// fixtures is created (see [NewFixturesTestDatabase]) and dropped on app.Cleanup().
 //
 // It is the caller's responsibility to call app.Cleanup() when the app is no longer needed.
 func NewTestAppWithConfig(config core.BaseAppConfig) (*TestApp, error) {
+	return newTestAppWithDatabase(config, NewFixturesTestDatabase)
+}
+
+// NewEmptyTestApp creates and initializes a test application instance
+// with an empty database (only the system migrations, without the test fixtures).
+//
+// It is the caller's responsibility to call app.Cleanup() when the app is no longer needed.
+func NewEmptyTestApp() (*TestApp, error) {
+	return newTestAppWithDatabase(core.BaseAppConfig{
+		EncryptionEnv: "pb_test_env",
+	}, NewTestDatabase)
+}
+
+func newTestAppWithDatabase(config core.BaseAppConfig, newDatabase func() (*TestDatabase, error)) (*TestApp, error) {
 	var testDatabase *TestDatabase
 	if config.DatabaseURL == "" {
 		var err error
-		testDatabase, err = NewTestDatabase()
+		testDatabase, err = newDatabase()
 		if err != nil {
 			return nil, err
 		}

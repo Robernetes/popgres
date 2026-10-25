@@ -107,7 +107,7 @@ func canonicalJSON(t *testing.T, raw []byte) string {
 }
 
 func TestBootstrapOnEmptyDatabase(t *testing.T) {
-	app, err := tests.NewTestApp()
+	app, err := tests.NewEmptyTestApp()
 	if err != nil {
 		t.Fatal(err)
 	}

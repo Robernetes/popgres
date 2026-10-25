@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Robernetes/popgres/tools/security"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -46,8 +47,8 @@ type TestDatabase struct {
 	URL string
 }
 
-// NewTestDatabase creates a new empty database from the TestDatabaseURLEnv
-// template database (with all its extensions).
+// NewTestDatabase creates a new empty database (only the extensions and no
+// tables) from the TestDatabaseURLEnv template database.
 //
 // It is the caller's responsibility to call [DropTestDatabase] when the database is no longer needed.
 func NewTestDatabase() (*TestDatabase, error) {
@@ -61,6 +62,16 @@ func NewTestDatabase() (*TestDatabase, error) {
 		return nil, err
 	}
 
+	return newTestDatabaseFrom(templateName)
+}
+
+// newTestDatabaseFrom creates a new test database as a copy of the specified template database.
+func newTestDatabaseFrom(templateName string) (*TestDatabase, error) {
+	templateURL := os.Getenv(TestDatabaseURLEnv)
+	if templateURL == "" {
+		return nil, fmt.Errorf("missing %s env variable (eg. postgres://user:pass@localhost:5433/popgres_test)", TestDatabaseURLEnv)
+	}
+
 	db, err := testAdminDB(templateURL)
 	if err != nil {
 		return nil, err
@@ -68,7 +79,17 @@ func NewTestDatabase() (*TestDatabase, error) {
 
 	name := TestDatabasePrefix + security.RandomStringWithAlphabet(12, "abcdefghijklmnopqrstuvwxyz0123456789")
 
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s TEMPLATE %s", quoteIdent(name), quoteIdent(templateName)))
+	createSQL := fmt.Sprintf("CREATE DATABASE %s TEMPLATE %s", quoteIdent(name), quoteIdent(templateName))
+
+	// the template cannot have other connections during the copy so
+	// retry in case another process is still finishing with it
+	for attempt := 1; ; attempt++ {
+		_, err = db.Exec(createSQL)
+		if !isTemplateBusyError(err) || attempt >= 20 {
+			break
+		}
+		time.Sleep(time.Duration(attempt*50) * time.Millisecond)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create test database %s from %s: %w", name, templateName, err)
 	}
