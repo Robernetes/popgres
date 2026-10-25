@@ -1,0 +1,25 @@
+# Accepted differences between the popgres API responses and the PocketBase v0.40.6 golden files.
+#
+# Format: <golden file path relative to tests/golden/api> <difference path prefix or *> [# reason]
+# Every difference must be explained in docs/COMPATIBILITY.md.
+
+# raw database error messages (see "Database errors")
+apis/TestCollectionCreate/creating_base_collection_with_invalid_indexes.json body.data.indexes.1.message
+apis/TestCollectionTestView/write_query.json body.message
+apis/TestCollectionUpdate/trying_to_update_view_collection_with_invalid_options.json body.data.viewQuery.message
+apis/TestSQLRun/invalid_query.json body.message
+apis/TestSQLRun/multiple_write_queries__transaction_rollback.json body.message
+
+# backups contain a pg_dump instead of the SQLite files (see "Backups")
+apis/TestBackupsList/authorized_as_superuser.json body # the archive sizes
+
+# the __pbDBOptimize__ cron job is removed (see "Removed features")
+apis/TestCronsList/authorized_as_superuser.json body
+
+# SQL console result columns and execution time (see "SQL console")
+apis/TestSQLRun/multiple_read_queries.json body.columns
+apis/TestSQLRun/multiple_read_queries.json body.execTime
+apis/TestSQLRun/query_with_length_equal_to_the_limit.json body.columns
+apis/TestSQLRun/query_with_length_equal_to_the_limit.json body.execTime
+apis/TestSQLRun/superuser.json body.columns
+apis/TestSQLRun/superuser.json body.execTime

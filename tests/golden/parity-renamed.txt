@@ -1,0 +1,18 @@
+# Reference tests (tests/golden/pocketbase-v0.40.6-tests.txt) that were renamed or removed in popgres.
+#
+# Tab separated format: <package> <reference test name> <popgres test name or "-" if removed> [# reason]
+# A renamed reference test is satisfied when the popgres test passes.
+
+./core	TestBaseLockRetry/3_&errors.errorString{s:"table_is_locked"}	-	# the SQLite lock errors are replaced by the retryable Postgres SQLSTATE cases
+./core	TestCollectionSaveViewWrapping/no_wrapping_-_datetime_field	TestCollectionSaveViewWrapping/wrapping_-_datetime_field	# a date column is a timestamptz and the view id is wrapped as text
+./core	TestCollectionSaveViewWrapping/no_wrapping_-_select_field	TestCollectionSaveViewWrapping/wrapping_-_select_field	# a multiple select column is a jsonb and the view id is wrapped as text
+./core	TestCollectionSaveViewWrapping/wrapping_-_expresion	TestCollectionSaveViewWrapping/no_wrapping_-_expresion	# a text literal is a text column in Postgres
+./core	TestCreateViewFieldsWithNumberOnlyInt/total	-	# Postgres has no total() aggregate function
+./core	TestFindFirstExternalAuthByExpr/0_`collectionRef`={:p0}	TestFindFirstExternalAuthByExpr/0_"collectionRef"={:p0}	# the subtest name is the built SQL (double quoted identifiers)
+./core	TestFindFirstExternalAuthByExpr/1_`collectionRef`={:p0}	TestFindFirstExternalAuthByExpr/1_"collectionRef"={:p0}	# the subtest name is the built SQL (double quoted identifiers)
+./core	TestFindFirstExternalAuthByExpr/2_`collectionRef`={:p0}_AND_`provider`={:p1}	TestFindFirstExternalAuthByExpr/2_"collectionRef"={:p0}_AND_"provider"={:p1}	# the subtest name is the built SQL (double quoted identifiers)
+./core/validators	TestNormalizeUniqueIndexError/unique_index_error_but_mismatched_fields	TestNormalizeUniqueIndexError/unique_violation_but_mismatched_fields	# Postgres unique violation errors
+./core/validators	TestNormalizeUniqueIndexError/unique_index_error_but_mismatched_table_name	TestNormalizeUniqueIndexError/unique_violation_but_mismatched_table_name	# Postgres unique violation errors
+./core/validators	TestNormalizeUniqueIndexError/unique_index_error_with_matching_table_name_and_field_starting_with_the_name_of_another_non-unique_field	TestNormalizeUniqueIndexError/unique_violation_with_a_field_name_prefix_of_another_field	# Postgres unique violation errors
+./core/validators	TestNormalizeUniqueIndexError/unique_index_error_with_matching_table_name_and_fields	TestNormalizeUniqueIndexError/unique_violation_with_matching_table_name_and_fields	# Postgres unique violation errors
+./core/validators	TestNormalizeUniqueIndexError/unique_index_error_with_table_name_suffix_matching_the_specified_one	-	# the Postgres error reports the exact table name (the SQLite message parsing for table name suffixes is not needed)

@@ -3,6 +3,8 @@
 //
 // Every reference test must pass or be skipped (itself or one of its parent tests)
 // with a "popgres: <reason>" message documented in docs/COMPATIBILITY.md.
+// The renamed and removed reference tests are listed with their reason in
+// tests/golden/parity-renamed.txt.
 // The missing tests are printed and the command exits with status 1 if there are any.
 //
 //	go test -json ./... | go run ./tests/cmd/parity
@@ -53,12 +55,14 @@ func main() {
 	var (
 		in        string
 		reference string
+		renamed   string
 		verbose   bool
 	)
 
 	flag.StringVar(&in, "in", "", "the go test -json output file (default stdin)")
 	flag.StringVar(&reference, "ref", "tests/golden/pocketbase-v0.40.6-tests.txt", "the reference tests list")
-	flag.BoolVar(&verbose, "v", false, "also list the tests skipped by popgres")
+	flag.StringVar(&renamed, "renamed", "tests/golden/parity-renamed.txt", "the renamed and removed reference tests")
+	flag.BoolVar(&verbose, "v", false, "also list the tests skipped, renamed or removed by popgres")
 	flag.Parse()
 
 	var input io.Reader = os.Stdin
@@ -76,6 +80,11 @@ func main() {
 		fail(err)
 	}
 
+	renames, err := readRenamed(renamed)
+	if err != nil {
+		fail(err)
+	}
+
 	passed, skipped, err := readResults(input)
 	if err != nil {
 		fail(err)
@@ -87,6 +96,16 @@ func main() {
 		if _, ok := passed[key]; ok {
 			continue
 		}
+		if r, ok := renames[key]; ok {
+			if r.removed() {
+				popgresSkips = append(popgresSkips, key+keySeparator+"removed: "+r.reason)
+				continue
+			}
+			if _, ok := passed[r.newKey]; ok {
+				popgresSkips = append(popgresSkips, key+keySeparator+"renamed: "+r.reason)
+				continue
+			}
+		}
 		if reason, ok := skipReason(skipped, key); ok {
 			popgresSkips = append(popgresSkips, key+keySeparator+reason)
 			continue
@@ -95,7 +114,7 @@ func main() {
 	}
 
 	fmt.Printf(
-		"reference: %d, passed: %d, skipped by popgres: %d, missing: %d\n",
+		"reference: %d, passed: %d, skipped, renamed or removed by popgres: %d, missing: %d\n",
 		len(ref),
 		len(ref)-len(missing)-len(popgresSkips),
 		len(popgresSkips),
@@ -115,6 +134,53 @@ func main() {
 	if len(missing) > 0 {
 		os.Exit(1)
 	}
+}
+
+type renamedTest struct {
+	newKey string // empty for the removed tests
+	reason string
+}
+
+func (r renamedTest) removed() bool {
+	return r.newKey == ""
+}
+
+// readRenamed reads the renamed and removed reference tests file
+// (tab separated "<package> <reference name> <new name or -> # <reason>" lines).
+func readRenamed(path string) (map[string]renamedTest, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]renamedTest{}, nil
+		}
+		return nil, err
+	}
+
+	result := map[string]renamedTest{}
+	for i, line := range strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		var reason string
+		if idx := strings.Index(line, "\t#"); idx >= 0 {
+			reason = strings.TrimSpace(line[idx+2:])
+			line = line[:idx]
+		}
+
+		parts := strings.Split(line, keySeparator)
+		if len(parts) != 3 || reason == "" {
+			return nil, fmt.Errorf("%s:%d: expected <package>, <reference name>, <new name or -> and a # reason", path, i+1)
+		}
+
+		r := renamedTest{reason: reason}
+		if parts[2] != "-" {
+			r.newKey = parts[0] + keySeparator + parts[2]
+		}
+		result[parts[0]+keySeparator+parts[1]] = r
+	}
+
+	return result, nil
 }
 
 func readReference(path string) ([]string, error) {

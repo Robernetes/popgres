@@ -34,6 +34,10 @@ The json field values are stored as `jsonb`. Postgres doesn't keep the original 
 - duplicated object keys are removed (the last one is kept);
 - the whitespace between the tokens is not preserved.
 
+### Database errors
+
+The error messages that include a raw database error (eg. an invalid view query, an invalid index or a failed SQL console query) contain the Postgres error instead of the SQLite one, for example `ERROR: syntax error at or near "CREATE" (SQLSTATE 42601)` instead of `SQL logic error: near "CREATE": syntax error (1)`.
+
 ## Filters and sorting
 
 The filter syntax is the same. The differences come from the stricter Postgres type system:
@@ -78,13 +82,19 @@ The custom index expressions must be valid Postgres SQL.
 
 The SQL console (`POST /api/sql`) runs Postgres SQL. The write statements (`INSERT`, `UPDATE`, `CREATE`, `TRUNCATE`, etc.) run in a transaction. When a read query has several statements separated by `;`, they are executed in a transaction and the rows of the last one are returned.
 
+The result columns are described by Postgres:
+
+- an unnamed expression is named by Postgres (`SELECT 1` returns the column `?column?`, SQLite returns `1`);
+- the column `type` is the Postgres type name (eg. `INT4`, `TEXT`), SQLite returns the declared column type or an empty string for the expressions;
+- the column `nullable` is `false` when Postgres doesn't report it (the expressions), SQLite always reports `true`.
+
 ## Backups
 
-- A backup contains a `pg_dump` of the database (`data.dump`, plus `auxiliary.dump` when the logs are in a separate database) and the local files of `pb_data`.
+- A backup contains a `pg_dump` of the database (so the backup sizes differ from the PocketBase ones) (`data.dump`, plus `auxiliary.dump` when the logs are in a separate database) and the local files of `pb_data`.
 - The backups require `pg_dump` (and `pg_restore` to restore) in the `PATH`, with the same or a newer major version than the server. The paths can be changed with `POPGRES_PG_DUMP` and `POPGRES_PG_RESTORE`.
 - A backup can be restored only from the command line with `popgres restore <backup> --yes` (stop all the app instances first). The restore API (`POST /api/backups/{key}/restore`) and the dashboard button return an error.
 
 ## Removed features
 
-- The `__pbDBOptimize__` cron job (`PRAGMA optimize`, `VACUUM`). Postgres autovacuum is used instead.
+- The `__pbDBOptimize__` cron job (`PRAGMA optimize`, `VACUUM`). Postgres autovacuum is used instead, so the job is not listed by `GET /api/crons`.
 - The logs `VACUUM` after their deletion.
