@@ -35,7 +35,99 @@ func (idx Index) IsValid() bool {
 	return idx.IndexName != "" && idx.TableName != "" && len(idx.Columns) > 0
 }
 
-// Build returns a PostgreSQL "CREATE INDEX" SQL string from the current index parts.
+// Build returns a "CREATE INDEX" SQL string from the current index parts.
+//
+// It is the PocketBase (SQLite) format used for the stored collection index
+// definitions; use [Index.BuildPostgres] for the SQL that is executed.
+//
+// Returns empty string if idx.IsValid() is false.
+func (idx Index) Build() string {
+	if !idx.IsValid() {
+		return ""
+	}
+
+	var str strings.Builder
+
+	str.WriteString("CREATE ")
+
+	if idx.Unique {
+		str.WriteString("UNIQUE ")
+	}
+
+	str.WriteString("INDEX ")
+
+	if idx.Optional {
+		str.WriteString("IF NOT EXISTS ")
+	}
+
+	if idx.SchemaName != "" {
+		str.WriteString("`")
+		str.WriteString(idx.SchemaName)
+		str.WriteString("`.")
+	}
+
+	str.WriteString("`")
+	str.WriteString(idx.IndexName)
+	str.WriteString("` ")
+
+	str.WriteString("ON `")
+	str.WriteString(idx.TableName)
+	str.WriteString("` (")
+
+	if len(idx.Columns) > 1 {
+		str.WriteString("\n  ")
+	}
+
+	var hasCol bool
+	for _, col := range idx.Columns {
+		trimmedColName := strings.TrimSpace(col.Name)
+		if trimmedColName == "" {
+			continue
+		}
+
+		if hasCol {
+			str.WriteString(",\n  ")
+		}
+
+		if strings.Contains(col.Name, "(") || strings.Contains(col.Name, " ") {
+			// most likely an expression
+			str.WriteString(trimmedColName)
+		} else {
+			// regular identifier
+			str.WriteString("`")
+			str.WriteString(trimmedColName)
+			str.WriteString("`")
+		}
+
+		if col.Collate != "" {
+			str.WriteString(" COLLATE ")
+			str.WriteString(col.Collate)
+		}
+
+		if col.Sort != "" {
+			str.WriteString(" ")
+			str.WriteString(strings.ToUpper(col.Sort))
+		}
+
+		hasCol = true
+	}
+
+	if hasCol && len(idx.Columns) > 1 {
+		str.WriteString("\n")
+	}
+
+	str.WriteString(")")
+
+	if idx.Where != "" {
+		str.WriteString(" WHERE ")
+		str.WriteString(idx.Where)
+	}
+
+	return str.String()
+}
+
+// BuildPostgres returns a PostgreSQL "CREATE INDEX" SQL string from the current index parts
+// (the SQL that is executed, while [Index.Build] returns the stored definition format).
 //
 // The identifiers are double quoted and the backtick quoted identifiers
 // inside the column expressions and the WHERE clause (the PocketBase/SQLite
@@ -47,7 +139,7 @@ func (idx Index) IsValid() bool {
 //   - any other collation name is used as it is (eg. "C").
 //
 // Returns empty string if idx.IsValid() is false.
-func (idx Index) Build() string {
+func (idx Index) BuildPostgres() string {
 	if !idx.IsValid() {
 		return ""
 	}

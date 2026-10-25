@@ -2,7 +2,6 @@ package search_test
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json/v2"
 	"testing"
 
@@ -11,12 +10,8 @@ import (
 )
 
 func TestMultiMatchSubqueryBuild(t *testing.T) {
-	// create a dummy db
-	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db := dbx.NewFromDB(sqlDB, "sqlite")
+	// create a dummy db (used only for the identifiers quoting)
+	db := dbx.NewFromDB(nil, "pgx")
 
 	mm := search.MultiMatchSubquery{
 		TargetTableAlias: "test_TargetTableAlias",

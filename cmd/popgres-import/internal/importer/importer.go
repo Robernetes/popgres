@@ -228,6 +228,25 @@ func readCollections(src *dbx.DB) ([]*sourceCollection, error) {
 }
 
 func importCollections(app core.App, collections []*sourceCollection, report *Report) error {
+	// replace the matching non-system collections of the target
+	// (eg. the default "users" created by the system migrations) so that the
+	// source fields ids and options are preserved
+	// (ImportCollections would otherwise keep the existing fields with the same name)
+	for _, c := range collections {
+		existing, err := app.FindCollectionByNameOrId(c.id)
+		if err != nil {
+			existing, err = app.FindCollectionByNameOrId(c.name)
+		}
+		if err != nil || existing.System {
+			continue
+		}
+
+		existing.IntegrityChecks(false)
+		if err := app.Delete(existing); err != nil {
+			return fmt.Errorf("failed to replace the existing collection %q: %w", existing.Name, err)
+		}
+	}
+
 	regular := []map[string]any{}
 	views := []*sourceCollection{}
 

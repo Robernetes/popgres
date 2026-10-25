@@ -326,7 +326,7 @@ func createCollectionIndexes(app App, collection *Collection) error {
 				continue
 			}
 
-			if _, err := txApp.DB().NewQuery(parsed.Build()).Execute(); err != nil {
+			if _, err := txApp.DB().NewQuery(parsed.BuildPostgres()).Execute(); err != nil {
 				errs[strconv.Itoa(i)] = validation.NewError(
 					"validation_invalid_index_expression",
 					fmt.Sprintf("Failed to create index %s - %v.", parsed.IndexName, err.Error()),

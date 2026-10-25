@@ -14,7 +14,6 @@ import (
 
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/pocketbase/dbx"
-	_ "modernc.org/sqlite"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -744,18 +743,25 @@ type testDB struct {
 	*dbx.DB
 	mu            sync.Mutex
 	CalledQueries []string
+	cleanup       func()
+}
+
+// Close closes the db connection and drops the test database.
+func (db *testDB) Close() error {
+	if db.cleanup != nil {
+		db.cleanup()
+	}
+	return nil
 }
 
 // NB! Don't forget to call `db.Close()` at the end of the test.
 func createTestDB() (*testDB, error) {
-	// using a shared cache to allow multiple connections access to
-	// the same in memory database https://www.sqlite.org/inmemorydb.html
-	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	pgDB, cleanup, err := OpenTestPgDB()
 	if err != nil {
 		return nil, err
 	}
 
-	db := testDB{DB: dbx.NewFromDB(sqlDB, "sqlite")}
+	db := testDB{DB: pgDB, cleanup: cleanup}
 	db.CreateTable("test", map[string]string{
 		"id":                                    "int default 0",
 		"test1":                                 "int default 0",

@@ -182,11 +182,11 @@ func TestFilterDataBuildExpr(t *testing.T) {
 
 func TestFilterDataBuildExprWithParams(t *testing.T) {
 	// create a dummy db
-	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	db, cleanup, err := search.OpenTestPgDB()
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := dbx.NewFromDB(sqlDB, "sqlite")
+	defer cleanup()
 
 	calledQueries := []string{}
 	db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
@@ -313,11 +313,11 @@ func TestFilterDataBuildExprWithLimit(t *testing.T) {
 
 func TestLikeParamsWrapping(t *testing.T) {
 	// create a dummy db
-	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	db, cleanup, err := search.OpenTestPgDB()
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := dbx.NewFromDB(sqlDB, "sqlite")
+	defer cleanup()
 
 	calledQueries := []string{}
 	db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
