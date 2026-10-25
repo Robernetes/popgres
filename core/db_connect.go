@@ -3,20 +3,12 @@
 package core
 
 import (
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pocketbase/dbx"
-	_ "modernc.org/sqlite"
 )
 
-func DefaultDBConnect(dbPath string) (*dbx.DB, error) {
-	// Note: the busy_timeout pragma must be first because
-	// the connection needs to be set to block on busy before WAL mode
-	// is set in case it hasn't been already set by another connection.
-	pragmas := "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=journal_size_limit(200000000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=cache_size(-32000)&_defensive=1"
-
-	db, err := dbx.Open("sqlite", dbPath+pragmas)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
+// DefaultDBConnect opens a PostgreSQL connection pool for the provided
+// connection string (URL or keyword/value DSN) using the pgx stdlib driver.
+func DefaultDBConnect(dsn string) (*dbx.DB, error) {
+	return dbx.Open("pgx", dsn)
 }

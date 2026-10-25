@@ -31,10 +31,12 @@ import (
 )
 
 const (
-	DefaultDataMaxOpenConns int           = 120
-	DefaultDataMaxIdleConns int           = 15
-	DefaultAuxMaxOpenConns  int           = 20
-	DefaultAuxMaxIdleConns  int           = 3
+	// note: Postgres defaults to max_connections = 100 shared by all
+	// clients (and app instances), so the default pools are kept small
+	DefaultDataMaxOpenConns int           = 20
+	DefaultDataMaxIdleConns int           = 5
+	DefaultAuxMaxOpenConns  int           = 5
+	DefaultAuxMaxIdleConns  int           = 2
 	DefaultQueryTimeout     time.Duration = 30 * time.Second
 
 	LocalStorageDirName       string = "storage"
@@ -48,6 +50,14 @@ const (
 
 	dataDBFilename string = "data.db"
 	auxDBFilename  string = "auxiliary.db"
+
+	// AuxSchema is the Postgres schema of the auxiliary (logs) tables.
+	AuxSchema string = "_aux"
+
+	// DatabaseURLEnv and LogsDatabaseURLEnv are the env variables used as
+	// default value for [BaseAppConfig.DatabaseURL] and [BaseAppConfig.LogsDatabaseURL].
+	DatabaseURLEnv     string = "DATABASE_URL"
+	LogsDatabaseURLEnv string = "POPGRES_LOGS_URL"
 )
 
 // FilesManager defines an interface with common methods that files manager models should implement.
@@ -57,11 +67,23 @@ type FilesManager interface {
 }
 
 // DBConnectFunc defines a database connection initialization function.
-type DBConnectFunc func(dbPath string) (*dbx.DB, error)
+//
+// The argument is the PostgreSQL connection string (URL or keyword/value DSN).
+type DBConnectFunc func(dsn string) (*dbx.DB, error)
 
 // BaseAppConfig defines a BaseApp configuration option
 type BaseAppConfig struct {
-	DBConnect        DBConnectFunc
+	DBConnect DBConnectFunc
+
+	// DatabaseURL is the PostgreSQL connection string of the main database.
+	// If not set, it fallbacks to the DATABASE_URL env variable.
+	DatabaseURL string
+
+	// LogsDatabaseURL is an optional PostgreSQL connection string for the
+	// logs tables. If not set, it fallbacks to the POPGRES_LOGS_URL env
+	// variable and then to DatabaseURL (the logs are stored in the "_aux" schema).
+	LogsDatabaseURL string
+
 	DataDir          string
 	EncryptionEnv    string
 	QueryTimeout     time.Duration
@@ -224,6 +246,12 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	// apply config defaults
 	if app.config.DBConnect == nil {
 		app.config.DBConnect = DefaultDBConnect
+	}
+	if app.config.DatabaseURL == "" {
+		app.config.DatabaseURL = os.Getenv(DatabaseURLEnv)
+	}
+	if app.config.LogsDatabaseURL == "" {
+		app.config.LogsDatabaseURL = os.Getenv(LogsDatabaseURLEnv)
 	}
 	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
@@ -494,13 +522,19 @@ func (app *BaseApp) ClearBootstrap() error {
 			&app.auxNonconcurrentDB,
 		}
 
+		closed := map[closer]struct{}{}
+
 		for _, db := range dbs {
 			if db == nil {
 				continue
 			}
+			// the concurrent and nonconcurrent builders share the same pool
 			if v, ok := (*db).(closer); ok {
-				if err := v.Close(); err != nil {
-					errs = append(errs, err)
+				if _, isClosed := closed[v]; !isClosed {
+					closed[v] = struct{}{}
+					if err := v.Close(); err != nil {
+						errs = append(errs, err)
+					}
 				}
 			}
 			*db = nil
@@ -1256,37 +1290,31 @@ func (app *BaseApp) OnBatchRequest() *hook.Hook[*BatchRequestEvent] {
 // -------------------------------------------------------------------
 
 func (app *BaseApp) initDataDB() error {
-	dbPath := filepath.Join(app.DataDir(), dataDBFilename)
+	if app.config.DatabaseURL == "" {
+		return errors.New("missing database connection string: set the " + DatabaseURLEnv + " env variable (eg. postgres://user:pass@localhost:5432/popgres)")
+	}
 
-	concurrentDB, err := app.config.DBConnect(dbPath)
+	db, err := app.config.DBConnect(app.config.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	concurrentDB.DB().SetMaxOpenConns(app.config.DataMaxOpenConns)
-	concurrentDB.DB().SetMaxIdleConns(app.config.DataMaxIdleConns)
-	concurrentDB.DB().SetConnMaxIdleTime(3 * time.Minute)
-
-	nonconcurrentDB, err := app.config.DBConnect(dbPath)
-	if err != nil {
-		return err
-	}
-	nonconcurrentDB.DB().SetMaxOpenConns(1)
-	nonconcurrentDB.DB().SetMaxIdleConns(1)
-	nonconcurrentDB.DB().SetConnMaxIdleTime(3 * time.Minute)
+	db.DB().SetMaxOpenConns(app.config.DataMaxOpenConns)
+	db.DB().SetMaxIdleConns(app.config.DataMaxIdleConns)
+	db.DB().SetConnMaxIdleTime(3 * time.Minute)
 
 	if app.IsDev() {
-		nonconcurrentDB.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
+		db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
 			color.HiBlack("[%.2fms] %v\n", float64(t.Milliseconds()), normalizeSQLLog(sql))
 		}
-		nonconcurrentDB.ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
+		db.ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
 			color.HiBlack("[%.2fms] %v\n", float64(t.Milliseconds()), normalizeSQLLog(sql))
 		}
-		concurrentDB.QueryLogFunc = nonconcurrentDB.QueryLogFunc
-		concurrentDB.ExecLogFunc = nonconcurrentDB.ExecLogFunc
 	}
 
-	app.concurrentDB = concurrentDB
-	app.nonconcurrentDB = nonconcurrentDB
+	// Postgres handles the concurrent writes on its own so there is no
+	// need for a separate single connection pool (DB() returns the same pool)
+	app.concurrentDB = db
+	app.nonconcurrentDB = db
 
 	return nil
 }
@@ -1295,12 +1323,12 @@ var sqlLogReplacements = []struct {
 	pattern     *regexp.Regexp
 	replacement string
 }{
-	{regexp.MustCompile(`\[\[([^\[\]\{\}\.]+)\.([^\[\]\{\}\.]+)\]\]`), "`$1`.`$2`"},
-	{regexp.MustCompile(`\{\{([^\[\]\{\}\.]+)\.([^\[\]\{\}\.]+)\}\}`), "`$1`.`$2`"},
-	{regexp.MustCompile(`([^'"])?\{\{`), "$1`"},
-	{regexp.MustCompile(`\}\}([^'"])?`), "`$1"},
-	{regexp.MustCompile(`([^'"])?\[\[`), "$1`"},
-	{regexp.MustCompile(`\]\]([^'"])?`), "`$1"},
+	{regexp.MustCompile(`\[\[([^\[\]\{\}\.]+)\.([^\[\]\{\}\.]+)\]\]`), `"$1"."$2"`},
+	{regexp.MustCompile(`\{\{([^\[\]\{\}\.]+)\.([^\[\]\{\}\.]+)\}\}`), `"$1"."$2"`},
+	{regexp.MustCompile(`([^'"])?\{\{`), `$1"`},
+	{regexp.MustCompile(`\}\}([^'"])?`), `"$1`},
+	{regexp.MustCompile(`([^'"])?\[\[`), `$1"`},
+	{regexp.MustCompile(`\]\]([^'"])?`), `"$1`},
 	{regexp.MustCompile(`<nil>`), "NULL"},
 }
 
@@ -1316,28 +1344,28 @@ func normalizeSQLLog(sql string) string {
 }
 
 func (app *BaseApp) initAuxDB() error {
-	// note: renamed to "auxiliary" because "aux" is a reserved Windows filename
-	// (see https://github.com/pocketbase/pocketbase/issues/5607)
-	dbPath := filepath.Join(app.DataDir(), auxDBFilename)
+	dsn := app.config.LogsDatabaseURL
+	if dsn == "" {
+		dsn = app.config.DatabaseURL
+	}
 
-	concurrentDB, err := app.config.DBConnect(dbPath)
+	// the logs tables live in their own schema so that the auxiliary
+	// queries could keep using the unqualified table names
+	dsn, err := dsnWithRuntimeParam(dsn, "search_path", AuxSchema)
 	if err != nil {
 		return err
 	}
-	concurrentDB.DB().SetMaxOpenConns(app.config.AuxMaxOpenConns)
-	concurrentDB.DB().SetMaxIdleConns(app.config.AuxMaxIdleConns)
-	concurrentDB.DB().SetConnMaxIdleTime(3 * time.Minute)
 
-	nonconcurrentDB, err := app.config.DBConnect(dbPath)
+	db, err := app.config.DBConnect(dsn)
 	if err != nil {
 		return err
 	}
-	nonconcurrentDB.DB().SetMaxOpenConns(1)
-	nonconcurrentDB.DB().SetMaxIdleConns(1)
-	nonconcurrentDB.DB().SetConnMaxIdleTime(3 * time.Minute)
+	db.DB().SetMaxOpenConns(app.config.AuxMaxOpenConns)
+	db.DB().SetMaxIdleConns(app.config.AuxMaxIdleConns)
+	db.DB().SetConnMaxIdleTime(3 * time.Minute)
 
-	app.auxConcurrentDB = concurrentDB
-	app.auxNonconcurrentDB = nonconcurrentDB
+	app.auxConcurrentDB = db
+	app.auxNonconcurrentDB = db
 
 	return nil
 }
@@ -1446,23 +1474,6 @@ func (app *BaseApp) registerBaseHooks() {
 			return e.Next()
 		},
 		Priority: 999,
-	})
-
-	app.Cron().Add("__pbDBOptimize__", "0 0 * * *", func() {
-		_, execErr := app.NonconcurrentDB().NewQuery("PRAGMA wal_checkpoint(TRUNCATE)").Execute()
-		if execErr != nil {
-			app.Logger().Warn("Failed to run periodic PRAGMA wal_checkpoint for the main DB", slog.String("error", execErr.Error()))
-		}
-
-		_, execErr = app.AuxNonconcurrentDB().NewQuery("PRAGMA wal_checkpoint(TRUNCATE)").Execute()
-		if execErr != nil {
-			app.Logger().Warn("Failed to run periodic PRAGMA wal_checkpoint for the auxiliary DB", slog.String("error", execErr.Error()))
-		}
-
-		_, execErr = app.NonconcurrentDB().NewQuery("PRAGMA optimize").Execute()
-		if execErr != nil {
-			app.Logger().Warn("Failed to run periodic PRAGMA optimize", slog.String("error", execErr.Error()))
-		}
 	})
 
 	app.registerSettingsHooks()

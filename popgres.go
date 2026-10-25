@@ -12,7 +12,6 @@ import (
 
 	"github.com/Robernetes/popgres/cmd"
 	"github.com/Robernetes/popgres/core"
-	"github.com/Robernetes/popgres/tools/hook"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/Robernetes/popgres/tools/routine"
@@ -55,11 +54,13 @@ type Config struct {
 	DefaultQueryTimeout  time.Duration // default to core.DefaultQueryTimeout (in seconds)
 
 	// optional DB configurations
+	DatabaseURL      string             // default to the DATABASE_URL env variable
+	LogsDatabaseURL  string             // default to the POPGRES_LOGS_URL env variable (or DatabaseURL)
 	DataMaxOpenConns int                // default to core.DefaultDataMaxOpenConns
 	DataMaxIdleConns int                // default to core.DefaultDataMaxIdleConns
 	AuxMaxOpenConns  int                // default to core.DefaultAuxMaxOpenConns
 	AuxMaxIdleConns  int                // default to core.DefaultAuxMaxIdleConns
-	DBConnect        core.DBConnectFunc // default to core.dbConnect
+	DBConnect        core.DBConnectFunc // default to core.DefaultDBConnect
 }
 
 // New creates a new PocketBase instance with the default configuration.
@@ -136,28 +137,12 @@ func NewWithConfig(config Config) *PocketBase {
 		AuxMaxOpenConns:  config.AuxMaxOpenConns,
 		AuxMaxIdleConns:  config.AuxMaxIdleConns,
 		DBConnect:        config.DBConnect,
+		DatabaseURL:      config.DatabaseURL,
+		LogsDatabaseURL:  config.LogsDatabaseURL,
 	})
 
 	// hide the default help command (allow only `--help` flag)
 	pb.RootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-
-	// https://github.com/pocketbase/pocketbase/issues/6136
-	pb.OnBootstrap().Bind(&hook.Handler[*core.BootstrapEvent]{
-		Id: ModerncDepsCheckHookId,
-		Func: func(be *core.BootstrapEvent) error {
-			if err := be.Next(); err != nil {
-				return err
-			}
-
-			// run separately to avoid blocking
-			app := be.App
-			routine.FireAndForget(func() {
-				checkModerncDeps(app)
-			})
-
-			return nil
-		},
-	})
 
 	return pb
 }
