@@ -1018,7 +1018,7 @@ func TestBindFilesystem(t *testing.T) {
 	vm := goja.New()
 	vm.Set("mh", &multipart.FileHeader{Filename: "test"})
 	vm.Set("tmpDir", tmpDir)
-	vm.Set("testFile", filepath.Join(app.DataDir(), "data.db"))
+	vm.Set("testFile", filepath.Join(app.DataDir(), ".gitignore"))
 	vm.Set("baseURL", srv.URL)
 	BindCore(vm)
 	BindFilesystem(vm)
@@ -1060,7 +1060,7 @@ func TestBindFilesystem(t *testing.T) {
 
 		file, _ := v.Export().(*filesystem.File)
 
-		if file == nil || file.OriginalName != "data.db" {
+		if file == nil || file.OriginalName != ".gitignore" {
 			t.Fatalf("[fileFromPath] Expected file with name %q, got %v", file.OriginalName, file)
 		}
 	}

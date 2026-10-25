@@ -506,8 +506,7 @@ func TestBackupsDownload(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				"storage/",
-				"data.db",
-				"auxiliary.db",
+				"data.dump", // popgres: the logs are in the same database dump
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},
@@ -523,8 +522,7 @@ func TestBackupsDownload(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				"storage/",
-				"data.db",
-				"auxiliary.db",
+				"data.dump", // popgres: the logs are in the same database dump
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},
@@ -551,8 +549,7 @@ func TestBackupsDownload(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				"storage/",
-				"data.db",
-				"auxiliary.db",
+				"data.dump", // popgres: the logs are in the same database dump
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},
