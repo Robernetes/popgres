@@ -3,8 +3,10 @@ package validators
 import (
 	"database/sql"
 	"errors"
+	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 )
@@ -38,13 +40,17 @@ func UniqueId(db dbx.Builder, tableName string) validation.RuleFunc {
 	}
 }
 
-// NormalizeUniqueIndexError attempts to convert a
-// "unique constraint failed" error into a validation.Errors.
+// NormalizeUniqueIndexError attempts to convert a Postgres
+// unique violation error (SQLSTATE 23505) into a validation.Errors.
+//
+// The violating fields are detected from the error detail
+// (eg. "Key (email)=(...)" or "Key (lower(email))=(...)").
 //
 // The provided err is returned as it is without changes if:
 // - err is nil
 // - err is already validation.Errors
-// - err is not "unique constraint failed" error
+// - err is not an unique violation error of the specified table
+// - none of the fieldNames is part of the violated unique index
 func NormalizeUniqueIndexError(err error, tableOrAlias string, fieldNames []string) error {
 	if err == nil {
 		return err
@@ -54,27 +60,56 @@ func NormalizeUniqueIndexError(err error, tableOrAlias string, fieldNames []stri
 		return err
 	}
 
-	msg := strings.ToLower(err.Error())
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return err
+	}
 
-	// check for unique constraint failure
-	if strings.Contains(msg, "unique constraint failed") {
-		// note: extra space to unify multi-columns lookup
-		msg = strings.ReplaceAll(strings.TrimSpace(msg), ",", " ") + " "
+	if pgErr.TableName != "" && !strings.EqualFold(pgErr.TableName, tableOrAlias) {
+		return err
+	}
 
-		normalizedErrs := validation.Errors{}
+	columns := uniqueViolationColumns(pgErr.Detail)
 
-		for _, name := range fieldNames {
-			// note: extra spaces to exclude table name with suffix matching the current one
-			// 		 OR other fields starting with the current field name
-			if strings.Contains(msg, strings.ToLower(" "+tableOrAlias+"."+name+" ")) {
-				normalizedErrs[name] = validation.NewError("validation_not_unique", "Value must be unique")
-			}
-		}
+	normalizedErrs := validation.Errors{}
 
-		if len(normalizedErrs) > 0 {
-			return normalizedErrs
+	for _, name := range fieldNames {
+		if _, ok := columns[strings.ToLower(name)]; ok {
+			normalizedErrs[name] = validation.NewError("validation_not_unique", "Value must be unique")
 		}
 	}
 
+	if len(normalizedErrs) > 0 {
+		return normalizedErrs
+	}
+
 	return err
+}
+
+// uniqueViolationIdentifierRegex matches the (optionally double quoted)
+// identifiers in an unique violation detail key expression.
+var uniqueViolationIdentifierRegex = regexp.MustCompile(`"((?:[^"]|"")+)"|([A-Za-z_][A-Za-z0-9_$]*)`)
+
+// uniqueViolationColumns extracts the lowercased column names from the
+// "Key (...)=(...)" part of a Postgres unique violation error detail.
+func uniqueViolationColumns(detail string) map[string]struct{} {
+	result := map[string]struct{}{}
+
+	start := strings.Index(detail, "Key (")
+	end := strings.Index(detail, ")=(")
+	if start < 0 || end <= start {
+		return result
+	}
+
+	keyExpr := detail[start+len("Key (") : end]
+
+	for _, m := range uniqueViolationIdentifierRegex.FindAllStringSubmatch(keyExpr, -1) {
+		name := m[2]
+		if m[1] != "" {
+			name = strings.ReplaceAll(m[1], `""`, `"`)
+		}
+		result[strings.ToLower(name)] = struct{}{}
+	}
+
+	return result
 }

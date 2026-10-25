@@ -7,6 +7,7 @@ import (
 
 	"github.com/Robernetes/popgres/core/validators"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/jackc/pgx/v5/pgconn"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
@@ -72,39 +73,46 @@ func TestNormalizeUniqueIndexError(t *testing.T) {
 			[]string{"c"},
 		},
 		{
-			"unique index error but mismatched table name",
-			errors.New("UNIQUE constraint failed for fields test.a,test.b"),
+			"non-unique violation postgres error (no changes)",
+			&pgconn.PgError{Code: "23503", TableName: "test", Detail: "Key (a)=(1) is not present"},
+			"test",
+			[]string{"a", "b"},
+			nil,
+		},
+		{
+			"unique violation but mismatched table name",
+			&pgconn.PgError{Code: "23505", TableName: "test", Detail: "Key (a, b)=(1, 2) already exists."},
 			"example",
 			[]string{"a", "b"},
 			nil,
 		},
 		{
-			"unique index error with table name suffix matching the specified one",
-			errors.New("UNIQUE constraint failed for fields test_suffix.a,test_suffix.b"),
-			"suffix",
-			[]string{"a", "b", "c"},
-			nil,
-		},
-		{
-			"unique index error but mismatched fields",
-			errors.New("UNIQUE constraint failed for fields test.a,test.b"),
+			"unique violation but mismatched fields",
+			&pgconn.PgError{Code: "23505", TableName: "test", Detail: "Key (a, b)=(1, 2) already exists."},
 			"test",
 			[]string{"c", "d"},
 			nil,
 		},
 		{
-			"unique index error with matching table name and fields",
-			errors.New("UNIQUE constraint failed for fields test.a,test.b"),
+			"unique violation with matching table name and fields",
+			fmt.Errorf("wrapped: %w", &pgconn.PgError{Code: "23505", TableName: "test", Detail: "Key (a, b)=(1, 2) already exists."}),
 			"test",
 			[]string{"a", "b", "c"},
 			[]string{"a", "b"},
 		},
 		{
-			"unique index error with matching table name and field starting with the name of another non-unique field",
-			errors.New("UNIQUE constraint failed for fields test.a_2,test.c"),
+			"unique violation with a field name prefix of another field",
+			&pgconn.PgError{Code: "23505", TableName: "test", Detail: "Key (a_2, c)=(1, 2) already exists."},
 			"test",
 			[]string{"a", "a_2", "c"},
 			[]string{"a_2", "c"},
+		},
+		{
+			"unique violation of an expression index with quoted mixed case column",
+			&pgconn.PgError{Code: "23505", TableName: "Test", Detail: `Key (lower("tokenKey"))=(abc) already exists.`},
+			"test",
+			[]string{"tokenKey", "email"},
+			[]string{"tokenKey"},
 		},
 	}
 
