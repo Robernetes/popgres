@@ -58,10 +58,11 @@ type Handler func(msg Message)
 // The LISTEN connection is dedicated (it is not part of the app pool) and it
 // is automatically reconnected with a backoff in case of an error.
 type Cluster struct {
-	nodeId string
-	dsn    func() string
-	logger func() *slog.Logger
-	kv     *KV
+	nodeId  string
+	dsn     func() string
+	logger  func() *slog.Logger
+	enabled func() bool
+	kv      *KV
 
 	mu                sync.RWMutex
 	handlers          map[string]map[string]Handler
@@ -88,6 +89,10 @@ type Config struct {
 
 	// Logger returns the logger to use.
 	Logger func() *slog.Logger
+
+	// Enabled reports whether the cluster mode is enabled
+	// (see [Cluster.Enabled]).
+	Enabled func() bool
 }
 
 // New creates a new Cluster instance.
@@ -101,11 +106,21 @@ func New(config Config) *Cluster {
 		nodeId:            "n" + security.RandomStringWithAlphabet(11, "abcdefghijklmnopqrstuvwxyz0123456789"),
 		dsn:               config.DSN,
 		logger:            logger,
+		enabled:           config.Enabled,
 		kv:                newKV(config.DB),
 		handlers:          map[string]map[string]Handler{},
 		reconnectHandlers: map[string]func(){},
 		ready:             make(chan struct{}),
 	}
+}
+
+// Enabled reports whether the cluster mode is enabled.
+//
+// The state synchronization of the nodes (eg. the cached collections and
+// the realtime events) works always, while the features with an extra
+// cost per request (eg. the shared rate limits) are used only in cluster mode.
+func (c *Cluster) Enabled() bool {
+	return c.enabled != nil && c.enabled()
 }
 
 // KV returns the key-value store with expiration shared by all nodes.

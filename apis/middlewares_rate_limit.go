@@ -159,6 +159,11 @@ func checkRateLimit(e *core.RequestEvent, rtId string, rule core.RateLimitRule) 
 		}
 	}
 
+	// popgres: in cluster mode the rate limits are shared by all app instances (nodes)
+	if e.App.Cluster().Enabled() {
+		return checkSharedRateLimit(e, rtId, rule)
+	}
+
 	rateLimiters := e.App.Store().GetOrSet(rateLimitersStoreKey, func() any {
 		return initRateLimitersStore(e.App)
 	}).(*store.Store[string, *rateLimiter])
@@ -182,6 +187,34 @@ func checkRateLimit(e *core.RequestEvent, rtId string, rule core.RateLimitRule) 
 	}
 
 	if !rt.isAllowed(key) {
+		return e.TooManyRequestsError("", errors.New("triggered rate limit rule: "+rule.String()))
+	}
+
+	return nil
+}
+
+// checkSharedRateLimit is similar to checkRateLimit but the rate limit
+// counters are stored in the database and shared by all app instances (nodes).
+func checkSharedRateLimit(e *core.RequestEvent, rtId string, rule core.RateLimitRule) error {
+	key := e.RealIP()
+	if key == "" {
+		e.App.Logger().Warn("Empty rate limit client key")
+		return nil
+	}
+
+	allowed, err := e.App.Cluster().RateLimitHit(
+		rtId+"|"+key,
+		rule.MaxRequests,
+		rule.DurationTime(),
+	)
+	if err != nil {
+		// allow the request instead of failing all requests
+		// in case of a temporary database error
+		e.App.Logger().Warn("Failed to check the shared rate limit", "id", rtId, "error", err)
+		return nil
+	}
+
+	if !allowed {
 		return e.TooManyRequestsError("", errors.New("triggered rate limit rule: "+rule.String()))
 	}
 

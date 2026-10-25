@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"testing/synctest"
@@ -323,4 +324,79 @@ func TestDefaultRateLimitMiddlewareSkipChecks(t *testing.T) {
 
 		checkStatusCodes(t, statusCodes, []int{200, 200, 200})
 	})
+}
+
+func TestSharedRateLimitMiddleware(t *testing.T) {
+	t.Parallel()
+
+	// popgres: in cluster mode the rate limits are shared by all app instances (nodes)
+	testDB, err := tests.NewFixturesTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(testDB.Name)
+
+	muxes := make([]http.Handler, 2)
+	for i := range muxes {
+		app, err := tests.NewTestAppWithConfig(core.BaseAppConfig{
+			DatabaseURL: testDB.URL,
+			ClusterMode: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer app.Cleanup()
+
+		app.Settings().RateLimits.Enabled = true
+		app.Settings().RateLimits.Rules = []core.RateLimitRule{
+			{
+				Label:       "/rate",
+				MaxRequests: 2,
+				Duration:    1,
+			},
+		}
+
+		pbRouter, err := apis.NewRouter(app)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pbRouter.GET("/rate", func(e *core.RequestEvent) error {
+			return e.String(200, "rate")
+		})
+
+		mux, err := pbRouter.BuildMux()
+		if err != nil {
+			t.Fatal(err)
+		}
+		muxes[i] = mux
+	}
+
+	scenarios := []struct {
+		node           int
+		wait           time.Duration
+		expectedStatus int
+	}{
+		{0, 0, 200},
+		{1, 0, 200},
+		{0, 0, 429},
+		{1, 0, 429},
+		{1, 1100 * time.Millisecond, 200},
+		{0, 0, 200},
+		{1, 0, 429},
+	}
+
+	for i, s := range scenarios {
+		if s.wait > 0 {
+			time.Sleep(s.wait)
+		}
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/rate", nil)
+
+		muxes[s.node].ServeHTTP(rec, req)
+
+		if status := rec.Result().StatusCode; status != s.expectedStatus {
+			t.Fatalf("[%d] Expected response status %d from node %d, got %d", i, s.expectedStatus, s.node, status)
+		}
+	}
 }
