@@ -98,6 +98,21 @@ func NewDefaultClient() *DefaultClient {
 	}
 }
 
+// NewDefaultClientWithIdPrefix creates and returns a new DefaultClient
+// instance with an id that starts with the specified prefix
+// (the id has the same length as the one of [NewDefaultClient]).
+func NewDefaultClientWithIdPrefix(prefix string) *DefaultClient {
+	client := NewDefaultClient()
+
+	if randomLength := 40 - len(prefix); randomLength >= 20 {
+		client.id = prefix + security.RandomString(randomLength)
+	} else {
+		client.id = prefix + security.RandomString(20)
+	}
+
+	return client
+}
+
 // Id implements the [Client.Id] interface method.
 func (c *DefaultClient) Id() string {
 	c.mu.RLock()

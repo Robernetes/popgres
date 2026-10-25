@@ -4,6 +4,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,6 +50,33 @@ func oauth2SubscriptionRedirect(e *core.RequestEvent) error {
 	}
 
 	client, err := e.App.SubscriptionsBroker().ClientById(data.State)
+
+	// popgres: the client could be connected to another app instance (node)
+	if err != nil {
+		if nodeId, ok := shouldForwardToClientNode(e, data.State); ok {
+			form := url.Values{}
+			form.Set("state", data.State)
+			form.Set("code", data.Code)
+			if data.Error != "" {
+				form.Set("error", data.Error)
+			}
+			if data.AppleUser != "" {
+				form.Set("user", data.AppleUser)
+			}
+
+			// note: forwarded always as POST since the data is already parsed
+			e.Request.Method = http.MethodPost
+
+			forwardErr := forwardRequest(e, nodeId, []byte(form.Encode()), "application/x-www-form-urlencoded")
+			if forwardErr != nil {
+				e.App.Logger().Debug("Failed to forward the OAuth2 redirect", "error", forwardErr, "clientId", data.State)
+				return failureRedirect(e)
+			}
+
+			return nil
+		}
+	}
+
 	if err != nil || client.IsDiscarded() || !client.HasSubscription(oauth2SubscriptionTopic) {
 		e.App.Logger().Debug("Missing or invalid OAuth2 subscription client", "error", err, "clientId", data.State)
 		return failureRedirect(e)

@@ -53,6 +53,9 @@ func NewRouter(app core.App) (*router.Router[*core.RequestEvent], error) {
 	// UI routes
 	bindUIExtensions(app)
 
+	// popgres: the requests forwarded by the other app instances (nodes)
+	bindClusterForwarding(app, pbRouter)
+
 	return pbRouter, nil
 }
 

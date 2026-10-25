@@ -69,7 +69,13 @@ func realtimeConnect(e *core.RequestEvent) error {
 	connectEvent.RequestEvent = e
 	connectEvent.IdleTimeout = 5 * time.Minute
 	connectEvent.MaxTimeout = 30 * time.Minute
-	connectEvent.Client = subscriptions.NewDefaultClient()
+	if e.App.Cluster().Enabled() {
+		// popgres: the client id starts with its node id so that the requests
+		// received by the other nodes can be forwarded to it
+		connectEvent.Client = subscriptions.NewDefaultClientWithIdPrefix(realtimeClientIdPrefix(e.App))
+	} else {
+		connectEvent.Client = subscriptions.NewDefaultClient()
+	}
 
 	// could be used as an optional cross-reference check in other API endpoints
 	connectEvent.Client.Set(RealtimeClientIPKey, e.RealIP())
@@ -198,6 +204,21 @@ func realtimeSetSubscriptions(e *core.RequestEvent) error {
 	// find subscription client
 	client, err := e.App.SubscriptionsBroker().ClientById(form.ClientId)
 	if err != nil {
+		// popgres: the client could be connected to another app instance (node)
+		if nodeId, ok := shouldForwardToClientNode(e, form.ClientId); ok {
+			body, marshalErr := json.Marshal(form)
+			if marshalErr != nil {
+				return e.InternalServerError("", marshalErr)
+			}
+
+			forwardErr := forwardRequest(e, nodeId, body, "application/json")
+			if errors.Is(forwardErr, errForwardTimeout) {
+				return e.NotFoundError("Missing or invalid client id.", forwardErr)
+			}
+
+			return forwardErr
+		}
+
 		return e.NotFoundError("Missing or invalid client id.", err)
 	}
 

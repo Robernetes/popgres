@@ -2,6 +2,9 @@ package apis_test
 
 import (
 	"encoding/json/v2"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,4 +243,145 @@ func TestRealtimeClusterDisabled(t *testing.T) {
 	}
 
 	expectNoRealtimeMessage(t, client)
+}
+
+func TestRealtimeClusterForwardSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	apps := newClusterTestApps(t, 2)
+	nodeA, nodeB := apps[0], apps[1]
+
+	routerB, err := apis.NewRouter(nodeB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	muxB, err := routerB.BuildMux()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// a client connected to node A
+	client := subscriptions.NewDefaultClientWithIdPrefix(nodeA.Cluster().NodeId() + "_")
+	nodeA.SubscriptionsBroker().Register(client)
+
+	user, err := nodeA.FindAuthRecordByEmail("users", "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := user.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// the subscriptions request is received by node B
+	body := `{"clientId":"` + client.Id() + `","subscriptions":["demo2","demo3/*"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/realtime", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", token)
+	rec := httptest.NewRecorder()
+
+	muxB.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("Expected status 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	for _, sub := range []string{"demo2", "demo3/*"} {
+		if !client.HasSubscription(sub) {
+			t.Fatalf("Expected the node A client to have the %q subscription, got %v", sub, client.Subscriptions())
+		}
+	}
+
+	clientAuth, _ := client.Get(apis.RealtimeClientAuthKey).(*core.Record)
+	if clientAuth == nil || clientAuth.Id != user.Id {
+		t.Fatalf("Expected the node A client auth to be set to %q, got %v", user.Id, clientAuth)
+	}
+
+	// a forwarded request is processed like a local one (eg. auth change is forbidden)
+	user2, err := nodeA.FindAuthRecordByEmail("users", "test2@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token2, err := user2.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/realtime", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", token2)
+	rec = httptest.NewRecorder()
+
+	muxB.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("Expected status 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// a client of a missing node
+	body = `{"clientId":"nmissingnode_abcdefghijklmnopqrstuvwxyz0","subscriptions":["demo2"]}`
+	req = httptest.NewRequest(http.MethodPost, "/api/realtime", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+
+	muxB.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("Expected status 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRealtimeClusterForwardOAuth2Redirect(t *testing.T) {
+	t.Parallel()
+
+	apps := newClusterTestApps(t, 2)
+	nodeA, nodeB := apps[0], apps[1]
+
+	routerB, err := apis.NewRouter(nodeB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	muxB, err := routerB.BuildMux()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// a client connected to node A waiting for the OAuth2 redirect
+	client := subscriptions.NewDefaultClientWithIdPrefix(nodeA.Cluster().NodeId() + "_")
+	client.Subscribe("@oauth2")
+	nodeA.SubscriptionsBroker().Register(client)
+
+	received := make(chan subscriptions.Message, 1)
+	go func() {
+		if msg, ok := receiveRealtimeMessage(t, client, 10*time.Second); ok {
+			received <- msg
+		}
+	}()
+
+	// the OAuth2 provider redirect is received by node B
+	req := httptest.NewRequest(http.MethodGet, "/api/oauth2-redirect?state="+client.Id()+"&code=123", nil)
+	rec := httptest.NewRecorder()
+
+	muxB.ServeHTTP(rec, req)
+
+	if rec.Code >= 400 {
+		t.Fatalf("Expected a success response, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if location := rec.Header().Get("Location"); strings.Contains(location, "failure") {
+		t.Fatalf("Expected success redirect, got %q", location)
+	}
+
+	select {
+	case msg := <-received:
+		if msg.Name != "@oauth2" || !strings.Contains(string(msg.Data), `"code":"123"`) {
+			t.Fatalf("Unexpected OAuth2 message %s: %s", msg.Name, msg.Data)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Expected the node A client to receive the OAuth2 message")
+	}
+
+	if client.HasSubscription("@oauth2") {
+		t.Fatal("Expected the @oauth2 subscription to be removed")
+	}
 }

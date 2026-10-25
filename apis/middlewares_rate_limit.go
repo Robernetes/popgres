@@ -223,6 +223,8 @@ func checkSharedRateLimit(e *core.RequestEvent, rtId string, rule core.RateLimit
 
 func skipRateLimit(e *core.RequestEvent) bool {
 	return !e.App.Settings().RateLimits.Enabled ||
+		// popgres: already checked by the node that forwarded the request
+		isForwardedRequest(e.Request) ||
 		e.HasSuperuserAuth() ||
 		isIPInList(e.App.Settings().RateLimits.ExcludedIPs, e.RealIP())
 }
