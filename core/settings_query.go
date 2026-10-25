@@ -38,7 +38,15 @@ func (app *BaseApp) ReloadSettings() error {
 	if param.Id == "" {
 		// force insert in case the param entry was deleted manually after application start
 		app.Settings().MarkAsNew()
-		return app.Save(app.Settings())
+		err := app.Save(app.Settings())
+
+		// popgres: the settings could have been created in the meantime by
+		// another app instance (eg. multiple nodes started with an empty database)
+		if err != nil && sqlState(err) == "23505" {
+			return app.ReloadSettings()
+		}
+
+		return err
 	}
 
 	event := new(SettingsReloadEvent)

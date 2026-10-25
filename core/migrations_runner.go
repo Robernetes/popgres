@@ -128,9 +128,16 @@ func (r *MigrationsRunner) Up() ([]string, error) {
 	applied := []string{}
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
+		// prevent applying the same migrations by multiple app instances
+		// (the applied migrations check below waits for the locks)
+		//
+		// note: the auxiliary transaction is committed after the main one
+		// so it holds its own lock until the end of the whole operation
+		if err := cluster.XactLock(txApp.AuxDB(), r.auxLockName()); err != nil {
+			return err
+		}
+
 		return txApp.RunInTransaction(func(txApp App) error {
-			// prevent applying the same migrations by multiple app instances
-			// (the applied migrations check below waits for the lock)
 			if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
 				return err
 			}
@@ -196,6 +203,10 @@ func (r *MigrationsRunner) Down(toRevertCount int) ([]string, error) {
 	}
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
+		if err := cluster.XactLock(txApp.AuxDB(), r.auxLockName()); err != nil {
+			return err
+		}
+
 		return txApp.RunInTransaction(func(txApp App) error {
 			if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
 				return err
@@ -284,6 +295,14 @@ func (r *MigrationsRunner) initMigrationsTable() error {
 // lockName returns the name of the advisory lock of the runner migrations table.
 func (r *MigrationsRunner) lockName() string {
 	return "migrations:" + r.tableName
+}
+
+// auxLockName returns the name of the advisory lock held by the auxiliary
+// transaction of the runner (it is different from lockName so that the main
+// and the auxiliary connections of the same instance don't wait for each other
+// when they use the same database).
+func (r *MigrationsRunner) auxLockName() string {
+	return "migrations_aux:" + r.tableName
 }
 
 func (r *MigrationsRunner) isMigrationApplied(txApp App, file string) bool {
