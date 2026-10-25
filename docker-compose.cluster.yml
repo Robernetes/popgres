@@ -1,0 +1,44 @@
+# popgres cluster demo: 3 nodes behind an nginx round-robin load balancer
+# (without sticky sessions) that share an external Postgres database.
+#
+#   DATABASE_URL=postgres://user:pass@host.docker.internal:5433/popgres?sslmode=disable \
+#     docker compose -f docker-compose.cluster.yml up --build
+#
+# The dashboard and the API are available at http://localhost:8090.
+#
+# The cluster mode requires the S3 file storage (any S3 compatible provider).
+# Configure it first with a single instance of the same database, eg.:
+#
+#   docker compose -f docker-compose.cluster.yml run --rm -p 8091:8090 -e POPGRES_CLUSTER=false node1
+#
+# and in its dashboard (http://localhost:8091/_/) enable Settings > Files storage > S3.
+# Set also Settings > Application > Trusted proxy > X-Forwarded-For so that the
+# rate limits and the realtime client checks use the real client IP.
+name: popgres-cluster
+
+x-node: &node
+  build: .
+  image: popgres:local
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL (the shared Postgres database)}
+    POPGRES_CLUSTER: ${POPGRES_CLUSTER:-true}
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  node1: *node
+  node2: *node
+  node3: *node
+
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./scripts/cluster/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - node1
+      - node2
+      - node3
