@@ -2,6 +2,7 @@
 package tests
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path"
@@ -26,10 +27,13 @@ type TestApp struct {
 	EventCalls map[string]int
 
 	TestMailer *TestMailer
+
+	// testDatabase is the temporary database created for the app (if any).
+	testDatabase *TestDatabase
 }
 
 // Cleanup resets the test application state and removes the test
-// app's dataDir from the filesystem.
+// app's dataDir from the filesystem and its temporary database.
 //
 // After this call, the app instance shouldn't be used anymore.
 func (t *TestApp) Cleanup() {
@@ -46,6 +50,12 @@ func (t *TestApp) Cleanup() {
 
 	if t.DataDir() != "" {
 		os.RemoveAll(t.DataDir())
+	}
+
+	if t.testDatabase != nil {
+		// best effort, the leftovers are removed with "make test-clean"
+		_ = DropTestDatabase(t.testDatabase.Name)
+		t.testDatabase = nil
 	}
 }
 
@@ -90,8 +100,50 @@ func NewTestApp(optTestDataDir ...string) (*TestApp, error) {
 //
 // config.DataDir is cloned for each new test application instance.
 //
+// If config.DatabaseURL is not set, a new empty database is created from the
+// POPGRES_TEST_URL template (see [NewTestDatabase]) and dropped on app.Cleanup().
+//
 // It is the caller's responsibility to call app.Cleanup() when the app is no longer needed.
 func NewTestAppWithConfig(config core.BaseAppConfig) (*TestApp, error) {
+	var testDatabase *TestDatabase
+	if config.DatabaseURL == "" {
+		var err error
+		testDatabase, err = NewTestDatabase()
+		if err != nil {
+			return nil, err
+		}
+		config.DatabaseURL = testDatabase.URL
+	}
+
+	// keep the connections budget small since all test databases share the same server
+	// (see also "go test -p 4" in the Makefile)
+	if config.DataMaxOpenConns <= 0 {
+		config.DataMaxOpenConns = 4
+	}
+	if config.DataMaxIdleConns <= 0 {
+		config.DataMaxIdleConns = 2
+	}
+	if config.AuxMaxOpenConns <= 0 {
+		config.AuxMaxOpenConns = 2
+	}
+	if config.AuxMaxIdleConns <= 0 {
+		config.AuxMaxIdleConns = 1
+	}
+
+	app, err := newTestApp(config)
+	if err != nil {
+		if testDatabase != nil {
+			err = errors.Join(err, DropTestDatabase(testDatabase.Name))
+		}
+		return nil, err
+	}
+
+	app.testDatabase = testDatabase
+
+	return app, nil
+}
+
+func newTestApp(config core.BaseAppConfig) (*TestApp, error) {
 	if config.DataDir == "" {
 		// fallback to the default test data directory
 		_, currentFile, _, _ := runtime.Caller(0)
