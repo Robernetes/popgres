@@ -24,7 +24,8 @@ check() {
   shift 2
 
   local found
-  found=$(git grep -nE "$pattern" -- '*.go' "${EXCLUDES[@]}" "$@" || true)
+  # the Go comment lines are ignored
+  found=$(git grep -nE "$pattern" -- '*.go' "${EXCLUDES[@]}" "$@" | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' || true)
   if [ -n "$found" ]; then
     echo "SQLite only SQL ($description):"
     echo "$found"
@@ -35,7 +36,8 @@ check() {
 
 check "json_each" 'json_each\('
 check "sqlite_master/sqlite_schema" 'sqlite_(master|schema)'
-check "_rowid_" '_rowid_'
+# "_rowid_" is still a reserved field name (core/field.go)
+check "_rowid_" '_rowid_' ':!core/field.go'
 check "PRAGMA" '"[^"]*PRAGMA |`[^`]*PRAGMA '
 check "VACUUM INTO" 'VACUUM INTO'
 # the filter function of the API is also named strftime (tools/search/token_functions.go)

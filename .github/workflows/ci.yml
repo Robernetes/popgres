@@ -56,6 +56,17 @@ jobs:
       - name: Build the popgres binary
         run: go build -o popgres ./examples/base && ./popgres --help
 
+      - name: No SQLite only SQL
+        run: ./scripts/check-sql-patterns.sh
+
+      # the SQLite importer (cmd/popgres-import) is the only package allowed to depend on SQLite
+      - name: No SQLite dependency outside the importer
+        run: |
+          if go list -deps -test $(go list ./... | grep -v '/cmd/popgres-import') | grep -E 'modernc.org/sqlite|mattn/go-sqlite3'; then
+            echo "only cmd/popgres-import can depend on a SQLite driver"
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
     strategy:
