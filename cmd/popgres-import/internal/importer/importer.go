@@ -303,6 +303,15 @@ func importCollections(app core.App, collections []*sourceCollection, report *Re
 				params[col] = dt.String()
 			}
 		}
+		if c.isView() && report.FailedViews[c.name] == nil {
+			fields, err := viewFieldsWithSourceIds(app, c)
+			if err != nil {
+				return err
+			}
+			if fields != "" {
+				params["fields"] = fields
+			}
+		}
 		if len(params) == 0 {
 			continue
 		}
@@ -313,7 +322,83 @@ func importCollections(app core.App, collections []*sourceCollection, report *Re
 		}
 	}
 
+	if err := reorderCollections(app, collections); err != nil {
+		return fmt.Errorf("failed to reorder the collections: %w", err)
+	}
+
 	return app.ReloadCachedCollections()
+}
+
+// viewFieldsWithSourceIds returns the serialized fields of the imported view
+// with the ids of the source fields with the same name
+// (the view fields are regenerated from the view query with new random ids).
+func viewFieldsWithSourceIds(app core.App, view *sourceCollection) (string, error) {
+	target, err := app.FindCollectionByNameOrId(view.id)
+	if err != nil {
+		return "", fmt.Errorf("failed to load the imported view %q: %w", view.name, err)
+	}
+
+	sourceIds := map[string]string{}
+	sourceFields, _ := view.data["fields"].([]any)
+	for _, raw := range sourceFields {
+		f, _ := raw.(map[string]any)
+		name, _ := f["name"].(string)
+		id, _ := f["id"].(string)
+		if name != "" && id != "" {
+			sourceIds[name] = id
+		}
+	}
+
+	for _, f := range target.Fields {
+		if id, ok := sourceIds[f.GetName()]; ok {
+			f.SetId(id)
+		}
+	}
+
+	raw, err := json.Marshal(target.Fields)
+	if err != nil {
+		return "", err
+	}
+
+	return string(raw), nil
+}
+
+// reorderCollections rewrites the _collections rows in the source rowid order.
+//
+// The rows of a query without ORDER BY are returned in the SQLite rowid order
+// while Postgres returns them in their physical order, which is changed by the
+// replaced and updated collections during the import.
+func reorderCollections(app core.App, collections []*sourceCollection) error {
+	ids := make([]string, len(collections))
+	for i, c := range collections {
+		ids[i] = c.id
+	}
+
+	rawIds, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+
+	return app.RunInTransaction(func(txApp core.App) error {
+		_, err := txApp.DB().NewQuery("CREATE TEMP TABLE {{_popgres_reorder}} ON COMMIT DROP AS SELECT * FROM {{_collections}}").Execute()
+		if err != nil {
+			return err
+		}
+
+		_, err = txApp.DB().NewQuery("DELETE FROM {{_collections}}").Execute()
+		if err != nil {
+			return err
+		}
+
+		_, err = txApp.DB().NewQuery(`
+			INSERT INTO {{_collections}}
+			SELECT r.* FROM {{_popgres_reorder}} [[r]]
+			LEFT JOIN jsonb_array_elements_text({:ids}::jsonb) WITH ORDINALITY [[o]]([[id]], [[n]]) ON [[o.id]] = [[r.id]]
+			ORDER BY [[o.n]] NULLS LAST, [[r.id]]
+		`).Bind(dbx.Params{"ids": string(rawIds)}).Execute()
+
+		return err
+	})
 }
 
 func importRecords(txApp core.App, src *dbx.DB, collection *core.Collection) (int, error) {
