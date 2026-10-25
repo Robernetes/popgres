@@ -43,6 +43,13 @@ type ResolverResult struct {
 	// AfterBuild is an optional function that will be called after building
 	// and combining the result of both resolved operands/sides in a single expression.
 	AfterBuild func(expr dbx.Expression) dbx.Expression
+
+	// JSON indicates that the Identifier (and the MultiMatchSubQuery value)
+	// resolves to a jsonb value (eg. a json field path).
+	//
+	// The other operand of a comparison with a JSON result is converted to jsonb
+	// so that the values are compared with the json types semantic.
+	JSON bool
 }
 
 // FieldResolver defines an interface for managing search fields.
@@ -118,5 +125,6 @@ func (r *SimpleFieldResolver) Resolve(field string) (*ResolverResult, error) {
 	return &ResolverResult{
 		NullFallback: NullFallbackDisabled,
 		Identifier:   dbutils.JSONExtract(inflector.Columnify(parts[0]), jsonPath.String()),
+		JSON:         true,
 	}, nil
 }

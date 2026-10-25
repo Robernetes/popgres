@@ -35,14 +35,16 @@ func JSONArrayLength(column string) string {
 // specified path of a json column (or the whole normalized jsonb value when path is empty).
 //
 // The path uses the PocketBase notation (eg. "a.b[0].c").
-// NULL is returned for missing paths.
+//
+// NULL is returned for missing paths and for the json null value
+// (the same as the SQLite JSON_EXTRACT).
 func JSONExtract(column string, path string) string {
 	if path == "" {
-		return fmt.Sprintf(`popgres_jsonb([[%s]])`, column)
+		return fmt.Sprintf(`NULLIF(popgres_jsonb([[%s]]), 'null'::jsonb)`, column)
 	}
 
 	return fmt.Sprintf(
-		`jsonb_path_query_first(popgres_jsonb([[%s]]), '%s', '{}', true)`,
+		`NULLIF(jsonb_path_query_first(popgres_jsonb([[%s]]), '%s', '{}', true), 'null'::jsonb)`,
 		column,
 		strings.ReplaceAll(jsonPath(path), "'", "''"),
 	)

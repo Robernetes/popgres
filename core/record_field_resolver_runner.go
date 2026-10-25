@@ -479,6 +479,7 @@ func (r *runner) processActiveProps() (*search.ResolverResult, error) {
 			result := &search.ResolverResult{
 				NullFallback: search.NullFallbackDisabled,
 				Identifier:   dbutils.JSONExtract(r.activeTableAlias+"."+inflector.Columnify(prop), jsonPathStr),
+				JSON:         true,
 			}
 
 			if r.withMultiMatch {
@@ -835,6 +836,7 @@ func (r *runner) finalizeActivePropsProcessing(collection *Collection, prop stri
 	// (https://github.com/pocketbase/pocketbase/issues/4068)
 	if field.Type() == FieldTypeJSON {
 		result.NullFallback = search.NullFallbackDisabled
+		result.JSON = true
 		result.Identifier = dbutils.JSONExtract(r.activeTableAlias+"."+cleanFieldName, "")
 		if r.withMultiMatch {
 			r.multiMatch.ValueIdentifier = dbutils.JSONExtract(r.multiMatchActiveTableAlias+"."+cleanFieldName, "")
