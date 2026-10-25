@@ -19,11 +19,69 @@ func init() {
 				SELECT string_agg(substr('abcdefghijklmnopqrstuvwxyz0123456789', (get_byte(b.bytes, i) % 36) + 1, 1), '' ORDER BY i)
 				FROM (SELECT gen_random_bytes(15) AS bytes) b, generate_series(0, 14) AS i
 			$$;
+
+			-- popgres_jsonb normalizes a column value to jsonb
+			-- (valid json text is parsed and any other value is converted with to_jsonb).
+			CREATE OR REPLACE FUNCTION popgres_jsonb(v JSONB) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT v $$;
+
+			CREATE OR REPLACE FUNCTION popgres_jsonb(v TEXT) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE WHEN v IS JSON THEN v::jsonb ELSE to_jsonb(v) END
+			$$;
+
+			CREATE OR REPLACE FUNCTION popgres_jsonb(v ANYELEMENT) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT to_jsonb(v) $$;
+
+			-- popgres_json_array normalizes a column value to a jsonb array
+			-- (a non-array value is wrapped in a single element array).
+			CREATE OR REPLACE FUNCTION popgres_json_array(v JSONB) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE WHEN jsonb_typeof(v) = 'array' THEN v ELSE jsonb_build_array(v) END
+			$$;
+
+			CREATE OR REPLACE FUNCTION popgres_json_array(v TEXT) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE WHEN v IS JSON ARRAY THEN v::jsonb ELSE jsonb_build_array(v) END
+			$$;
+
+			CREATE OR REPLACE FUNCTION popgres_json_array(v ANYELEMENT) RETURNS JSONB
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT jsonb_build_array(v) $$;
+
+			-- popgres_json_array_length returns the number of elements of a json array
+			-- column value (0 for NULL and empty string, 1 for any other non-array value).
+			CREATE OR REPLACE FUNCTION popgres_json_array_length(v JSONB) RETURNS INTEGER
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE
+					WHEN v IS NULL THEN 0
+					WHEN jsonb_typeof(v) = 'array' THEN jsonb_array_length(v)
+					ELSE 1
+				END
+			$$;
+
+			CREATE OR REPLACE FUNCTION popgres_json_array_length(v TEXT) RETURNS INTEGER
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE
+					WHEN v IS NULL OR v = '' THEN 0
+					WHEN v IS JSON ARRAY THEN jsonb_array_length(v::jsonb)
+					ELSE 1
+				END
+			$$;
+
+			CREATE OR REPLACE FUNCTION popgres_json_array_length(v ANYELEMENT) RETURNS INTEGER
+			LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+				SELECT CASE WHEN v IS NULL THEN 0 ELSE 1 END
+			$$;
 		`).Execute()
 
 		return err
 	}, func(txApp core.App) error {
-		_, err := txApp.DB().NewQuery("DROP FUNCTION IF EXISTS popgres_id()").Execute()
+		_, err := txApp.DB().NewQuery(`
+			DROP FUNCTION IF EXISTS popgres_json_array_length(JSONB), popgres_json_array_length(TEXT), popgres_json_array_length(ANYELEMENT);
+			DROP FUNCTION IF EXISTS popgres_json_array(JSONB), popgres_json_array(TEXT), popgres_json_array(ANYELEMENT);
+			DROP FUNCTION IF EXISTS popgres_jsonb(JSONB), popgres_jsonb(TEXT), popgres_jsonb(ANYELEMENT);
+			DROP FUNCTION IF EXISTS popgres_id();
+		`).Execute()
 
 		return err
 	})

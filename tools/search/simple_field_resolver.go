@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Robernetes/popgres/tools/dbutils"
 	"github.com/Robernetes/popgres/tools/inflector"
 	"github.com/Robernetes/popgres/tools/list"
 	"github.com/pocketbase/dbx"
@@ -101,24 +102,21 @@ func (r *SimpleFieldResolver) Resolve(field string) (*ResolverResult, error) {
 
 	// treat as json path
 	var jsonPath strings.Builder
-	jsonPath.WriteString("$")
-	for _, part := range parts[1:] {
+	for i, part := range parts[1:] {
 		if _, err := strconv.Atoi(part); err == nil {
 			jsonPath.WriteString("[")
 			jsonPath.WriteString(inflector.Columnify(part))
 			jsonPath.WriteString("]")
 		} else {
-			jsonPath.WriteString(".")
+			if i > 0 {
+				jsonPath.WriteString(".")
+			}
 			jsonPath.WriteString(inflector.Columnify(part))
 		}
 	}
 
 	return &ResolverResult{
 		NullFallback: NullFallbackDisabled,
-		Identifier: fmt.Sprintf(
-			"JSON_EXTRACT([[%s]], '%s')",
-			inflector.Columnify(parts[0]),
-			jsonPath.String(),
-		),
+		Identifier:   dbutils.JSONExtract(inflector.Columnify(parts[0]), jsonPath.String()),
 	}, nil
 }

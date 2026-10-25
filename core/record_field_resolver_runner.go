@@ -340,7 +340,7 @@ func (r *runner) processRequestBodyEachModifier(bodyField Field) (*search.Resolv
 
 	placeholder := "dataEach" + security.PseudorandomString(8)
 	cleanFieldName := inflector.Columnify(bodyField.GetName())
-	jeTable := fmt.Sprintf("json_each({:%s})", placeholder)
+	jeTable := fmt.Sprintf("jsonb_array_elements_text({:%s}::jsonb)", placeholder)
 	jeAlias := "__dataEach_je_" + cleanFieldName + r.resolver.joinAliasSuffix
 
 	err = r.resolver.registerJoin(jeTable, jeAlias, nil)
@@ -350,7 +350,7 @@ func (r *runner) processRequestBodyEachModifier(bodyField Field) (*search.Resolv
 
 	result := &search.ResolverResult{
 		Identifier: fmt.Sprintf("[[%s.value]]", jeAlias),
-		Params:     dbx.Params{placeholder: bodyItemsRaw},
+		Params:     dbx.Params{placeholder: string(bodyItemsRaw)},
 	}
 
 	if multiValuer.IsMultiple() {
@@ -359,14 +359,14 @@ func (r *runner) processRequestBodyEachModifier(bodyField Field) (*search.Resolv
 
 	if r.withMultiMatch {
 		placeholder2 := "mm" + placeholder
-		jeTable2 := fmt.Sprintf("json_each({:%s})", placeholder2)
+		jeTable2 := fmt.Sprintf("jsonb_array_elements_text({:%s}::jsonb)", placeholder2)
 		jeAlias2 := "__mm_" + jeAlias
 
 		r.multiMatch.Joins = append(r.multiMatch.Joins, &search.Join{
 			TableName:  jeTable2,
 			TableAlias: jeAlias2,
 		})
-		r.multiMatch.Params[placeholder2] = bodyItemsRaw
+		r.multiMatch.Params[placeholder2] = string(bodyItemsRaw)
 		r.multiMatch.ValueIdentifier = fmt.Sprintf("[[%s.value]]", jeAlias2)
 
 		result.MultiMatchSubQuery = r.multiMatch

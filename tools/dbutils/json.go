@@ -5,47 +5,72 @@ import (
 	"strings"
 )
 
-// JSONEach returns JSON_EACH SQLite string expression with
-// some normalizations for non-json columns.
+// note: the helpers rely on the popgres_* SQL functions created by the
+// popgres_functions system migration, which accept text, jsonb and any other
+// column type and normalize the non-json values the same way as PocketBase.
+
+// JSONEach returns a set returning SQL expression with a single "value"
+// text column for each element of a json array column.
+//
+// Non-array and non-json column values are treated as a single element array.
+//
+// It is intended to be used as a FROM/JOIN item, eg.:
+//
+//	"LEFT JOIN " + JSONEach("tbl.col") + " je ON TRUE"
 func JSONEach(column string) string {
-	// note: we are not using the new and shorter "if(x,y)" syntax for
-	// compatibility with custom drivers that use older SQLite version
-	return fmt.Sprintf(
-		`json_each(CASE WHEN iif(json_valid([[%s]]), json_type([[%s]])='array', FALSE) THEN [[%s]] ELSE json_array([[%s]]) END)`,
-		column, column, column, column,
-	)
+	return fmt.Sprintf(`jsonb_array_elements_text(popgres_json_array([[%s]]))`, column)
 }
 
-// JSONArrayLength returns JSON_ARRAY_LENGTH SQLite string expression
-// with some normalizations for non-json columns.
+// JSONArrayLength returns a SQL expression with the number of elements
+// of a json array column.
 //
 // It works with both json and non-json column values.
 //
 // Returns 0 for empty string or NULL column values.
 func JSONArrayLength(column string) string {
-	// note: we are not using the new and shorter "if(x,y)" syntax for
-	// compatibility with custom drivers that use older SQLite version
-	return fmt.Sprintf(
-		`json_array_length(CASE WHEN iif(json_valid([[%s]]), json_type([[%s]])='array', FALSE) THEN [[%s]] ELSE (CASE WHEN [[%s]] = '' OR [[%s]] IS NULL THEN json_array() ELSE json_array([[%s]]) END) END)`,
-		column, column, column, column, column, column,
-	)
+	return fmt.Sprintf(`popgres_json_array_length([[%s]])`, column)
 }
 
-// JSONExtract returns a JSON_EXTRACT SQLite string expression with
-// some normalizations for non-json columns.
+// JSONExtract returns a SQL expression that extracts the jsonb value at the
+// specified path of a json column (or the whole normalized jsonb value when path is empty).
+//
+// The path uses the PocketBase notation (eg. "a.b[0].c").
+// NULL is returned for missing paths.
 func JSONExtract(column string, path string) string {
-	// prefix the path with dot if it is not starting with array notation
-	if path != "" && !strings.HasPrefix(path, "[") {
-		path = "." + path
+	if path == "" {
+		return fmt.Sprintf(`popgres_jsonb([[%s]])`, column)
 	}
 
 	return fmt.Sprintf(
-		// note: the extra object wrapping is needed to workaround the cases where a json_extract is used with non-json columns.
-		"(CASE WHEN json_valid([[%s]]) THEN JSON_EXTRACT([[%s]], '$%s') ELSE JSON_EXTRACT(json_object('pb', [[%s]]), '$.pb%s') END)",
+		`jsonb_path_query_first(popgres_jsonb([[%s]]), '%s', '{}', true)`,
 		column,
-		column,
-		path,
-		column,
-		path,
+		strings.ReplaceAll(jsonPath(path), "'", "''"),
 	)
+}
+
+// jsonPath converts a PocketBase json path (eg. "a.b[0].c") to a strict
+// Postgres SQL/JSON path expression (eg. strict $."a"."b"[0]."c").
+func jsonPath(path string) string {
+	var result strings.Builder
+	result.WriteString("strict $")
+
+	for _, part := range strings.Split(path, ".") {
+		if part == "" {
+			continue
+		}
+
+		key, rest, _ := strings.Cut(part, "[")
+		if key != "" {
+			result.WriteString(`."`)
+			result.WriteString(strings.ReplaceAll(strings.ReplaceAll(key, `\`, `\\`), `"`, `\"`))
+			result.WriteString(`"`)
+		}
+
+		if rest != "" {
+			result.WriteString("[")
+			result.WriteString(rest)
+		}
+	}
+
+	return result.String()
 }

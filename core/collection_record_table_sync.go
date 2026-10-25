@@ -209,18 +209,18 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 
 			if !isOldMultiple && isNewMultiple {
 				// single -> multiple (convert to array)
+				//
+				// note: the popgres_* functions accept both text and jsonb columns
+				// (eg. the column of a newly added field is already jsonb)
 				copyQuery = txApp.DB().NewQuery(fmt.Sprintf(
 					`UPDATE {{%s}} SET [[%s]] = (
 						CASE
-							WHEN COALESCE([[%s]], '') = '' THEN '[]'::jsonb
-							WHEN [[%s]] IS JSON ARRAY THEN [[%s]]::jsonb
-							ELSE jsonb_build_array([[%s]])
+							WHEN popgres_json_array_length([[%s]]) = 0 THEN '[]'::jsonb
+							ELSE popgres_json_array([[%s]])
 						END
 					)`,
 					newCollection.Name,
 					originalName,
-					oldTempName,
-					oldTempName,
 					oldTempName,
 					oldTempName,
 				))
@@ -233,8 +233,8 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 					`UPDATE {{%s}} SET [[%s]] = (
 						CASE
 							WHEN [[%s]] IS NULL THEN ''
-							WHEN jsonb_typeof([[%s]]) = 'array' THEN COALESCE([[%s]] ->> -1, '')
-							ELSE COALESCE([[%s]] #>> '{}', '')
+							WHEN jsonb_typeof(popgres_jsonb([[%s]])) = 'array' THEN COALESCE(popgres_jsonb([[%s]]) ->> -1, '')
+							ELSE COALESCE(popgres_jsonb([[%s]]) #>> '{}', '')
 						END
 					)`,
 					newCollection.Name,

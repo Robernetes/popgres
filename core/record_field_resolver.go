@@ -139,7 +139,7 @@ func (r *RecordFieldResolver) UpdateQuery(query *dbx.SelectQuery) error {
 		for _, join := range r.joins {
 			query.LeftJoin(
 				(join.TableName + " " + join.TableAlias),
-				join.On,
+				joinOn(join.On),
 			)
 		}
 	}
@@ -199,7 +199,7 @@ func (r *RecordFieldResolver) updateQueryWithCollectionListRule(c *Collection, t
 		for _, j := range cloneR.joins {
 			query.LeftJoin(
 				(j.TableName + " " + j.TableAlias),
-				j.On,
+				joinOn(j.On),
 			)
 		}
 	}
@@ -589,4 +589,15 @@ func splitModifier(combined string) (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("unknown modifier in %q", combined)
+}
+
+// joinOn returns the provided join condition or TRUE if it is nil
+// (Postgres requires an ON clause for LEFT JOIN, eg. with the set returning
+// json functions that implicitly reference the previous FROM items).
+func joinOn(on dbx.Expression) dbx.Expression {
+	if on == nil {
+		return dbx.NewExp("TRUE")
+	}
+
+	return on
 }

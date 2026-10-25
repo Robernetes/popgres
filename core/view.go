@@ -321,7 +321,7 @@ func defaultViewIdField() Field {
 	}
 }
 
-var castRegex = regexp.MustCompile(`(?is)^cast\s*\(.*\s+as\s+(\w+)\s*\)$`)
+var castRegex = regexp.MustCompile(`(?is)^cast\s*\(.*\s+as\s+(\w+(?:\s+\w+)?)\s*\)$`)
 
 func parseQueryToFields(app App, selectQuery string) (map[string]*queryField, error) {
 	p := new(identifiersParser)
@@ -382,15 +382,15 @@ func parseQueryToFields(app App, selectQuery string) (map[string]*queryField, er
 
 		// casts
 		if len(castMatch) == 2 {
-			switch castMatch[1] {
-			case "real", "decimal", "numeric":
+			switch strings.Join(strings.Fields(castMatch[1]), " ") {
+			case "real", "decimal", "numeric", "double precision", "float", "float4", "float8":
 				result[col.alias] = &queryField{
 					field: &NumberField{
 						Name: col.alias,
 					},
 				}
 				continue
-			case "int", "integer":
+			case "int", "integer", "bigint", "smallint", "int2", "int4", "int8":
 				result[col.alias] = &queryField{
 					field: &NumberField{
 						Name:    col.alias,
@@ -398,7 +398,7 @@ func parseQueryToFields(app App, selectQuery string) (map[string]*queryField, er
 					},
 				}
 				continue
-			case "text":
+			case "text", "varchar", "character varying":
 				result[col.alias] = &queryField{
 					field: &TextField{
 						Name: col.alias,
