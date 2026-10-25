@@ -233,6 +233,12 @@ func bindClusterForwarding(app core.App, pbRouter *router.Router[*core.RequestEv
 
 		// execute in the background to not block the other cluster messages
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					app.Logger().Error("Forwarded request panic", slog.Any("error", r))
+				}
+			}()
+
 			res, err := executeForwardedRequest(getMux, rawReq)
 			if err != nil {
 				app.Logger().Warn("Failed to execute a forwarded request", slog.String("error", err.Error()))

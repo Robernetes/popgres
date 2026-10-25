@@ -19,7 +19,19 @@ const (
 // coalesced returns a function that runs fn in the background immediately,
 // or once more after the current run if it is already running
 // (eg. a reload for multiple consecutive changes like an import of several collections).
-func coalesced(fn func()) func() {
+//
+// A fn panic is recovered and reported with onPanic (eg. the app could be
+// cleared while reloading) because it runs in a background goroutine.
+func coalesced(fn func(), onPanic func(r any)) func() {
+	safeFn := func() {
+		defer func() {
+			if r := recover(); r != nil {
+				onPanic(r)
+			}
+		}()
+		fn()
+	}
+
 	var mu sync.Mutex
 	var running, pending bool
 
@@ -35,7 +47,7 @@ func coalesced(fn func()) func() {
 
 		go func() {
 			for {
-				fn()
+				safeFn()
 
 				mu.Lock()
 				if !pending {
@@ -56,6 +68,10 @@ func coalesced(fn func()) func() {
 // After a successful settings or collection change the node publishes a cluster
 // message (LISTEN/NOTIFY) and the other nodes reload their cached state.
 func (app *BaseApp) registerNotifyWatcherHooks() {
+	onPanic := func(r any) {
+		app.Logger().Error("Cluster notify reload panic", slog.Any("error", r))
+	}
+
 	reloadSettings := coalesced(func() {
 		if !app.IsBootstrapped() {
 			return
@@ -66,7 +82,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 		if err := app.ReloadSettings(); err != nil {
 			app.Logger().Warn("Failed to reload app settings after cluster notify", slog.String("error", err.Error()))
 		}
-	})
+	}, onPanic)
 
 	reloadCollections := coalesced(func() {
 		if !app.IsBootstrapped() {
@@ -78,7 +94,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 		if err := app.ReloadCachedCollections(); err != nil {
 			app.Logger().Warn("Failed to reload cached collections after cluster notify", slog.String("error", err.Error()))
 		}
-	})
+	}, onPanic)
 
 	app.cluster.Subscribe(clusterTopicSettings, func(msg cluster.Message) {
 		if msg.NodeId != app.cluster.NodeId() {
