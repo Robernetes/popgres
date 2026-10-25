@@ -61,6 +61,7 @@ type Cluster struct {
 	nodeId string
 	dsn    func() string
 	logger func() *slog.Logger
+	kv     *KV
 
 	mu                sync.RWMutex
 	handlers          map[string]map[string]Handler
@@ -74,19 +75,42 @@ type Cluster struct {
 	running bool
 }
 
-// New creates a new Cluster instance.
+// Config defines the Cluster dependencies.
 //
-// dsn returns the connection string of the shared database and logger the
-// logger to use (they are functions because they could change on app bootstrap).
-func New(dsn func() string, logger func() *slog.Logger) *Cluster {
+// They are functions because they could change on app bootstrap.
+type Config struct {
+	// DSN returns the connection string of the shared database
+	// (used for the dedicated LISTEN connection).
+	DSN func() string
+
+	// DB returns the main database pool (not a transaction).
+	DB func() dbx.Builder
+
+	// Logger returns the logger to use.
+	Logger func() *slog.Logger
+}
+
+// New creates a new Cluster instance.
+func New(config Config) *Cluster {
+	logger := config.Logger
+	if logger == nil {
+		logger = slog.Default
+	}
+
 	return &Cluster{
 		nodeId:            "n" + security.RandomStringWithAlphabet(11, "abcdefghijklmnopqrstuvwxyz0123456789"),
-		dsn:               dsn,
+		dsn:               config.DSN,
 		logger:            logger,
+		kv:                newKV(config.DB),
 		handlers:          map[string]map[string]Handler{},
 		reconnectHandlers: map[string]func(){},
 		ready:             make(chan struct{}),
 	}
+}
+
+// KV returns the key-value store with expiration shared by all nodes.
+func (c *Cluster) KV() *KV {
+	return c.kv
 }
 
 // NodeId returns the unique id of the current node (app instance).
@@ -249,7 +273,10 @@ func (c *Cluster) listen(
 	reconnect bool,
 	onConnected func(),
 ) error {
-	dsn := c.dsn()
+	var dsn string
+	if c.dsn != nil {
+		dsn = c.dsn()
+	}
 	if dsn == "" {
 		return errors.New("missing database connection string")
 	}

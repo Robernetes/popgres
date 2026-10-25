@@ -108,6 +108,7 @@ type BaseApp struct {
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
 	cluster             *cluster.Cluster
+	dataDB              dbx.Builder // the main data pool (it is not replaced in the transaction app clones)
 	logger              *slog.Logger
 	concurrentDB        dbx.Builder
 	nonconcurrentDB     dbx.Builder
@@ -246,10 +247,11 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		config:              &config,
 	}
 
-	app.cluster = cluster.New(
-		func() string { return app.config.DatabaseURL },
-		app.Logger,
-	)
+	app.cluster = cluster.New(cluster.Config{
+		DSN:    func() string { return app.config.DatabaseURL },
+		DB:     func() dbx.Builder { return app.dataDB },
+		Logger: app.Logger,
+	})
 
 	// apply config defaults
 	if app.config.DBConnect == nil {
@@ -529,6 +531,7 @@ func (app *BaseApp) ClearBootstrap() error {
 		}
 
 		app.cluster.Stop()
+		app.dataDB = nil
 
 		var errs []error
 
@@ -1338,6 +1341,7 @@ func (app *BaseApp) initDataDB() error {
 	// need for a separate single connection pool (DB() returns the same pool)
 	app.concurrentDB = db
 	app.nonconcurrentDB = db
+	app.dataDB = db
 
 	return nil
 }

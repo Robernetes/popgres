@@ -12,10 +12,15 @@ import (
 )
 
 func newTestCluster(t *testing.T, url string) *cluster.Cluster {
-	c := cluster.New(
-		func() string { return url },
-		func() *slog.Logger { return slog.Default() },
-	)
+	return newTestClusterWithDB(t, url, nil)
+}
+
+func newTestClusterWithDB(t *testing.T, url string, db dbx.Builder) *cluster.Cluster {
+	c := cluster.New(cluster.Config{
+		DSN:    func() string { return url },
+		DB:     func() dbx.Builder { return db },
+		Logger: func() *slog.Logger { return slog.Default() },
+	})
 	t.Cleanup(c.Stop)
 
 	return c

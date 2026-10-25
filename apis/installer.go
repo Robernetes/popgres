@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/osutils"
 	"github.com/Robernetes/popgres/ui"
 	"github.com/fatih/color"
@@ -69,6 +70,24 @@ func needInstallerSuperuser(app core.App) bool {
 }
 
 func findOrCreateInstallerSuperuser(app core.App) (*core.Record, error) {
+	var record *core.Record
+
+	// the lock ensures that the app instances (nodes) that start at the same time
+	// share the same installer superuser instead of creating duplicates
+	err := app.RunInTransaction(func(txApp core.App) error {
+		if err := cluster.XactLock(txApp.DB(), "installer"); err != nil {
+			return err
+		}
+
+		var err error
+		record, err = findOrCreateInstallerSuperuserNoLock(txApp)
+		return err
+	})
+
+	return record, err
+}
+
+func findOrCreateInstallerSuperuserNoLock(app core.App) (*core.Record, error) {
 	col, err := app.FindCachedCollectionByNameOrId(core.CollectionNameSuperusers)
 	if err != nil {
 		return nil, err
