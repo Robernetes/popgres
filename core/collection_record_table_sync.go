@@ -42,6 +42,11 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 				return err
 			}
 
+			// popgres: the realtime events of the new table
+			if err := addTableToRealtimePublication(txApp, tableName); err != nil {
+				return err
+			}
+
 			return createCollectionIndexes(txApp, newCollection)
 		}
 

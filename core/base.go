@@ -86,6 +86,11 @@ type BaseAppConfig struct {
 	// variable and then to DatabaseURL (the logs are stored in the "_aux" schema).
 	LogsDatabaseURL string
 
+	// RealtimeSource is the source of the realtime record events: "hooks" (default)
+	// or "replication" (the Postgres logical replication, which includes the changes
+	// made outside of the app API). If not set, it fallbacks to the POPGRES_REALTIME_SOURCE env variable.
+	RealtimeSource string
+
 	// ClusterMode enables the features required to run multiple app instances
 	// (nodes) with the same database behind a load balancer (eg. the rate limits
 	// shared by all nodes). If not set, it fallbacks to the POPGRES_CLUSTER env variable.
@@ -278,6 +283,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 	if !app.config.ClusterMode {
 		app.config.ClusterMode, _ = strconv.ParseBool(os.Getenv(ClusterModeEnv))
+	}
+	if app.config.RealtimeSource == "" {
+		app.config.RealtimeSource = os.Getenv(RealtimeSourceEnv)
 	}
 	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
@@ -506,6 +514,8 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		app.initRealtimeSource()
+
 		// try to cleanup the pb_data temp directory (if any)
 		_ = os.RemoveAll(filepath.Join(app.DataDir(), LocalTempDirName))
 
@@ -543,6 +553,7 @@ func (app *BaseApp) ClearBootstrap() error {
 			Close() error
 		}
 
+		app.cluster.StopReplication()
 		app.cluster.Stop()
 		app.dataDB = nil
 

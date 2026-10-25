@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Robernetes/popgres/tools/security"
@@ -67,6 +68,11 @@ type Cluster struct {
 	mu                sync.RWMutex
 	handlers          map[string]map[string]Handler
 	reconnectHandlers map[string]func()
+
+	realtimeSource    atomic.Value
+	replicationLeader atomic.Bool
+	replicationMu     sync.Mutex
+	replication       *replicationState
 
 	runMu   sync.Mutex
 	cancel  context.CancelFunc
