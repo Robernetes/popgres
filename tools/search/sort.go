@@ -29,9 +29,9 @@ func (s *SortField) BuildExpr(fieldResolver FieldResolver) (string, error) {
 		return "RANDOM()", nil
 	}
 
-	// special case for the builtin SQLite rowid column
+	// the SQLite rowid column doesn't exist in Postgres
 	if s.Name == rowidSortKey {
-		return fmt.Sprintf("[[_rowid_]] %s", s.Direction), nil
+		return "", fmt.Errorf("the %q sort is not supported, use a regular field like created or id instead", rowidSortKey)
 	}
 
 	result, err := fieldResolver.Resolve(s.Name)

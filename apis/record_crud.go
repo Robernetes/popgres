@@ -79,9 +79,9 @@ func recordsList(e *core.RequestEvent) error {
 
 	searchProvider := search.NewProvider(fieldsResolver).Query(query)
 
-	// use rowid when available to minimize the need of a covering index with the "id" field
+	// count the distinct primary keys (there is no rowid in Postgres)
 	if !collection.IsView() {
-		searchProvider.CountCol("_rowid_")
+		searchProvider.CountCol("id")
 	}
 
 	records := []*core.Record{}

@@ -5,10 +5,8 @@ import (
 	"math"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/Robernetes/popgres/tools/dbutils"
-	"github.com/Robernetes/popgres/tools/inflector"
 	"github.com/Robernetes/popgres/tools/routine"
 	"github.com/pocketbase/dbx"
 	"golang.org/x/sync/errgroup"
@@ -262,14 +260,6 @@ func (s *Provider) Exec(items any) (*Result, error) {
 			return nil, err
 		}
 		if expr != "" {
-			// ensure that _rowid_ expressions are always prefixed with the first FROM table
-			if sortField.Name == rowidSortKey && !strings.Contains(expr, ".") {
-				queryInfo := modelsQuery.Info()
-				if len(queryInfo.From) > 0 {
-					expr = "[[" + inflector.Columnify(queryInfo.From[0]) + "]]." + expr
-				}
-			}
-
 			modelsQuery.AndOrderBy(expr)
 		}
 	}
