@@ -144,7 +144,7 @@ func TestFilterDataBuildExpr(t *testing.T) {
 			"geoDistance function",
 			"geoDistance(1,2,3,4) < 567",
 			false,
-			"(6371 * acos(LEAST(1, GREATEST(-1, cos(radians({:TEST})) * cos(radians({:TEST})) * cos(radians({:TEST}) - radians({:TEST})) + sin(radians({:TEST})) * sin(radians({:TEST})))))) < {:TEST}",
+			"(6371 * acos(LEAST(1, GREATEST(-1, cos(radians({:TEST})) * cos(radians({:TEST})) * cos(radians({:TEST}) - radians({:TEST})) + sin(radians({:TEST})) * sin(radians({:TEST})))))) < {:TEST}::double precision",
 		},
 	}
 

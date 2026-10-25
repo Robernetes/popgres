@@ -307,6 +307,7 @@ func (r *runner) processRequestBodyLowerModifier(bodyField Field) (*search.Resol
 	result := &search.ResolverResult{
 		Identifier: "LOWER({:" + placeholder + "})",
 		Params:     dbx.Params{placeholder: rawValue},
+		Type:       search.ValueTypeText,
 	}
 
 	return result, nil
@@ -321,6 +322,7 @@ func (r *runner) processRequestBodyLengthModifier(bodyField Field) (*search.Reso
 
 	result := &search.ResolverResult{
 		Identifier: strconv.Itoa(len(bodyItems)),
+		Type:       search.ValueTypeNumber,
 	}
 
 	return result, nil
@@ -351,6 +353,7 @@ func (r *runner) processRequestBodyEachModifier(bodyField Field) (*search.Resolv
 	result := &search.ResolverResult{
 		Identifier: fmt.Sprintf("[[%s.value]]", jeAlias),
 		Params:     dbx.Params{placeholder: string(bodyItemsRaw)},
+		Type:       search.ValueTypeText,
 	}
 
 	if multiValuer.IsMultiple() {
@@ -763,6 +766,7 @@ func (r *runner) finalizeActivePropsProcessing(collection *Collection, prop stri
 
 		result := &search.ResolverResult{
 			Identifier: dbutils.JSONArrayLength(jePair),
+			Type:       search.ValueTypeNumber,
 		}
 
 		if r.withMultiMatch {
@@ -787,6 +791,7 @@ func (r *runner) finalizeActivePropsProcessing(collection *Collection, prop stri
 
 		result := &search.ResolverResult{
 			Identifier: fmt.Sprintf("[[%s.value]]", jeAlias),
+			Type:       search.ValueTypeText,
 		}
 
 		if multvaluer.IsMultiple() {
@@ -813,6 +818,7 @@ func (r *runner) finalizeActivePropsProcessing(collection *Collection, prop stri
 	// -------------------------------------------------------
 	result := &search.ResolverResult{
 		Identifier: "[[" + r.activeTableAlias + "." + cleanFieldName + "]]",
+		Type:       fieldValueType(r.resolver.app, field),
 	}
 
 	if r.withMultiMatch {
@@ -845,11 +851,43 @@ func (r *runner) finalizeActivePropsProcessing(collection *Collection, prop stri
 
 	// account for the ":lower" modifier
 	if modifier == lowerModifier {
-		result.Identifier = "LOWER(" + result.Identifier + ")"
+		result.Identifier = lowerIdentifier(result.Identifier, result.JSON, result.Type)
 		if r.withMultiMatch {
-			r.multiMatch.ValueIdentifier = "LOWER(" + r.multiMatch.ValueIdentifier + ")"
+			r.multiMatch.ValueIdentifier = lowerIdentifier(r.multiMatch.ValueIdentifier, result.JSON, result.Type)
 		}
+		result.JSON = false
+		result.Type = search.ValueTypeText
 	}
 
 	return result, nil
+}
+
+// lowerIdentifier wraps the provided identifier in LOWER
+// (Postgres has LOWER only for text values so the other types are converted to text).
+func lowerIdentifier(identifier string, isJSON bool, valueType search.ValueType) string {
+	if isJSON {
+		return "LOWER(" + identifier + " #>> '{}')"
+	}
+
+	if valueType == search.ValueTypeText {
+		return "LOWER(" + identifier + ")"
+	}
+
+	return "LOWER((" + identifier + ")::text)"
+}
+
+// fieldValueType returns the search value type hint of the provided field column.
+func fieldValueType(app App, field Field) search.ValueType {
+	switch strings.ToUpper(ColumnBaseType(field.ColumnType(app))) {
+	case "TEXT":
+		return search.ValueTypeText
+	case "DOUBLE PRECISION", "NUMERIC", "INTEGER", "BIGINT", "REAL":
+		return search.ValueTypeNumber
+	case "BOOLEAN":
+		return search.ValueTypeBool
+	case "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE":
+		return search.ValueTypeDate
+	default:
+		return search.ValueTypeUnknown
+	}
 }

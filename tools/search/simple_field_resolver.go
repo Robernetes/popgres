@@ -50,6 +50,13 @@ type ResolverResult struct {
 	// The other operand of a comparison with a JSON result is converted to jsonb
 	// so that the values are compared with the json types semantic.
 	JSON bool
+
+	// Type is an optional hint for the SQL type of the Identifier
+	// (and the MultiMatchSubQuery value), eg. ValueTypeNumber for a number column.
+	//
+	// It is used to normalize the comparisons with operands of incompatible
+	// types (eg. a bool literal compared to a text column).
+	Type ValueType
 }
 
 // FieldResolver defines an interface for managing search fields.

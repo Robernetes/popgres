@@ -381,6 +381,7 @@ func (r *RecordFieldResolver) resolveStaticRequestField(path ...string) (*search
 		return &search.ResolverResult{
 			Identifier: "LOWER({:" + placeholder + "})",
 			Params:     dbx.Params{placeholder: resultVal},
+			Type:       search.ValueTypeText,
 		}, nil
 	}
 

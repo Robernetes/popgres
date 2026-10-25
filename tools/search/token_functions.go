@@ -66,6 +66,7 @@ var TokenFunctions = map[string]func(
 				`sin(radians(` + latA + `)) * sin(radians(` + latB + `))` +
 				`))))`,
 			Params: mergeParams(resolvedArgs[0].Params, resolvedArgs[1].Params, resolvedArgs[2].Params, resolvedArgs[3].Params),
+			Type:   ValueTypeNumber,
 		}, nil
 	},
 
@@ -155,6 +156,7 @@ var TokenFunctions = map[string]func(
 		result := &ResolverResult{
 			NullFallback: NullFallbackEnforced,
 			Params:       dbx.Params{},
+			Type:         ValueTypeText,
 		}
 
 		identifiers := make([]string, 0, totalArgs)

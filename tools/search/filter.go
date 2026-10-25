@@ -241,6 +241,7 @@ func buildResolversExpr(
 			mm := &manyVsOneExpr{
 				nullFallback: originalLeft.NullFallback,
 				json:         originalLeft.JSON,
+				valueType:    originalLeft.Type,
 				subQuery:     originalLeft.MultiMatchSubQuery,
 				op:           op,
 				otherOperand: originalRight,
@@ -251,6 +252,7 @@ func buildResolversExpr(
 			mm := &manyVsOneExpr{
 				nullFallback: originalRight.NullFallback,
 				json:         originalRight.JSON,
+				valueType:    originalRight.Type,
 				subQuery:     originalRight.MultiMatchSubQuery,
 				op:           op,
 				otherOperand: originalLeft,
@@ -673,12 +675,14 @@ func (e *manyVsManyExpr) Build(db *dbx.DB, params dbx.Params) string {
 			NullFallback: e.left.NullFallback,
 			Identifier:   "[[" + lAlias + ".multiMatchValue]]",
 			JSON:         e.left.JSON,
+			Type:         e.left.Type,
 		},
 		e.op,
 		&ResolverResult{
 			NullFallback: e.right.NullFallback,
 			Identifier:   "[[" + rAlias + ".multiMatchValue]]",
 			JSON:         e.right.JSON,
+			Type:         e.right.Type,
 			// note: the AfterBuild needs to be handled only once and it
 			// doesn't matter whether it is applied on the left or right subquery operand
 			AfterBuild: dbx.Not, // inverse for the not-exist expression
@@ -690,7 +694,7 @@ func (e *manyVsManyExpr) Build(db *dbx.DB, params dbx.Params) string {
 	}
 
 	return fmt.Sprintf(
-		"NOT EXISTS (SELECT 1 FROM (%s) {{%s}} LEFT JOIN (%s) {{%s}} WHERE %s)",
+		"NOT EXISTS (SELECT 1 FROM (%s) {{%s}} LEFT JOIN (%s) {{%s}} ON TRUE WHERE %s)",
 		e.left.MultiMatchSubQuery.Build(db, params),
 		lAlias,
 		e.right.MultiMatchSubQuery.Build(db, params),
@@ -714,7 +718,8 @@ type manyVsOneExpr struct {
 	op           fexpr.SignOp
 	inverse      bool
 	nullFallback NullFallbackPreference
-	json         bool // whether the subquery value is jsonb
+	json         bool      // whether the subquery value is jsonb
+	valueType    ValueType // the subquery value type hint
 }
 
 // Build converts the expression into a SQL fragment.
@@ -732,12 +737,14 @@ func (e *manyVsOneExpr) Build(db *dbx.DB, params dbx.Params) string {
 		Identifier:   "[[" + alias + ".multiMatchValue]]",
 		AfterBuild:   dbx.Not, // inverse for the not-exist expression
 		JSON:         e.json,
+		Type:         e.valueType,
 	}
 
 	r2 := &ResolverResult{
 		Identifier: e.otherOperand.Identifier,
 		Params:     e.otherOperand.Params,
 		JSON:       e.otherOperand.JSON,
+		Type:       e.otherOperand.Type,
 	}
 
 	var whereExpr dbx.Expression
