@@ -112,7 +112,7 @@ func TestTableInfo(t *testing.T) {
 		{"missing", "null"},
 		{
 			"_params",
-			`[{"PK":0,"Index":0,"Name":"created","Type":"TEXT","NotNull":true,"DefaultValue":{"String":"''","Valid":true}},{"PK":1,"Index":1,"Name":"id","Type":"TEXT","NotNull":true,"DefaultValue":{"String":"'r'||lower(hex(randomblob(7)))","Valid":true}},{"PK":0,"Index":2,"Name":"updated","Type":"TEXT","NotNull":true,"DefaultValue":{"String":"''","Valid":true}},{"PK":0,"Index":3,"Name":"value","Type":"JSON","NotNull":false,"DefaultValue":{"String":"NULL","Valid":true}}]`,
+			`[{"PK":1,"Index":0,"Name":"id","Type":"text","NotNull":true,"DefaultValue":{"String":"popgres_id()","Valid":true}},{"PK":0,"Index":1,"Name":"value","Type":"text","NotNull":false,"DefaultValue":{"String":"","Valid":false}},{"PK":0,"Index":2,"Name":"created","Type":"timestamp with time zone","NotNull":true,"DefaultValue":{"String":"now()","Valid":true}},{"PK":0,"Index":3,"Name":"updated","Type":"timestamp with time zone","NotNull":true,"DefaultValue":{"String":"now()","Valid":true}}]`,
 		},
 	}
 

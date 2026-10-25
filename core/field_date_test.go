@@ -21,7 +21,7 @@ func TestDateFieldColumnType(t *testing.T) {
 
 	f := &core.DateField{}
 
-	expected := "TEXT DEFAULT '' NOT NULL"
+	expected := "TIMESTAMPTZ DEFAULT NULL"
 
 	if v := f.ColumnType(app); v != expected {
 		t.Fatalf("Expected\n%q\ngot\n%q", expected, v)

@@ -91,6 +91,10 @@ type BaseAppConfig struct {
 	IsDev            bool
 }
 
+// testDatabaseURLFunc is an optional tests only hook that provides a new
+// database for the apps created without a connection string (see export_test.go).
+var testDatabaseURLFunc func() string
+
 // ensures that the BaseApp implements the App interface.
 var _ App = (*BaseApp)(nil)
 
@@ -246,6 +250,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 	if app.config.DatabaseURL == "" {
 		app.config.DatabaseURL = os.Getenv(DatabaseURLEnv)
+	}
+	if app.config.DatabaseURL == "" && testDatabaseURLFunc != nil {
+		app.config.DatabaseURL = testDatabaseURLFunc()
 	}
 	if app.config.LogsDatabaseURL == "" {
 		app.config.LogsDatabaseURL = os.Getenv(LogsDatabaseURLEnv)

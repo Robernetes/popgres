@@ -9,7 +9,7 @@ import (
 func TestJSONEach(t *testing.T) {
 	result := dbutils.JSONEach("a.b")
 
-	expected := "json_each(CASE WHEN iif(json_valid([[a.b]]), json_type([[a.b]])='array', FALSE) THEN [[a.b]] ELSE json_array([[a.b]]) END)"
+	expected := "jsonb_array_elements_text(popgres_json_array([[a.b]]))"
 
 	if result != expected {
 		t.Fatalf("Expected\n%v\ngot\n%v", expected, result)
@@ -19,7 +19,7 @@ func TestJSONEach(t *testing.T) {
 func TestJSONArrayLength(t *testing.T) {
 	result := dbutils.JSONArrayLength("a.b")
 
-	expected := "json_array_length(CASE WHEN iif(json_valid([[a.b]]), json_type([[a.b]])='array', FALSE) THEN [[a.b]] ELSE (CASE WHEN [[a.b]] = '' OR [[a.b]] IS NULL THEN json_array() ELSE json_array([[a.b]]) END) END)"
+	expected := "popgres_json_array_length([[a.b]])"
 
 	if result != expected {
 		t.Fatalf("Expected\n%v\ngot\n%v", expected, result)
@@ -37,19 +37,25 @@ func TestJSONExtract(t *testing.T) {
 			"empty path",
 			"a.b",
 			"",
-			"(CASE WHEN json_valid([[a.b]]) THEN JSON_EXTRACT([[a.b]], '$') ELSE JSON_EXTRACT(json_object('pb', [[a.b]]), '$.pb') END)",
+			"NULLIF(popgres_jsonb([[a.b]]), 'null'::jsonb)",
 		},
 		{
 			"starting with array index",
 			"a.b",
 			"[1].a[2]",
-			"(CASE WHEN json_valid([[a.b]]) THEN JSON_EXTRACT([[a.b]], '$[1].a[2]') ELSE JSON_EXTRACT(json_object('pb', [[a.b]]), '$.pb[1].a[2]') END)",
+			`NULLIF(jsonb_path_query_first(popgres_jsonb([[a.b]]), 'strict $[1]."a"[2]', '{}', true), 'null'::jsonb)`,
 		},
 		{
 			"starting with key",
 			"a.b",
 			"a.b[2].c",
-			"(CASE WHEN json_valid([[a.b]]) THEN JSON_EXTRACT([[a.b]], '$.a.b[2].c') ELSE JSON_EXTRACT(json_object('pb', [[a.b]]), '$.pb.a.b[2].c') END)",
+			`NULLIF(jsonb_path_query_first(popgres_jsonb([[a.b]]), 'strict $."a"."b"[2]."c"', '{}', true), 'null'::jsonb)`,
+		},
+		{
+			"key with quotes",
+			"a.b",
+			`a"'b`,
+			`NULLIF(jsonb_path_query_first(popgres_jsonb([[a.b]]), 'strict $."a\"''b"', '{}', true), 'null'::jsonb)`,
 		},
 	}
 

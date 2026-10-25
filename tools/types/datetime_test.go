@@ -358,10 +358,11 @@ func TestDateTimeUnmarshalJSON(t *testing.T) {
 func TestDateTimeValue(t *testing.T) {
 	scenarios := []struct {
 		value    any
-		expected string
+		expected any
 	}{
-		{"", ""},
-		{"invalid", ""},
+		// popgres: the zero DateTime is stored as NULL
+		{"", nil},
+		{"invalid", nil},
 		{1641024040, "2022-01-01 08:00:40.000Z"},
 		{"2022-01-01 11:23:45.678", "2022-01-01 11:23:45.678Z"},
 		{types.NowDateTime(), types.NowDateTime().String()},

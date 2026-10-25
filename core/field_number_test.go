@@ -20,7 +20,7 @@ func TestNumberFieldColumnType(t *testing.T) {
 
 	f := &core.NumberField{}
 
-	expected := "NUMERIC DEFAULT 0 NOT NULL"
+	expected := "DOUBLE PRECISION DEFAULT 0 NOT NULL"
 
 	if v := f.ColumnType(app); v != expected {
 		t.Fatalf("Expected\n%q\ngot\n%q", expected, v)

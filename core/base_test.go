@@ -507,6 +507,8 @@ func TestBaseAppRefreshSettingsLoggerMinLevelEnabled(t *testing.T) {
 }
 
 func TestBaseAppDBDualBuilder(t *testing.T) {
+	t.Skip("popgres: there is no SQLite dual (concurrent/nonconcurrent) builder routing, both builders are the same Postgres pool")
+
 	t.Parallel()
 
 	app, _ := tests.NewTestApp()
@@ -583,6 +585,8 @@ func TestBaseAppDBDualBuilder(t *testing.T) {
 }
 
 func TestBaseAppAuxDBDualBuilder(t *testing.T) {
+	t.Skip("popgres: there is no SQLite dual (concurrent/nonconcurrent) builder routing, both builders are the same Postgres pool")
+
 	t.Parallel()
 
 	app, _ := tests.NewTestApp()

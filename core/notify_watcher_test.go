@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Robernetes/popgres/core"
+	"github.com/Robernetes/popgres/tests"
 	"github.com/Robernetes/popgres/tools/store"
 	"github.com/pocketbase/dbx"
 	"golang.org/x/sync/semaphore"
@@ -24,15 +25,24 @@ func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	// popgres: both instances share the same database
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
 	app1 := core.NewBaseApp(core.BaseAppConfig{
-		DataDir: tmpDir,
+		DataDir:     tmpDir,
+		DatabaseURL: db.URL,
 	})
 	if err := app1.Bootstrap(); err != nil {
 		t.Fatal(err)
 	}
 
 	app2 := core.NewBaseApp(core.BaseAppConfig{
-		DataDir: tmpDir,
+		DataDir:     tmpDir,
+		DatabaseURL: db.URL,
 	})
 	if err := app2.Bootstrap(); err != nil {
 		t.Fatal(err)
@@ -88,6 +98,8 @@ func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 }
 
 func TestNotifyWatcher_CollectionsUpdate(t *testing.T) {
+	t.Skip("popgres: the test counts the queries of the concurrent and nonconcurrent pools that are a single pool on Postgres (the instances sync is reimplemented with LISTEN/NOTIFY)")
+
 	t.Parallel()
 
 	tmpDir, err := os.MkdirTemp("", "pb_notify_test*")
