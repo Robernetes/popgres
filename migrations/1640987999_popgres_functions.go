@@ -19,11 +19,11 @@ func init() {
 				SELECT string_agg(substr('abcdefghijklmnopqrstuvwxyz0123456789', (get_byte(b.bytes, i) % 36) + 1, 1), '' ORDER BY i)
 				FROM (SELECT gen_random_bytes(15) AS bytes) b, generate_series(0, 14) AS i
 			$$;
-		` + popgresJSONFunctions).Execute()
+		` + popgresJSONFunctions + popgresStrftimeFunctions).Execute()
 
 		return err
 	}, func(txApp core.App) error {
-		_, err := txApp.DB().NewQuery(dropPopgresJSONFunctions + `
+		_, err := txApp.DB().NewQuery(dropPopgresStrftimeFunctions + dropPopgresJSONFunctions + `
 			DROP FUNCTION IF EXISTS popgres_id();
 		`).Execute()
 

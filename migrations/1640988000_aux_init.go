@@ -25,7 +25,7 @@ func init() {
 
 				-- the json helpers are created in the _aux schema too because
 				-- the logs could be stored in a separate database
-			` + popgresJSONFunctions).Execute()
+			` + popgresJSONFunctions + popgresStrftimeFunctions).Execute()
 
 			return execErr
 		},

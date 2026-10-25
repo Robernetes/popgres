@@ -144,6 +144,278 @@ CREATE FUNCTION _aux.popgres_jsonb(v text) RETURNS jsonb
 
 
 --
+-- Name: popgres_strftime(text); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, clock_timestamp())
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, double precision); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v double precision) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime(fmt, v::TEXT)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, text); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v text) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_value(v, '{}'::TEXT[]))
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, timestamp with time zone); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v timestamp with time zone) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, v)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, double precision, text[]); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v double precision, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime(fmt, v::TEXT, VARIADIC mods)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, text, text[]); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v text, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_apply(popgres_strftime_value(v, mods), mods))
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, timestamp with time zone, text[]); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime(fmt text, v timestamp with time zone, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_apply(v, mods))
+	$$;
+
+
+--
+-- Name: popgres_strftime_apply(timestamp with time zone, text[]); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime_apply(ts timestamp with time zone, mods text[]) RETURNS timestamp with time zone
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $_$
+	DECLARE
+		m TEXT;
+		parts TEXT[];
+		n DOUBLE PRECISION;
+		target INTEGER;
+	BEGIN
+		IF ts IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		FOREACH m IN ARRAY COALESCE(mods, '{}'::TEXT[]) LOOP
+			m := lower(btrim(m));
+
+			IF m IN ('unixepoch', 'julianday', 'auto', 'utc', 'localtime', 'subsec', 'subsecond') THEN
+				CONTINUE;
+			END IF;
+
+			IF m = 'start of day' THEN
+				ts := date_trunc('day', ts);
+			ELSIF m = 'start of month' THEN
+				ts := date_trunc('month', ts);
+			ELSIF m = 'start of year' THEN
+				ts := date_trunc('year', ts);
+			ELSIF m ~ '^weekday [0-6]$' THEN
+				target := substr(m, 9, 1)::INTEGER;
+				ts := ts + (((target - extract(dow FROM ts)::INTEGER) + 7) % 7) * INTERVAL '1 day';
+			ELSIF m ~ '^[+-]?\s*[0-9]+(\.[0-9]+)?\s+(day|hour|minute|second|month|year)s?$' THEN
+				parts := regexp_match(m, '^([+-]?)\s*([0-9]+(?:\.[0-9]+)?)\s+(day|hour|minute|second|month|year)s?$');
+				n := parts[2]::DOUBLE PRECISION;
+				IF parts[1] = '-' THEN
+					n := -n;
+				END IF;
+				IF parts[3] IN ('month', 'year') THEN
+					-- whole months/years only (the same as the SQLite integer part)
+					ts := ts + (trunc(n)::INTEGER || ' ' || parts[3])::INTERVAL;
+				ELSE
+					ts := ts + (n || ' ' || parts[3])::INTERVAL;
+				END IF;
+			ELSIF m ~ '^[+-][0-9]{1,2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?$' THEN
+				ts := ts + (CASE WHEN left(m, 1) = '-' THEN -1 ELSE 1 END) * substr(m, 2)::INTERVAL;
+			ELSE
+				RETURN NULL; -- unknown modifier
+			END IF;
+		END LOOP;
+
+		RETURN ts;
+	END
+	$_$;
+
+
+--
+-- Name: popgres_strftime_format(text, timestamp with time zone); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime_format(fmt text, ts timestamp with time zone) RETURNS text
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $$
+	DECLARE
+		result TEXT := '';
+		i INTEGER := 1;
+		c TEXT;
+		yday INTEGER;
+		wday INTEGER;
+	BEGIN
+		IF fmt IS NULL OR ts IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		yday := extract(doy FROM ts)::INTEGER - 1;
+		wday := extract(dow FROM ts)::INTEGER;
+
+		WHILE i <= length(fmt) LOOP
+			c := substr(fmt, i, 1);
+
+			IF c <> '%' THEN
+				result := result || c;
+				i := i + 1;
+				CONTINUE;
+			END IF;
+
+			c := substr(fmt, i + 1, 1);
+			i := i + 2;
+
+			CASE c
+				WHEN 'd' THEN result := result || to_char(ts, 'DD');
+				WHEN 'e' THEN result := result || lpad(extract(day FROM ts)::INTEGER::TEXT, 2, ' ');
+				WHEN 'f' THEN result := result || to_char(ts, 'SS.MS');
+				WHEN 'F' THEN result := result || to_char(ts, 'YYYY-MM-DD');
+				WHEN 'G' THEN result := result || to_char(ts, 'IYYY');
+				WHEN 'g' THEN result := result || to_char(ts, 'IY');
+				WHEN 'H' THEN result := result || to_char(ts, 'HH24');
+				WHEN 'I' THEN result := result || to_char(ts, 'HH12');
+				WHEN 'j' THEN result := result || to_char(ts, 'DDD');
+				WHEN 'J' THEN result := result || ((extract(epoch FROM ts) / 86400) + 2440587.5)::TEXT;
+				WHEN 'k' THEN result := result || lpad(extract(hour FROM ts)::INTEGER::TEXT, 2, ' ');
+				WHEN 'l' THEN result := result || lpad(ltrim(to_char(ts, 'HH12'), '0'), 2, ' ');
+				WHEN 'm' THEN result := result || to_char(ts, 'MM');
+				WHEN 'M' THEN result := result || to_char(ts, 'MI');
+				WHEN 'p' THEN result := result || to_char(ts, 'AM');
+				WHEN 'P' THEN result := result || to_char(ts, 'am');
+				WHEN 'R' THEN result := result || to_char(ts, 'HH24:MI');
+				WHEN 's' THEN result := result || floor(extract(epoch FROM ts))::BIGINT::TEXT;
+				WHEN 'S' THEN result := result || to_char(ts, 'SS');
+				WHEN 'T' THEN result := result || to_char(ts, 'HH24:MI:SS');
+				WHEN 'u' THEN result := result || to_char(ts, 'ID');
+				WHEN 'U' THEN result := result || lpad(((yday + 7 - wday) / 7)::TEXT, 2, '0');
+				WHEN 'V' THEN result := result || to_char(ts, 'IW');
+				WHEN 'w' THEN result := result || wday::TEXT;
+				WHEN 'W' THEN result := result || lpad(((yday + 7 - ((wday + 6) % 7)) / 7)::TEXT, 2, '0');
+				WHEN 'Y' THEN result := result || to_char(ts, 'YYYY');
+				WHEN '%' THEN result := result || '%';
+				ELSE RETURN NULL; -- unknown substitution
+			END CASE;
+		END LOOP;
+
+		RETURN result;
+	END
+	$$;
+
+
+--
+-- Name: popgres_strftime_value(text, text[]); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_strftime_value(v text, mods text[]) RETURNS timestamp with time zone
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $_$
+	DECLARE
+		num DOUBLE PRECISION;
+		lmods TEXT[];
+	BEGIN
+		IF v IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		v := btrim(v);
+
+		IF lower(v) = 'now' THEN
+			RETURN clock_timestamp();
+		END IF;
+
+		IF v ~ '^[+-]?[0-9]+(\.[0-9]+)?$' THEN
+			num := v::DOUBLE PRECISION;
+			SELECT array_agg(lower(btrim(x))) INTO lmods FROM unnest(COALESCE(mods, '{}'::TEXT[])) AS x;
+
+			IF 'unixepoch' = ANY(COALESCE(lmods, '{}'::TEXT[]))
+				OR ('auto' = ANY(COALESCE(lmods, '{}'::TEXT[])) AND (num < 0 OR num > 5373484.499999)) THEN
+				RETURN to_timestamp(num);
+			END IF;
+
+			-- julian day number
+			RETURN to_timestamp((num - 2440587.5) * 86400);
+		END IF;
+
+		-- "HH:MM[:SS[.SSS]]" without a date is relative to 2000-01-01
+		IF v ~ '^[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?$' THEN
+			v := '2000-01-01 ' || v;
+		END IF;
+
+		BEGIN
+			-- the values without time zone are UTC (see the function timezone setting)
+			RETURN v::TIMESTAMPTZ;
+		EXCEPTION WHEN others THEN
+			RETURN NULL;
+		END;
+	END
+	$_$;
+
+
+--
+-- Name: popgres_to_number(jsonb); Type: FUNCTION; Schema: _aux; Owner: -
+--
+
+CREATE FUNCTION _aux.popgres_to_number(v jsonb) RETURNS double precision
+    LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE
+    AS $$
+	BEGIN
+		IF jsonb_typeof(v) = 'number' THEN
+			RETURN (v #>> '{}')::DOUBLE PRECISION;
+		END IF;
+		RETURN NULL;
+	END
+	$$;
+
+
+--
 -- Name: popgres_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -266,6 +538,278 @@ CREATE FUNCTION public.popgres_jsonb(v text) RETURNS jsonb
 			RETURN v::jsonb;
 		END IF;
 		RETURN to_jsonb(v);
+	END
+	$$;
+
+
+--
+-- Name: popgres_strftime(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, clock_timestamp())
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, double precision); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v double precision) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime(fmt, v::TEXT)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v text) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_value(v, '{}'::TEXT[]))
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v timestamp with time zone) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, v)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, double precision, text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v double precision, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime(fmt, v::TEXT, VARIADIC mods)
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, text, text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v text, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_apply(popgres_strftime_value(v, mods), mods))
+	$$;
+
+
+--
+-- Name: popgres_strftime(text, timestamp with time zone, text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime(fmt text, v timestamp with time zone, VARIADIC mods text[]) RETURNS text
+    LANGUAGE sql STABLE PARALLEL SAFE
+    AS $$
+		SELECT popgres_strftime_format(fmt, popgres_strftime_apply(v, mods))
+	$$;
+
+
+--
+-- Name: popgres_strftime_apply(timestamp with time zone, text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime_apply(ts timestamp with time zone, mods text[]) RETURNS timestamp with time zone
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $_$
+	DECLARE
+		m TEXT;
+		parts TEXT[];
+		n DOUBLE PRECISION;
+		target INTEGER;
+	BEGIN
+		IF ts IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		FOREACH m IN ARRAY COALESCE(mods, '{}'::TEXT[]) LOOP
+			m := lower(btrim(m));
+
+			IF m IN ('unixepoch', 'julianday', 'auto', 'utc', 'localtime', 'subsec', 'subsecond') THEN
+				CONTINUE;
+			END IF;
+
+			IF m = 'start of day' THEN
+				ts := date_trunc('day', ts);
+			ELSIF m = 'start of month' THEN
+				ts := date_trunc('month', ts);
+			ELSIF m = 'start of year' THEN
+				ts := date_trunc('year', ts);
+			ELSIF m ~ '^weekday [0-6]$' THEN
+				target := substr(m, 9, 1)::INTEGER;
+				ts := ts + (((target - extract(dow FROM ts)::INTEGER) + 7) % 7) * INTERVAL '1 day';
+			ELSIF m ~ '^[+-]?\s*[0-9]+(\.[0-9]+)?\s+(day|hour|minute|second|month|year)s?$' THEN
+				parts := regexp_match(m, '^([+-]?)\s*([0-9]+(?:\.[0-9]+)?)\s+(day|hour|minute|second|month|year)s?$');
+				n := parts[2]::DOUBLE PRECISION;
+				IF parts[1] = '-' THEN
+					n := -n;
+				END IF;
+				IF parts[3] IN ('month', 'year') THEN
+					-- whole months/years only (the same as the SQLite integer part)
+					ts := ts + (trunc(n)::INTEGER || ' ' || parts[3])::INTERVAL;
+				ELSE
+					ts := ts + (n || ' ' || parts[3])::INTERVAL;
+				END IF;
+			ELSIF m ~ '^[+-][0-9]{1,2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?$' THEN
+				ts := ts + (CASE WHEN left(m, 1) = '-' THEN -1 ELSE 1 END) * substr(m, 2)::INTERVAL;
+			ELSE
+				RETURN NULL; -- unknown modifier
+			END IF;
+		END LOOP;
+
+		RETURN ts;
+	END
+	$_$;
+
+
+--
+-- Name: popgres_strftime_format(text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime_format(fmt text, ts timestamp with time zone) RETURNS text
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $$
+	DECLARE
+		result TEXT := '';
+		i INTEGER := 1;
+		c TEXT;
+		yday INTEGER;
+		wday INTEGER;
+	BEGIN
+		IF fmt IS NULL OR ts IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		yday := extract(doy FROM ts)::INTEGER - 1;
+		wday := extract(dow FROM ts)::INTEGER;
+
+		WHILE i <= length(fmt) LOOP
+			c := substr(fmt, i, 1);
+
+			IF c <> '%' THEN
+				result := result || c;
+				i := i + 1;
+				CONTINUE;
+			END IF;
+
+			c := substr(fmt, i + 1, 1);
+			i := i + 2;
+
+			CASE c
+				WHEN 'd' THEN result := result || to_char(ts, 'DD');
+				WHEN 'e' THEN result := result || lpad(extract(day FROM ts)::INTEGER::TEXT, 2, ' ');
+				WHEN 'f' THEN result := result || to_char(ts, 'SS.MS');
+				WHEN 'F' THEN result := result || to_char(ts, 'YYYY-MM-DD');
+				WHEN 'G' THEN result := result || to_char(ts, 'IYYY');
+				WHEN 'g' THEN result := result || to_char(ts, 'IY');
+				WHEN 'H' THEN result := result || to_char(ts, 'HH24');
+				WHEN 'I' THEN result := result || to_char(ts, 'HH12');
+				WHEN 'j' THEN result := result || to_char(ts, 'DDD');
+				WHEN 'J' THEN result := result || ((extract(epoch FROM ts) / 86400) + 2440587.5)::TEXT;
+				WHEN 'k' THEN result := result || lpad(extract(hour FROM ts)::INTEGER::TEXT, 2, ' ');
+				WHEN 'l' THEN result := result || lpad(ltrim(to_char(ts, 'HH12'), '0'), 2, ' ');
+				WHEN 'm' THEN result := result || to_char(ts, 'MM');
+				WHEN 'M' THEN result := result || to_char(ts, 'MI');
+				WHEN 'p' THEN result := result || to_char(ts, 'AM');
+				WHEN 'P' THEN result := result || to_char(ts, 'am');
+				WHEN 'R' THEN result := result || to_char(ts, 'HH24:MI');
+				WHEN 's' THEN result := result || floor(extract(epoch FROM ts))::BIGINT::TEXT;
+				WHEN 'S' THEN result := result || to_char(ts, 'SS');
+				WHEN 'T' THEN result := result || to_char(ts, 'HH24:MI:SS');
+				WHEN 'u' THEN result := result || to_char(ts, 'ID');
+				WHEN 'U' THEN result := result || lpad(((yday + 7 - wday) / 7)::TEXT, 2, '0');
+				WHEN 'V' THEN result := result || to_char(ts, 'IW');
+				WHEN 'w' THEN result := result || wday::TEXT;
+				WHEN 'W' THEN result := result || lpad(((yday + 7 - ((wday + 6) % 7)) / 7)::TEXT, 2, '0');
+				WHEN 'Y' THEN result := result || to_char(ts, 'YYYY');
+				WHEN '%' THEN result := result || '%';
+				ELSE RETURN NULL; -- unknown substitution
+			END CASE;
+		END LOOP;
+
+		RETURN result;
+	END
+	$$;
+
+
+--
+-- Name: popgres_strftime_value(text, text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_strftime_value(v text, mods text[]) RETURNS timestamp with time zone
+    LANGUAGE plpgsql STABLE PARALLEL SAFE
+    SET "TimeZone" TO 'UTC'
+    AS $_$
+	DECLARE
+		num DOUBLE PRECISION;
+		lmods TEXT[];
+	BEGIN
+		IF v IS NULL THEN
+			RETURN NULL;
+		END IF;
+
+		v := btrim(v);
+
+		IF lower(v) = 'now' THEN
+			RETURN clock_timestamp();
+		END IF;
+
+		IF v ~ '^[+-]?[0-9]+(\.[0-9]+)?$' THEN
+			num := v::DOUBLE PRECISION;
+			SELECT array_agg(lower(btrim(x))) INTO lmods FROM unnest(COALESCE(mods, '{}'::TEXT[])) AS x;
+
+			IF 'unixepoch' = ANY(COALESCE(lmods, '{}'::TEXT[]))
+				OR ('auto' = ANY(COALESCE(lmods, '{}'::TEXT[])) AND (num < 0 OR num > 5373484.499999)) THEN
+				RETURN to_timestamp(num);
+			END IF;
+
+			-- julian day number
+			RETURN to_timestamp((num - 2440587.5) * 86400);
+		END IF;
+
+		-- "HH:MM[:SS[.SSS]]" without a date is relative to 2000-01-01
+		IF v ~ '^[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?$' THEN
+			v := '2000-01-01 ' || v;
+		END IF;
+
+		BEGIN
+			-- the values without time zone are UTC (see the function timezone setting)
+			RETURN v::TIMESTAMPTZ;
+		EXCEPTION WHEN others THEN
+			RETURN NULL;
+		END;
+	END
+	$_$;
+
+
+--
+-- Name: popgres_to_number(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.popgres_to_number(v jsonb) RETURNS double precision
+    LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE
+    AS $$
+	BEGIN
+		IF jsonb_typeof(v) = 'number' THEN
+			RETURN (v #>> '{}')::DOUBLE PRECISION;
+		END IF;
+		RETURN NULL;
 	END
 	$$;
 
@@ -649,24 +1193,24 @@ INSERT INTO public."_authOrigins" VALUES
 --
 
 INSERT INTO public._collections VALUES
-	('wsmn24bux7wo113', false, 'base', 'demo1', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "u7spsiph", "max": 0, "min": 0, "help": "", "name": "text", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "puk534el", "help": "", "name": "bool", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "ktas5n7b", "help": "", "name": "url", "type": "url", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "dc4abz4i", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "owtlq7zl", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 3, "presentable": false}, {"id": "4ulkdevf", "help": "", "name": "file_one", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": true, "presentable": false}, {"id": "fjzhrsvq", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "1z1ld0i5", "max": null, "min": null, "help": "", "name": "number", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "khvhpwgj", "help": "", "name": "email", "type": "email", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "ro6p02gk", "max": "", "min": "", "help": "", "name": "datetime", "type": "date", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "ei2fg4v1", "help": "", "name": "json", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "zaedritp", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wsmn24bux7wo113", "cascadeDelete": false}, {"id": "t9bpk2ug", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}, {"id": "geoPoint3081106212", "help": "", "name": "point", "type": "geoPoint", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_wsmn24bux7wo113_created_idx` ON `demo1` (`created`)"]', NULL, NULL, NULL, NULL, NULL, '{}', '2026-10-25 02:28:29.293+00', '2026-10-25 02:28:29.293+00'),
-	('sz5l5z67tg7gku0', false, 'base', 'demo2', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "mkrguaaf", "max": 0, "min": 2, "help": "", "name": "title", "type": "text", "hidden": false, "system": false, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "izkl5z2s", "help": "", "name": "active", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `idx_demo2_created` ON `demo2` (`created`)", "CREATE UNIQUE INDEX \"idx_unique_demo2_title\" on \"demo2\" (\"title\")", "CREATE INDEX \"idx_demo2_active\" ON \"demo2\" (\n\"active\"\n)"]', '', '', '', '', '', '{}', '2026-10-25 02:28:29.297+00', '2026-10-25 02:28:29.297+00'),
+	('wsmn24bux7wo113', false, 'base', 'demo1', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "u7spsiph", "max": 0, "min": 0, "help": "", "name": "text", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "puk534el", "help": "", "name": "bool", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "ktas5n7b", "help": "", "name": "url", "type": "url", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "dc4abz4i", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "owtlq7zl", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 3, "presentable": false}, {"id": "4ulkdevf", "help": "", "name": "file_one", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": true, "presentable": false}, {"id": "fjzhrsvq", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "1z1ld0i5", "max": null, "min": null, "help": "", "name": "number", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "khvhpwgj", "help": "", "name": "email", "type": "email", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "ro6p02gk", "max": "", "min": "", "help": "", "name": "datetime", "type": "date", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "ei2fg4v1", "help": "", "name": "json", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "zaedritp", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wsmn24bux7wo113", "cascadeDelete": false}, {"id": "t9bpk2ug", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}, {"id": "geoPoint3081106212", "help": "", "name": "point", "type": "geoPoint", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_wsmn24bux7wo113_created_idx` ON `demo1` (`created`)"]', NULL, NULL, NULL, NULL, NULL, '{}', '2026-10-25 02:40:33.159+00', '2026-10-25 02:40:33.159+00'),
+	('sz5l5z67tg7gku0', false, 'base', 'demo2', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "mkrguaaf", "max": 0, "min": 2, "help": "", "name": "title", "type": "text", "hidden": false, "system": false, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "izkl5z2s", "help": "", "name": "active", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `idx_demo2_created` ON `demo2` (`created`)", "CREATE UNIQUE INDEX \"idx_unique_demo2_title\" on \"demo2\" (\"title\")", "CREATE INDEX \"idx_demo2_active\" ON \"demo2\" (\n\"active\"\n)"]', '', '', '', '', '', '{}', '2026-10-25 02:40:33.163+00', '2026-10-25 02:40:33.163+00'),
 	('wzlqyes4orhoygb', false, 'base', 'demo3', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "w5z2x0nq", "max": 0, "min": 0, "help": "", "name": "title", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": true, "autogeneratePattern": ""}, {"id": "tgqrbwio", "help": "", "name": "files", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_wzlqyes4orhoygb_created_idx` ON `demo3` (`created`)"]', '// example leading comment...
 @request.auth.id != "" && @request.auth.collectionName != "users"
-// example trailing comment...', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '{}', '2026-10-25 02:28:29.301+00', '2026-10-25 02:28:29.301+00'),
-	('4d1blo5cuycfaca', false, 'base', 'demo4', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "erkxnabw", "max": 0, "min": 0, "help": "", "name": "title", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "t5jskeyz", "help": "", "name": "rel_one_no_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "ldrcjhk8", "help": "", "name": "rel_one_no_cascade_required", "type": "relation", "hidden": false, "system": false, "required": true, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "pl5lcd4y", "help": "", "name": "rel_one_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": true}, {"id": "jz0oue3z", "help": "", "name": "rel_many_no_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "bsxyqrhb", "help": "", "name": "rel_many_no_cascade_required", "type": "relation", "hidden": false, "system": false, "required": true, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "kwmchnf7", "help": "", "name": "rel_many_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": true}, {"id": "pmynkqk5", "help": "", "name": "rel_one_unique", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "mjzyk9vb", "help": "", "name": "rel_many_unique", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "dagiyxj4", "help": "", "name": "self_rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "tsrki8kc", "help": "", "name": "self_rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "4wpx0hhx", "help": "", "name": "json_array", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "ufpwiqnx", "help": "", "name": "json_object", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_4d1blo5cuycfaca_created_idx` ON `demo4` (`created`)", "CREATE UNIQUE INDEX `idx_luoQV2A` ON `demo4` (`rel_one_unique`) WHERE rel_one_unique != ''''", "CREATE UNIQUE INDEX `idx_IjL94ze` ON `demo4` (`rel_many_unique`) WHERE rel_many_unique != ''[]''"]', '', '', '@request.auth.collectionName = ''users''', '@request.auth.collectionName = ''users''', '', '{}', '2026-10-25 02:28:29.304+00', '2026-10-25 02:28:29.304+00'),
-	('v851q4r790rhknl', false, 'auth', 'clients', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "_pbf_auth_password_", "max": 0, "min": 8, "cost": 10, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "_pbf_auth_tokenKey_", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "_pbf_auth_email_", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_pbf_auth_emailVisibility_", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_verified_", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "lacorw19", "max": 0, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `_v851q4r790rhknl_username_idx` ON `clients` (username)", "CREATE UNIQUE INDEX `_v851q4r790rhknl_email_idx` ON `clients` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `_v851q4r790rhknl_tokenKey_idx` ON `clients` (tokenKey)", "CREATE INDEX `_v851q4r790rhknl_created_idx` ON `clients` (`created`)"]', NULL, NULL, NULL, NULL, NULL, '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "verified=true", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email", "username"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:28:29.309+00', '2026-10-25 02:28:29.309+00'),
-	('kpv709sk2lqbqk8', true, 'auth', 'nologin', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "_pbf_auth_password_", "max": 0, "min": 8, "cost": 10, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "_pbf_auth_tokenKey_", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "_pbf_auth_email_", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_pbf_auth_emailVisibility_", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_verified_", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "x8zzktwe", "max": 0, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_username_idx` ON `nologin` (username)", "CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_email_idx` ON `nologin` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_tokenKey_idx` ON `nologin` (tokenKey)", "CREATE INDEX `_kpv709sk2lqbqk8_created_idx` ON \"nologin\" (`created`)"]', '', '', '', '', '', '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [{"name": "gitlab", "pkce": null, "extra": {}, "authURL": "", "clientId": "test", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test"}], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": "@request.auth.collectionName = ''users''", "passwordAuth": {"enabled": false, "identityFields": ["email"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:28:29.314+00', '2026-10-25 02:28:29.314+00'),
-	('9n89pl5vkct6330', false, 'base', 'demo5', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "sozvpexq", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["a", "b", "c", "d"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "qlq1nxlc", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["a", "b", "c", "d", "e"], "required": false, "maxSelect": 5, "presentable": false}, {"id": "ajrrsq1a", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "soxhs0ou", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 5, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "kvbyzuqj", "max": null, "min": null, "help": "", "name": "total", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "ob7dsrcl", "help": "", "name": "file", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_9n89pl5vkct6330_created_idx` ON `demo5` (`created`)"]', 'select_many:length = 3', 'rel_many.self_rel_many.rel_many_cascade.files:length = 1', '@request.body.total = 3', '@request.body.total = 3', '@request.query.test:isset = true', '{}', '2026-10-25 02:28:29.319+00', '2026-10-25 02:28:29.319+00'),
-	('pbc_2279338944', true, 'base', '_mfas', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text1582905952", "max": 0, "min": 0, "help": "", "name": "method", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX \"idx_mfas_collectionRef_recordRef\" ON \"_mfas\" (\n  \"collectionRef\",\n  \"recordRef\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, NULL, '{}', '2026-10-25 02:28:29.19+00', '2026-10-25 02:28:29.324+00'),
-	('pbc_1638494021', true, 'base', '_otps', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "password901924565", "max": 0, "min": 0, "cost": 8, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}, {"id": "text3866985172", "max": 0, "min": 0, "help": "", "name": "sentTo", "type": "text", "hidden": true, "system": true, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}]', '["CREATE INDEX \"idx_otps_collectionRef_recordRef\" ON \"_otps\" (\n  \"collectionRef\",\n  \"recordRef\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, NULL, '{}', '2026-10-25 02:28:29.206+00', '2026-10-25 02:28:29.328+00'),
-	('pbc_2281828961', true, 'base', '_externalAuths', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text2462348188", "max": 0, "min": 0, "help": "", "name": "provider", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text1044722854", "max": 0, "min": 0, "help": "", "name": "providerId", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX \"idx_externalAuths_record_provider\" ON \"_externalAuths\" (\n  \"collectionRef\",\n  \"recordRef\",\n  \"provider\"\n)", "CREATE UNIQUE INDEX \"idx_externalAuths_collection_provider\" ON \"_externalAuths\" (\n  \"collectionRef\",\n  \"provider\",\n  \"providerId\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '{}', '2026-10-25 02:28:29.214+00', '2026-10-25 02:28:29.331+00'),
-	('pbc_4275539003', true, 'base', '_authOrigins', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text4228609354", "max": 0, "min": 0, "help": "", "name": "fingerprint", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX \"idx_authOrigins_unique_pairs\" ON \"_authOrigins\" (\n  \"collectionRef\",\n  \"recordRef\",\n  \"fingerprint\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '{}', '2026-10-25 02:28:29.223+00', '2026-10-25 02:28:29.335+00'),
-	('pbc_3142635823', true, 'auth', '_superusers', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "password901924565", "max": 0, "min": 8, "cost": 0, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "text2504183744", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "email3885137012", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "bool1547992806", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "bool256245529", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `idx_tokenKey__pbc_3323866339` ON `_superusers` (`tokenKey`)", "CREATE UNIQUE INDEX `idx_email__pbc_3323866339` ON `_superusers` (`email`) WHERE `email` != ''''"]', NULL, NULL, NULL, NULL, NULL, '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [], "mappedFields": {"id": "", "name": "", "username": "", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "MyN3nDlzmHnuCjd35vb6cyIdqNr7Os0PmgiPVDMxmbFToSpBvS", "duration": 1209600}, "fileToken": {"secret": "sjJAjTNPrOcRDmnIKwQm7qY9FyjuXTG5KNcaqw4U1TSDVfu4r9", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email"]}, "emailChangeToken": {"secret": "unYNiYeuIxH7BCV09NIb81abe2bkPgaexMYdDQ6uOOIFh74urD", "duration": 1800}, "verificationToken": {"secret": "uhr68rXLVjPBWALFtw8uEHeQwDdN4t0MiTLr2pBWVkEQnNICe1", "duration": 259200}, "passwordResetToken": {"secret": "fPSpFm9rxjj4mdeWYfyQ5OZQ4UWpyainTO0dqrJe3LHEYEDduq", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:28:29.23+00', '2026-10-25 02:28:29.339+00'),
-	('_pb_users_auth_', false, 'auth', 'users', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "password901924565", "max": 0, "min": 8, "cost": 0, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "text2504183744", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9]{50}"}, {"id": "email3885137012", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "bool1547992806", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "bool256245529", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "text1579384326", "max": 255, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "file376926767", "help": "", "name": "avatar", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 0, "required": false, "maxSelect": 1, "mimeTypes": ["image/jpeg", "image/png", "image/svg+xml", "image/gif", "image/webp"], "protected": false, "presentable": false}, {"id": "xtecur3m", "help": "", "name": "file", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 5, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "lkeigvv3", "help": "", "name": "rel", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "sz5l5z67tg7gku0", "cascadeDelete": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `__pb_users_auth__username_idx` ON `users` (username)", "CREATE UNIQUE INDEX `__pb_users_auth__email_idx` ON `users` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `__pb_users_auth__tokenKey_idx` ON `users` (tokenKey)", "CREATE INDEX `__pb_users_auth__created_idx` ON `users` (`created`)"]', NULL, 'id = @request.auth.id', '', 'id = @request.auth.id', 'id = @request.auth.id', '{"mfa": {"rule": "", "enabled": true, "duration": 1800}, "otp": {"length": 8, "enabled": true, "duration": 300, "emailTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": true, "providers": [{"name": "gitlab", "pkce": null, "extra": {}, "authURL": "", "clientId": "test1", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test2"}, {"name": "google", "pkce": null, "extra": {}, "authURL": "", "clientId": "test", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test2"}], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p>If this was you, you may disregard this email.</p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email", "username"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:28:29.24+00', '2026-10-25 02:28:29.344+00'),
-	('v9gwnfh02gjq1q0', false, 'view', 'view1', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_93yv", "max": 0, "min": 0, "help": "", "name": "text", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_It1L", "help": "", "name": "bool", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_Pg1B", "help": "", "name": "url", "type": "url", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_clone_Tq6k", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "_clone_aOf5", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 3, "presentable": false}, {"id": "_clone_nDmL", "help": "", "name": "file_one", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": true, "presentable": false}, {"id": "_clone_DOLi", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_clone_NQwB", "max": null, "min": null, "help": "", "name": "number", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "_clone_0ELq", "help": "", "name": "email", "type": "email", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_clone_wB6V", "max": "", "min": "", "help": "", "name": "datetime", "type": "date", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_cotF", "help": "", "name": "json", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "_clone_9Mb4", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wsmn24bux7wo113", "cascadeDelete": false}, {"id": "_clone_OpL6", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}, {"id": "_clone_jw84", "help": "", "name": "point", "type": "geoPoint", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_KL2p", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}]', '[]', '@request.auth.id != "" && bool = true', '@request.auth.id != "" && bool = true', NULL, NULL, NULL, '{"viewQuery": "select id, text, bool, url, select_one, select_many, file_one, file_many, number, email, datetime, json, rel_one, rel_many, point, created from demo1"}', '2026-10-25 02:28:29.428+00', '2026-10-25 02:28:29.428+00'),
-	('ib3m2700k5hlsjz', false, 'view', 'view2', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_jyAe", "help": "", "name": "state", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_ROpv", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_clone_OGQX", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}]', '[]', '', '', NULL, NULL, NULL, '{"viewQuery": "SELECT view1.id, view1.bool as state, view1.file_many, view1.rel_many from view1\n"}', '2026-10-25 02:28:29.513+00', '2026-10-25 02:28:29.513+00'),
-	('zahsr9d2mix2fvk', false, 'view', 'numeric_id_view', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_qAbo", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}]', '[]', '', '', NULL, NULL, NULL, '{"viewQuery": "select (ROW_NUMBER() OVER()) as id, email from clients"}', '2026-10-25 02:28:29.574+00', '2026-10-25 02:28:29.574+00');
+// example trailing comment...', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '@request.auth.id != "" && @request.auth.collectionName != "users"', '{}', '2026-10-25 02:40:33.169+00', '2026-10-25 02:40:33.169+00'),
+	('4d1blo5cuycfaca', false, 'base', 'demo4', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "erkxnabw", "max": 0, "min": 0, "help": "", "name": "title", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "t5jskeyz", "help": "", "name": "rel_one_no_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "ldrcjhk8", "help": "", "name": "rel_one_no_cascade_required", "type": "relation", "hidden": false, "system": false, "required": true, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "pl5lcd4y", "help": "", "name": "rel_one_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": true}, {"id": "jz0oue3z", "help": "", "name": "rel_many_no_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "bsxyqrhb", "help": "", "name": "rel_many_no_cascade_required", "type": "relation", "hidden": false, "system": false, "required": true, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "kwmchnf7", "help": "", "name": "rel_many_cascade", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": true}, {"id": "pmynkqk5", "help": "", "name": "rel_one_unique", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "mjzyk9vb", "help": "", "name": "rel_many_unique", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "wzlqyes4orhoygb", "cascadeDelete": false}, {"id": "dagiyxj4", "help": "", "name": "self_rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "tsrki8kc", "help": "", "name": "self_rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 999, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "4wpx0hhx", "help": "", "name": "json_array", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "ufpwiqnx", "help": "", "name": "json_object", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_4d1blo5cuycfaca_created_idx` ON `demo4` (`created`)", "CREATE UNIQUE INDEX `idx_luoQV2A` ON `demo4` (`rel_one_unique`) WHERE rel_one_unique != ''''", "CREATE UNIQUE INDEX `idx_IjL94ze` ON `demo4` (`rel_many_unique`) WHERE rel_many_unique != ''[]''"]', '', '', '@request.auth.collectionName = ''users''', '@request.auth.collectionName = ''users''', '', '{}', '2026-10-25 02:40:33.173+00', '2026-10-25 02:40:33.173+00'),
+	('v851q4r790rhknl', false, 'auth', 'clients', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "_pbf_auth_password_", "max": 0, "min": 8, "cost": 10, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "_pbf_auth_tokenKey_", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "_pbf_auth_email_", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_pbf_auth_emailVisibility_", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_verified_", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "lacorw19", "max": 0, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `_v851q4r790rhknl_username_idx` ON `clients` (username)", "CREATE UNIQUE INDEX `_v851q4r790rhknl_email_idx` ON `clients` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `_v851q4r790rhknl_tokenKey_idx` ON `clients` (tokenKey)", "CREATE INDEX `_v851q4r790rhknl_created_idx` ON `clients` (`created`)"]', NULL, NULL, NULL, NULL, NULL, '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "verified=true", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email", "username"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:40:33.179+00', '2026-10-25 02:40:33.179+00'),
+	('kpv709sk2lqbqk8', true, 'auth', 'nologin', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "_pbf_auth_password_", "max": 0, "min": 8, "cost": 10, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "_pbf_auth_tokenKey_", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "_pbf_auth_email_", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_pbf_auth_emailVisibility_", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_verified_", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "x8zzktwe", "max": 0, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_username_idx` ON `nologin` (username)", "CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_email_idx` ON `nologin` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `_kpv709sk2lqbqk8_tokenKey_idx` ON `nologin` (tokenKey)", "CREATE INDEX `_kpv709sk2lqbqk8_created_idx` ON \"nologin\" (`created`)"]', '', '', '', '', '', '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [{"name": "gitlab", "pkce": null, "extra": {}, "authURL": "", "clientId": "test", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test"}], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": "@request.auth.collectionName = ''users''", "passwordAuth": {"enabled": false, "identityFields": ["email"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:40:33.185+00', '2026-10-25 02:40:33.185+00'),
+	('9n89pl5vkct6330', false, 'base', 'demo5', '[{"id": "_pbf_text_id_", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "sozvpexq", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["a", "b", "c", "d"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "qlq1nxlc", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["a", "b", "c", "d", "e"], "required": false, "maxSelect": 5, "presentable": false}, {"id": "ajrrsq1a", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "soxhs0ou", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 5, "minSelect": 0, "presentable": false, "collectionId": "4d1blo5cuycfaca", "cascadeDelete": false}, {"id": "kvbyzuqj", "max": null, "min": null, "help": "", "name": "total", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "ob7dsrcl", "help": "", "name": "file", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_pbf_autodate_created_", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "_pbf_autodate_updated_", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX `_9n89pl5vkct6330_created_idx` ON `demo5` (`created`)"]', 'select_many:length = 3', 'rel_many.self_rel_many.rel_many_cascade.files:length = 1', '@request.body.total = 3', '@request.body.total = 3', '@request.query.test:isset = true', '{}', '2026-10-25 02:40:33.191+00', '2026-10-25 02:40:33.191+00'),
+	('pbc_2279338944', true, 'base', '_mfas', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text1582905952", "max": 0, "min": 0, "help": "", "name": "method", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE INDEX \"idx_mfas_collectionRef_recordRef\" ON \"_mfas\" (\n  \"collectionRef\",\n  \"recordRef\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, NULL, '{}', '2026-10-25 02:40:33.038+00', '2026-10-25 02:40:33.196+00'),
+	('pbc_1638494021', true, 'base', '_otps', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "password901924565", "max": 0, "min": 0, "cost": 8, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}, {"id": "text3866985172", "max": 0, "min": 0, "help": "", "name": "sentTo", "type": "text", "hidden": true, "system": true, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}]', '["CREATE INDEX \"idx_otps_collectionRef_recordRef\" ON \"_otps\" (\n  \"collectionRef\",\n  \"recordRef\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, NULL, '{}', '2026-10-25 02:40:33.055+00', '2026-10-25 02:40:33.201+00'),
+	('pbc_2281828961', true, 'base', '_externalAuths', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text2462348188", "max": 0, "min": 0, "help": "", "name": "provider", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text1044722854", "max": 0, "min": 0, "help": "", "name": "providerId", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX \"idx_externalAuths_record_provider\" ON \"_externalAuths\" (\n  \"collectionRef\",\n  \"recordRef\",\n  \"provider\"\n)", "CREATE UNIQUE INDEX \"idx_externalAuths_collection_provider\" ON \"_externalAuths\" (\n  \"collectionRef\",\n  \"provider\",\n  \"providerId\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '{}', '2026-10-25 02:40:33.064+00', '2026-10-25 02:40:33.204+00'),
+	('pbc_4275539003', true, 'base', '_authOrigins', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "text455797646", "max": 0, "min": 0, "help": "", "name": "collectionRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text127846527", "max": 0, "min": 0, "help": "", "name": "recordRef", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "text4228609354", "max": 0, "min": 0, "help": "", "name": "fingerprint", "type": "text", "hidden": false, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX \"idx_authOrigins_unique_pairs\" ON \"_authOrigins\" (\n  \"collectionRef\",\n  \"recordRef\",\n  \"fingerprint\"\n)"]', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', NULL, NULL, '@request.auth.id != '''' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId', '{}', '2026-10-25 02:40:33.075+00', '2026-10-25 02:40:33.209+00'),
+	('pbc_3142635823', true, 'auth', '_superusers', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "password901924565", "max": 0, "min": 8, "cost": 0, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "text2504183744", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9_]{50}"}, {"id": "email3885137012", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "bool1547992806", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "bool256245529", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": true, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `idx_tokenKey__pbc_3323866339` ON `_superusers` (`tokenKey`)", "CREATE UNIQUE INDEX `idx_email__pbc_3323866339` ON `_superusers` (`email`) WHERE `email` != ''''"]', NULL, NULL, NULL, NULL, NULL, '{"mfa": {"rule": "", "enabled": false, "duration": 1800}, "otp": {"length": 8, "enabled": false, "duration": 300, "emailTemplate": {"body": "<p>Hello,</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": false, "providers": [], "mappedFields": {"id": "", "name": "", "username": "", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>If this was you, you may disregard this email.</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "MyN3nDlzmHnuCjd35vb6cyIdqNr7Os0PmgiPVDMxmbFToSpBvS", "duration": 1209600}, "fileToken": {"secret": "sjJAjTNPrOcRDmnIKwQm7qY9FyjuXTG5KNcaqw4U1TSDVfu4r9", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email"]}, "emailChangeToken": {"secret": "unYNiYeuIxH7BCV09NIb81abe2bkPgaexMYdDQ6uOOIFh74urD", "duration": 1800}, "verificationToken": {"secret": "uhr68rXLVjPBWALFtw8uEHeQwDdN4t0MiTLr2pBWVkEQnNICe1", "duration": 259200}, "passwordResetToken": {"secret": "fPSpFm9rxjj4mdeWYfyQ5OZQ4UWpyainTO0dqrJe3LHEYEDduq", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello,</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:40:33.084+00', '2026-10-25 02:40:33.213+00'),
+	('_pb_users_auth_', false, 'auth', 'users', '[{"id": "text3208210256", "max": 15, "min": 15, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": "[a-z0-9]{15}"}, {"id": "password901924565", "max": 0, "min": 8, "cost": 0, "help": "", "name": "password", "type": "password", "hidden": true, "system": true, "pattern": "", "required": true, "presentable": false}, {"id": "text2504183744", "max": 60, "min": 30, "help": "", "name": "tokenKey", "type": "text", "hidden": true, "system": true, "pattern": "", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "[a-zA-Z0-9]{50}"}, {"id": "email3885137012", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "bool1547992806", "help": "", "name": "emailVisibility", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "bool256245529", "help": "", "name": "verified", "type": "bool", "hidden": false, "system": true, "required": false, "presentable": false}, {"id": "_pbf_auth_username_", "max": 150, "min": 3, "help": "", "name": "username", "type": "text", "hidden": false, "system": false, "pattern": "^[\\w][\\w\\.\\-]*$", "required": true, "primaryKey": false, "presentable": false, "autogeneratePattern": "users[0-9]{5}"}, {"id": "text1579384326", "max": 255, "min": 0, "help": "", "name": "name", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "file376926767", "help": "", "name": "avatar", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 0, "required": false, "maxSelect": 1, "mimeTypes": ["image/jpeg", "image/png", "image/svg+xml", "image/gif", "image/webp"], "protected": false, "presentable": false}, {"id": "xtecur3m", "help": "", "name": "file", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 5, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "lkeigvv3", "help": "", "name": "rel", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "sz5l5z67tg7gku0", "cascadeDelete": false}, {"id": "autodate2990389176", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}, {"id": "autodate3332085495", "name": "updated", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": true, "presentable": false}]', '["CREATE UNIQUE INDEX `__pb_users_auth__username_idx` ON `users` (username)", "CREATE UNIQUE INDEX `__pb_users_auth__email_idx` ON `users` (email) WHERE email != ''''", "CREATE UNIQUE INDEX `__pb_users_auth__tokenKey_idx` ON `users` (tokenKey)", "CREATE INDEX `__pb_users_auth__created_idx` ON `users` (`created`)"]', NULL, 'id = @request.auth.id', '', 'id = @request.auth.id', 'id = @request.auth.id', '{"mfa": {"rule": "", "enabled": true, "duration": 1800}, "otp": {"length": 8, "enabled": true, "duration": 300, "emailTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Your one-time password is: <strong>{OTP}</strong></p>\n<p><i>If you didn''t ask for the one-time password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "OTP for {APP_NAME}"}}, "oauth2": {"enabled": true, "providers": [{"name": "gitlab", "pkce": null, "extra": {}, "authURL": "", "clientId": "test1", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test2"}, {"name": "google", "pkce": null, "extra": {}, "authURL": "", "clientId": "test", "tokenURL": "", "displayName": "", "userInfoURL": "", "clientSecret": "test2"}], "mappedFields": {"id": "", "name": "", "username": "username", "avatarURL": ""}}, "authRule": "", "authAlert": {"enabled": true, "emailTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>We noticed a login to your {APP_NAME} account from a new location:</p>\n<p><em>{ALERT_INFO}</em></p>\n<p>If this was you, you may disregard this email.</p>\n<p><strong>If this wasn''t you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Login from a new location"}}, "authToken": {"secret": "PjVU4hAV7CZIWbCByJHkDcMUlSEWCLI6M5aWSZOpEq0a3rYxKT", "duration": 1209600}, "fileToken": {"secret": "4Ax9zDm2Rwtny81dGaGQrJQBnIx5wVOuNe89X6v7NbNzrAZhvn", "duration": 180}, "manageRule": null, "passwordAuth": {"enabled": true, "identityFields": ["email", "username"]}, "emailChangeToken": {"secret": "eON2TTJZiGCEi7mvUvwMLADj8CMHQzwZN3gmyMjQb24EY08ATP", "duration": 1800}, "verificationToken": {"secret": "dgGGHlzzdCJ2C5MjXGoondllwSXkJHyL50FuvLvXGHNmBhvGKO", "duration": 604800}, "passwordResetToken": {"secret": "BC6jYPe4JXpQGGNzu6VXtYw0yhKoH2mh2ezIJClOJQuZYrd4Ol", "duration": 1800}, "verificationTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Thank you for joining us at {APP_NAME}.</p>\n<p>Click on the button below to verify your email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Verify</a>\n</p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Verify your {APP_NAME} email"}, "resetPasswordTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn''t ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Reset your {APP_NAME} password"}, "confirmEmailChangeTemplate": {"body": "<p>Hello {RECORD:name}{RECORD:tokenKey},</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn''t ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>", "subject": "Confirm your {APP_NAME} new email address"}}', '2026-10-25 02:40:33.102+00', '2026-10-25 02:40:33.217+00'),
+	('v9gwnfh02gjq1q0', false, 'view', 'view1', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_D3r5", "max": 0, "min": 0, "help": "", "name": "text", "type": "text", "hidden": false, "system": false, "pattern": "", "required": false, "primaryKey": false, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_XfWv", "help": "", "name": "bool", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_wcjc", "help": "", "name": "url", "type": "url", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_clone_HjrJ", "help": "", "name": "select_one", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 1, "presentable": false}, {"id": "_clone_y5Xu", "help": "", "name": "select_many", "type": "select", "hidden": false, "system": false, "values": ["optionA", "optionB", "optionC"], "required": false, "maxSelect": 3, "presentable": false}, {"id": "_clone_UMYz", "help": "", "name": "file_one", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 1, "mimeTypes": [], "protected": true, "presentable": false}, {"id": "_clone_TiVc", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_clone_WZOS", "max": null, "min": null, "help": "", "name": "number", "type": "number", "hidden": false, "system": false, "onlyInt": false, "required": false, "presentable": false}, {"id": "_clone_vjrE", "help": "", "name": "email", "type": "email", "hidden": false, "system": false, "required": false, "onlyDomains": [], "presentable": false, "exceptDomains": []}, {"id": "_clone_IWaf", "max": "", "min": "", "help": "", "name": "datetime", "type": "date", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_8FWn", "help": "", "name": "json", "type": "json", "hidden": false, "system": false, "maxSize": 5242880, "required": false, "presentable": false}, {"id": "_clone_SDoV", "help": "", "name": "rel_one", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 1, "minSelect": 0, "presentable": false, "collectionId": "wsmn24bux7wo113", "cascadeDelete": false}, {"id": "_clone_j0IC", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}, {"id": "_clone_a6Cy", "help": "", "name": "point", "type": "geoPoint", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_VOTC", "name": "created", "type": "autodate", "hidden": false, "system": false, "onCreate": true, "onUpdate": false, "presentable": false}]', '[]', '@request.auth.id != "" && bool = true', '@request.auth.id != "" && bool = true', NULL, NULL, NULL, '{"viewQuery": "select id, text, bool, url, select_one, select_many, file_one, file_many, number, email, datetime, json, rel_one, rel_many, point, created from demo1"}', '2026-10-25 02:40:33.292+00', '2026-10-25 02:40:33.292+00'),
+	('ib3m2700k5hlsjz', false, 'view', 'view2', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_wsPN", "help": "", "name": "state", "type": "bool", "hidden": false, "system": false, "required": false, "presentable": false}, {"id": "_clone_jbTn", "help": "", "name": "file_many", "type": "file", "hidden": false, "system": false, "thumbs": [], "maxSize": 5242880, "required": false, "maxSelect": 99, "mimeTypes": [], "protected": false, "presentable": false}, {"id": "_clone_yszD", "help": "", "name": "rel_many", "type": "relation", "hidden": false, "system": false, "required": false, "maxSelect": 9999, "minSelect": 0, "presentable": false, "collectionId": "_pb_users_auth_", "cascadeDelete": true}]', '[]', '', '', NULL, NULL, NULL, '{"viewQuery": "SELECT view1.id, view1.bool as state, view1.file_many, view1.rel_many from view1\n"}', '2026-10-25 02:40:33.36+00', '2026-10-25 02:40:33.36+00'),
+	('zahsr9d2mix2fvk', false, 'view', 'numeric_id_view', '[{"id": "text3208210256", "max": 0, "min": 0, "help": "", "name": "id", "type": "text", "hidden": false, "system": true, "pattern": "^[a-z0-9]+$", "required": true, "primaryKey": true, "presentable": false, "autogeneratePattern": ""}, {"id": "_clone_rrnR", "help": "", "name": "email", "type": "email", "hidden": false, "system": true, "required": true, "onlyDomains": [], "presentable": false, "exceptDomains": []}]', '[]', '', '', NULL, NULL, NULL, '{"viewQuery": "select (ROW_NUMBER() OVER()) as id, email from clients"}', '2026-10-25 02:40:33.41+00', '2026-10-25 02:40:33.41+00');
 
 
 --
@@ -691,9 +1235,9 @@ INSERT INTO public."_externalAuths" VALUES
 --
 
 INSERT INTO public._migrations VALUES
-	('1640987999_popgres_functions.go', 1792895309183084),
-	('1640988000_aux_init.go', 1792895309187846),
-	('1640988000_init.go', 1792895309249045);
+	('1640987999_popgres_functions.go', 1792896033027393),
+	('1640988000_aux_init.go', 1792896033033665),
+	('1640988000_init.go', 1792896033113892);
 
 
 --
@@ -707,7 +1251,7 @@ INSERT INTO public._migrations VALUES
 --
 
 INSERT INTO public._params VALUES
-	('settings', '{"superuserIPs":[],"smtp":{"enabled":false,"port":587,"host":"smtp.example.com","username":"","password":"","authMethod":"","tls":false,"localName":""},"backups":{"cron":"","cronMaxKeep":0,"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false}},"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false},"meta":{"accentColor":"#1055c9","appName":"acme_test","appURL":"http://localhost:8090","senderName":"Support","senderAddress":"support@example.com","hideControls":false},"rateLimits":{"rules":[{"label":"*:auth","audience":"","duration":3,"maxRequests":2},{"label":"*:create","audience":"","duration":5,"maxRequests":20},{"label":"/api/batch","audience":"","duration":1,"maxRequests":3},{"label":"/api/","audience":"","duration":10,"maxRequests":300}],"excludedIPs":[],"enabled":false},"trustedProxy":{"headers":[],"useLeftmostIP":false},"batch":{"enabled":true,"maxRequests":50,"timeout":5,"maxBodySize":0},"logs":{"maxDays":5,"minLevel":0,"logIP":false,"logAuthId":false}}', '2026-10-25 02:28:29.688+00', '2026-05-14 18:15:28.522+00');
+	('settings', '{"superuserIPs":[],"smtp":{"enabled":false,"port":587,"host":"smtp.example.com","username":"","password":"","authMethod":"","tls":false,"localName":""},"backups":{"cron":"","cronMaxKeep":0,"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false}},"s3":{"enabled":false,"bucket":"","region":"","endpoint":"","accessKey":"","forcePathStyle":false},"meta":{"accentColor":"#1055c9","appName":"acme_test","appURL":"http://localhost:8090","senderName":"Support","senderAddress":"support@example.com","hideControls":false},"rateLimits":{"rules":[{"label":"*:auth","audience":"","duration":3,"maxRequests":2},{"label":"*:create","audience":"","duration":5,"maxRequests":20},{"label":"/api/batch","audience":"","duration":1,"maxRequests":3},{"label":"/api/","audience":"","duration":10,"maxRequests":300}],"excludedIPs":[],"enabled":false},"trustedProxy":{"headers":[],"useLeftmostIP":false},"batch":{"enabled":true,"maxRequests":50,"timeout":5,"maxBodySize":0},"logs":{"maxDays":5,"minLevel":0,"logIP":false,"logAuthId":false}}', '2026-10-25 02:40:33.493+00', '2026-05-14 18:15:28.522+00');
 
 
 --

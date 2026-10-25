@@ -42,17 +42,25 @@ var TokenFunctions = map[string]func(
 			resolvedArgs[i] = resolved
 		}
 
-		lonA := resolvedArgs[0].Identifier
-		latA := resolvedArgs[1].Identifier
-		lonB := resolvedArgs[2].Identifier
-		latB := resolvedArgs[3].Identifier
+		// the json values (eg. a geoPoint lon/lat) are converted to numbers
+		numericArg := func(r *ResolverResult) string {
+			if r.JSON {
+				return "popgres_to_number(" + r.Identifier + ")"
+			}
+			return r.Identifier
+		}
+
+		lonA := numericArg(resolvedArgs[0])
+		latA := numericArg(resolvedArgs[1])
+		lonB := numericArg(resolvedArgs[2])
+		latB := numericArg(resolvedArgs[3])
 
 		return &ResolverResult{
 			NullFallback: NullFallbackDisabled,
 			// the clamping is to prevent floating point rounding errors for values like
 			// "1.0002" that could occur for example when comparing identical points
 			// (see the NULL note for arccosine in https://sqlite.org/lang_mathfunc.html#overview)
-			Identifier: `(6371 * acos(min(1, max(-1, ` +
+			Identifier: `(6371 * acos(LEAST(1, GREATEST(-1, ` +
 				`cos(radians(` + latA + `)) * cos(radians(` + latB + `)) * ` +
 				`cos(radians(` + lonB + `) - radians(` + lonA + `)) + ` +
 				`sin(radians(` + latA + `)) * sin(radians(` + latB + `))` +
@@ -67,6 +75,9 @@ var TokenFunctions = map[string]func(
 	// It is similar to the builtin SQLite strftime function (https://sqlite.org/lang_datefunc.html)
 	// with the main difference that NULL results will be normalized for
 	// consistency with the non-nullable PocketBase "text" and "date" fields.
+	//
+	// On Postgres it is emulated by the popgres_strftime SQL functions
+	// (see the popgres_functions system migration).
 	//
 	// The function accepts 1, 2 or 3+ arguments.
 	//
@@ -107,7 +118,7 @@ var TokenFunctions = map[string]func(
 		// no further arguments
 		if totalArgs == 1 {
 			formatArgResult.NullFallback = NullFallbackEnforced
-			formatArgResult.Identifier = "strftime(" + formatArgResult.Identifier + ")"
+			formatArgResult.Identifier = "popgres_strftime(" + formatArgResult.Identifier + ")"
 			return formatArgResult, nil
 		}
 
@@ -166,13 +177,13 @@ var TokenFunctions = map[string]func(
 			}
 		}
 
-		result.Identifier = "strftime(" + strings.Join(identifiers, ",") + ")"
+		result.Identifier = "popgres_strftime(" + strings.Join(identifiers, ",") + ")"
 
 		if timeValueArgResult.MultiMatchSubQuery != nil {
 			// replace the regular time-value identifier with the multi-match one
 			identifiers[1] = timeValueArgResult.MultiMatchSubQuery.ValueIdentifier
 			result.MultiMatchSubQuery = timeValueArgResult.MultiMatchSubQuery
-			result.MultiMatchSubQuery.ValueIdentifier = "strftime(" + strings.Join(identifiers, ",") + ")"
+			result.MultiMatchSubQuery.ValueIdentifier = "popgres_strftime(" + strings.Join(identifiers, ",") + ")"
 
 			err = concatUniqueParams(result.MultiMatchSubQuery.Params, result.Params)
 			if err != nil {
