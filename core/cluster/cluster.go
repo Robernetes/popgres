@@ -194,6 +194,17 @@ func (c *Cluster) Publish(db dbx.Builder, topic string, payload string) error {
 	return err
 }
 
+// Notify is similar to [Cluster.Publish] but the message is sent with the
+// main database pool (it is not part of the current transaction, if any).
+func (c *Cluster) Notify(topic string, payload string) error {
+	db, err := c.kv.builder()
+	if err != nil {
+		return err
+	}
+
+	return c.Publish(db, topic, payload)
+}
+
 // Ready returns a channel that is closed after the first successful LISTEN.
 func (c *Cluster) Ready() <-chan struct{} {
 	c.runMu.Lock()

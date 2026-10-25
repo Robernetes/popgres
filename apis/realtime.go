@@ -38,6 +38,7 @@ func bindRealtimeApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	sub.POST("", realtimeSetSubscriptions)
 
 	bindRealtimeEvents(app)
+	bindRealtimeClusterEvents(app)
 }
 
 func realtimeConnect(e *core.RequestEvent) error {
@@ -343,6 +344,9 @@ func bindRealtimeEvents(app core.App) {
 			}
 
 			if cached != nil && cached.AuthToken.Secret != e.Collection.AuthToken.Secret {
+				// popgres: the clients of the other app instances (nodes) too
+				realtimeNotifyAuthCollectionChange(e.App, e.Collection.Name)
+
 				if err := realtimeUnsetClientsAuthByCollection(e.App, e.Collection); err != nil {
 					app.Logger().Warn(
 						"Failed to remove client(s) associated to the changed auth collection",
@@ -592,6 +596,28 @@ type recordData struct {
 // If set, it is expected that optAccessCheckApp instance is used for read-only operations to avoid deadlocks.
 // If not set, it fallbacks to app.
 func realtimeBroadcastRecord(app core.App, action string, record *core.Record, dryCache bool, optAccessCheckApp ...core.App) error {
+	accessCheckApp := app
+	if len(optAccessCheckApp) > 0 {
+		accessCheckApp = optAccessCheckApp[0]
+	}
+
+	canAccess := func(record *core.Record, requestInfo *core.RequestInfo, rule *string) bool {
+		return realtimeCanAccessRecord(accessCheckApp, record, requestInfo, rule)
+	}
+
+	return realtimeBroadcastRecordWithAccessCheck(app, action, record, dryCache, canAccess)
+}
+
+// realtimeBroadcastRecordWithAccessCheck is similar to realtimeBroadcastRecord
+// but with a custom record access check function
+// (eg. for a deleted record snapshot received from another app instance).
+func realtimeBroadcastRecordWithAccessCheck(
+	app core.App,
+	action string,
+	record *core.Record,
+	dryCache bool,
+	canAccess func(record *core.Record, requestInfo *core.RequestInfo, rule *string) bool,
+) error {
 	collection := record.Collection()
 	if collection == nil {
 		return errors.New("[broadcastRecord] Record collection not set")
@@ -616,11 +642,6 @@ func realtimeBroadcastRecord(app core.App, action string, record *core.Record, d
 	dryCacheKey := getDryCacheKey(action, record)
 
 	group := new(errgroup.Group)
-
-	accessCheckApp := app
-	if len(optAccessCheckApp) > 0 {
-		accessCheckApp = optAccessCheckApp[0]
-	}
 
 	for _, chunk := range chunks {
 		group.Go(routine.SafeWrap(func() error {
@@ -647,7 +668,7 @@ func realtimeBroadcastRecord(app core.App, action string, record *core.Record, d
 							Auth:    clientAuth,
 						}
 
-						if !realtimeCanAccessRecord(accessCheckApp, record, requestInfo, rule) {
+						if !canAccess(record, requestInfo, rule) {
 							continue
 						}
 
@@ -691,7 +712,7 @@ func realtimeBroadcastRecord(app core.App, action string, record *core.Record, d
 							// for auth owner, superuser or manager
 							if collection.IsAuth() {
 								if isSameAuth(clientAuth, cleanRecord) ||
-									realtimeCanAccessRecord(accessCheckApp, cleanRecord, requestInfo, collection.ManageRule) {
+									canAccess(cleanRecord, requestInfo, collection.ManageRule) {
 									cleanRecord.IgnoreEmailVisibility(true)
 								}
 							}
