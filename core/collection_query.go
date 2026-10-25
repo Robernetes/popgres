@@ -38,7 +38,8 @@ func (app *BaseApp) FindAllCollections(collectionTypes ...string) ([]*Collection
 		q.AndWhere(dbx.In("type", list.ToInterfaceSlice(types)...))
 	}
 
-	err := q.OrderBy("rowid ASC").All(&collections)
+	// note: Postgres has no rowid so the creation date is used to preserve the insertion order
+	err := q.OrderBy("created ASC", "id ASC").All(&collections)
 	if err != nil {
 		return nil, err
 	}
