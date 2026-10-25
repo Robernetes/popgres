@@ -11,7 +11,9 @@ import (
 func TestLockKey(t *testing.T) {
 	t.Parallel()
 
-	if cluster.LockKey("a") != cluster.LockKey("a") {
+	a1 := cluster.LockKey("a")
+	a2 := cluster.LockKey("a")
+	if a1 != a2 {
 		t.Fatal("Expected the same key for the same name")
 	}
 
