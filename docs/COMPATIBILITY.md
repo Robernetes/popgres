@@ -103,6 +103,17 @@ With the default `hooks` source the realtime events work as in PocketBase. With 
 
 The superusers health data (`GET /api/health`) has an extra `realtime` object with the realtime source and the replication slot metrics.
 
+## Row level security
+
+The collection API rules are also compiled to Postgres RLS policies for the external roles `popgres_anon` and `popgres_authenticated` (see [RLS.md](RLS.md)). The app connection role owns the tables and bypasses them, so the API behaves as in PocketBase. Other differences:
+
+- The database has the `popgres` schema (the auth token functions and the policy functions of the rules with relations), the RLS state in the `popgresRLS` row of `_params`, and the server-wide roles `popgres_anon`, `popgres_authenticated` and `popgres_api`.
+- The app database role needs the `CREATEROLE` attribute (or a database administrator must create the roles first).
+- `GET /api/collections/{collection}/rls` (superusers only) returns the compiled policies; the dashboard shows them in the collection "RLS" tab.
+- With `POPGRES_RLS_STRICT=true` the list and view rules of the non-superusers are enforced by the RLS policies (the main record query runs as `popgres_api`).
+
+The SQL console runs as the app connection role, so the policies don't apply to it (the same as the superusers bypass the API rules).
+
 ## Multiple instances
 
 popgres can run multiple instances with the same database (see [CLUSTER.md](CLUSTER.md)). This adds a few differences even for a single instance:
