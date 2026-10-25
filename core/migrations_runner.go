@@ -249,7 +249,7 @@ func (r *MigrationsRunner) initMigrationsTable() error {
 	}
 
 	rawQuery := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS {{%s}} (file VARCHAR(255) PRIMARY KEY NOT NULL, applied INTEGER NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS {{%s}} ([[file]] VARCHAR(255) PRIMARY KEY NOT NULL, [[applied]] BIGINT NOT NULL)",
 		r.tableName,
 	)
 
@@ -303,8 +303,7 @@ func (r *MigrationsRunner) lastAppliedMigrations(limit int) ([]string, error) {
 		From(r.tableName).
 		Where(dbx.Not(dbx.HashExp{"applied": nil})).
 		AndWhere(dbx.HashExp{"file": names}).
-		// unify microseconds and seconds applied time for backward compatibility
-		OrderBy("substr(applied||'0000000000000000', 0, 17) DESC").
+		OrderBy("applied DESC").
 		AndOrderBy("file DESC").
 		Limit(int64(limit)).
 		Column(&files)
