@@ -317,3 +317,66 @@ func TestCronStartStop(t *testing.T) {
 		mu.Unlock()
 	})
 }
+
+func TestCronClaimFunc(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var mu sync.Mutex
+
+		calls := 0
+		claimed := map[string]time.Time{}
+		slots := map[time.Time]struct{}{}
+
+		// shared by both instances (similar to a claim table)
+		claim := func(jobId string, slot time.Time) bool {
+			mu.Lock()
+			defer mu.Unlock()
+
+			key := jobId + slot.String()
+			if _, ok := claimed[key]; ok {
+				return false
+			}
+			claimed[key] = slot
+			slots[slot] = struct{}{}
+
+			return true
+		}
+
+		instances := []*Cron{New(), New()}
+		for _, c := range instances {
+			c.SetInterval(250 * time.Millisecond)
+			c.SetClaimFunc(claim)
+			c.Add("test", "* * * * *", func() {
+				mu.Lock()
+				defer mu.Unlock()
+				calls++
+			})
+			c.Start()
+		}
+
+		synctest.Sleep(1000 * time.Millisecond)
+
+		for _, c := range instances {
+			c.Stop()
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if len(slots) != 4 {
+			t.Fatalf("Expected 4 slots, got %d", len(slots))
+		}
+
+		// a single execution per slot
+		if calls != len(slots) {
+			t.Fatalf("Expected %d calls, got %d", len(slots), calls)
+		}
+
+		for slot := range slots {
+			if !slot.Equal(slot.Truncate(250 * time.Millisecond)) {
+				t.Fatalf("Expected the slot to be truncated to the cron interval, got %v", slot)
+			}
+		}
+	})
+}

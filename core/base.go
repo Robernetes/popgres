@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -56,6 +57,9 @@ const (
 	// default value for [BaseAppConfig.DatabaseURL] and [BaseAppConfig.LogsDatabaseURL].
 	DatabaseURLEnv     string = "DATABASE_URL"
 	LogsDatabaseURLEnv string = "POPGRES_LOGS_URL"
+
+	// ClusterModeEnv is the env variable used as fallback for BaseAppConfig.ClusterMode.
+	ClusterModeEnv string = "POPGRES_CLUSTER"
 )
 
 // FilesManager defines an interface with common methods that files manager models should implement.
@@ -81,6 +85,11 @@ type BaseAppConfig struct {
 	// logs tables. If not set, it fallbacks to the POPGRES_LOGS_URL env
 	// variable and then to DatabaseURL (the logs are stored in the "_aux" schema).
 	LogsDatabaseURL string
+
+	// ClusterMode enables the features required to run multiple app instances
+	// (nodes) with the same database behind a load balancer (eg. the rate limits
+	// shared by all nodes). If not set, it fallbacks to the POPGRES_CLUSTER env variable.
+	ClusterMode bool
 
 	DataDir          string
 	EncryptionEnv    string
@@ -248,9 +257,10 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 
 	app.cluster = cluster.New(cluster.Config{
-		DSN:    func() string { return app.config.DatabaseURL },
-		DB:     func() dbx.Builder { return app.dataDB },
-		Logger: app.Logger,
+		DSN:     func() string { return app.config.DatabaseURL },
+		DB:      func() dbx.Builder { return app.dataDB },
+		Logger:  app.Logger,
+		Enabled: func() bool { return app.config.ClusterMode },
 	})
 
 	// apply config defaults
@@ -265,6 +275,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 	if app.config.LogsDatabaseURL == "" {
 		app.config.LogsDatabaseURL = os.Getenv(LogsDatabaseURLEnv)
+	}
+	if !app.config.ClusterMode {
+		app.config.ClusterMode, _ = strconv.ParseBool(os.Getenv(ClusterModeEnv))
 	}
 	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
@@ -1513,6 +1526,7 @@ func (app *BaseApp) registerBaseHooks() {
 	app.registerOTPHooks()
 	app.registerAuthOriginHooks()
 	app.registerNotifyWatcherHooks()
+	app.registerClusterHooks()
 }
 
 // getLoggerMinLevel returns the logger min level based on the

@@ -60,6 +60,7 @@ func TestCronsList(t *testing.T) {
 				// popgres: there is no __pbDBOptimize__ cron (it ran only SQLite PRAGMAs)
 				`{"id":"__pbMFACleanup__","expression":"0 * * * *"}`,
 				`{"id":"__pbOTPCleanup__","expression":"0 * * * *"}`,
+				`{"id":"__popgresClusterCleanup__","expression":"*/5 * * * *"}`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},

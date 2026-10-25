@@ -26,8 +26,18 @@ type Cron struct {
 	tickerDone chan bool
 	jobs       []*Job
 	interval   time.Duration
+	claim      ClaimFunc
 	mux        sync.RWMutex
 }
+
+// ClaimFunc is called before running a scheduled job.
+//
+// slot is the scheduled tick time (truncated to the cron interval) and
+// it is the same for all instances with the same schedule.
+//
+// The job execution is skipped if it returns false (eg. because the job
+// was already executed for the same slot by another app instance).
+type ClaimFunc func(jobId string, slot time.Time) bool
 
 // New create a new Cron struct with default tick interval of 1 minute
 // and timezone in UTC.
@@ -56,6 +66,17 @@ func (c *Cron) SetInterval(d time.Duration) {
 	if wasStarted {
 		c.Start()
 	}
+}
+
+// SetClaimFunc registers an optional function that is called before
+// running each scheduled job (see [ClaimFunc]).
+//
+// It is not called for the jobs that are executed manually with [Job.Run].
+func (c *Cron) SetClaimFunc(fn ClaimFunc) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	c.claim = fn
 }
 
 // SetTimezone changes the current cron tick timezone.
@@ -222,9 +243,21 @@ func (c *Cron) runDue(t time.Time) {
 
 	moment := NewMoment(t.In(c.timezone))
 
+	slot := t.Truncate(c.interval)
+	claim := c.claim
+
 	for _, j := range c.jobs {
 		if j.schedule.IsDue(moment) {
-			routine.FireAndForget(j.Run)
+			if claim == nil {
+				routine.FireAndForget(j.Run)
+				continue
+			}
+
+			routine.FireAndForget(func() {
+				if claim(j.id, slot) {
+					j.Run()
+				}
+			})
 		}
 	}
 }
