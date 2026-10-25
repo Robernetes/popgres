@@ -74,16 +74,24 @@ export function pageSQLConsole(route) {
 
         query = query?.replace(/[\s\;]/gm, " ").toUpperCase() + " ";
 
+        // the Postgres write statements (see knownWriteQueryPrefixes in apis/sql.go)
         return !![
             "ALTER ",
-            "REPLACE ",
             "INSERT ",
             "CREATE ",
             "UPDATE ",
             "DELETE ",
             "DROP ",
-            "DETACH ",
-            "PRAGMA ",
+            "TRUNCATE ",
+            "MERGE ",
+            "GRANT ",
+            "REVOKE ",
+            "COMMENT ",
+            "REINDEX ",
+            "CLUSTER ",
+            "REFRESH ",
+            "SECURITY ",
+            "LOCK ",
         ].find((p) => query.includes(p));
     }
 
