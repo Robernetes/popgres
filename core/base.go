@@ -48,9 +48,6 @@ const (
 	// @todo consider removing after backups refactoring
 	lostFoundDirName string = "lost+found"
 
-	dataDBFilename string = "data.db"
-	auxDBFilename  string = "auxiliary.db"
-
 	// AuxSchema is the Postgres schema of the auxiliary (logs) tables.
 	AuxSchema string = "_aux"
 
