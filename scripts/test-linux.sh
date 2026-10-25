@@ -44,5 +44,6 @@ docker run --rm \
   -v popgres_gocache:/root/.cache/go-build \
   -e GOFLAGS=-buildvcs=false \
   -e POPGRES_TEST_URL="$CONTAINER_URL" \
+  -e POPGRES_RLS_STRICT="${POPGRES_RLS_STRICT:-}" \
   "$IMAGE" \
   sh -c 'mkdir /work && cd /src && tar --exclude=./.git -cf - . | tar -C /work -xf - && cd /work && go test "$@"' -- "${ARGS[@]}"

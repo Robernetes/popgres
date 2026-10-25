@@ -59,33 +59,58 @@ func recordsList(e *core.RequestEvent) error {
 		return err
 	}
 
-	query := e.App.RecordQuery(collection)
-
-	fieldsResolver := core.NewRecordFieldResolver(e.App, collection, requestInfo, true)
-
-	if !requestInfo.HasSuperuserAuth() && collection.ListRule != nil && *collection.ListRule != "" {
-		expr, err := search.FilterData(*collection.ListRule).BuildExpr(fieldsResolver)
-		if err != nil {
-			return err
-		}
-		query.AndWhere(expr)
-
-		// will be applied by the search provider right before executing the query
-		// fieldsResolver.UpdateQuery(query)
-	}
-
-	// hidden fields are searchable only by superusers
-	fieldsResolver.SetAllowHiddenFields(requestInfo.HasSuperuserAuth())
-
-	searchProvider := search.NewProvider(fieldsResolver).Query(query)
-
-	// count the distinct primary keys (there is no rowid in Postgres)
-	if !collection.IsView() {
-		searchProvider.CountCol("id")
-	}
+	// popgres: in the RLS strict mode the list rule is enforced by the RLS
+	// policies of the main query (executed as the RLS API role)
+	strict := isRLSStrictRequest(e, requestInfo, collection, core.RLSRuleList)
 
 	records := []*core.Record{}
-	result, err := searchProvider.ParseAndExec(e.Request.URL.Query().Encode(), &records)
+	var result *search.Result
+	var ruleErr error
+
+	execList := func(app core.App) error {
+		query := app.RecordQuery(collection)
+
+		fieldsResolver := core.NewRecordFieldResolver(app, collection, requestInfo, true)
+
+		if !strict && !requestInfo.HasSuperuserAuth() && collection.ListRule != nil && *collection.ListRule != "" {
+			expr, err := search.FilterData(*collection.ListRule).BuildExpr(fieldsResolver)
+			if err != nil {
+				ruleErr = err
+				return err
+			}
+			query.AndWhere(expr)
+
+			// will be applied by the search provider right before executing the query
+			// fieldsResolver.UpdateQuery(query)
+		}
+
+		// hidden fields are searchable only by superusers
+		fieldsResolver.SetAllowHiddenFields(requestInfo.HasSuperuserAuth())
+
+		searchProvider := search.NewProvider(fieldsResolver).Query(query)
+
+		// a transaction can't execute the count and the list queries concurrently
+		searchProvider.Sequential(strict)
+
+		// count the distinct primary keys (there is no rowid in Postgres)
+		if !collection.IsView() {
+			searchProvider.CountCol("id")
+		}
+
+		var err error
+		result, err = searchProvider.ParseAndExec(e.Request.URL.Query().Encode(), &records)
+
+		return err
+	}
+
+	if strict {
+		err = core.RunAsRLSRole(e.App, requestInfo.Auth, core.RLSRuleList, execList)
+	} else {
+		err = execList(e.App)
+	}
+	if ruleErr != nil {
+		return ruleErr
+	}
 	if err != nil {
 		return firstApiError(err, e.BadRequestError("", err))
 	}
@@ -185,7 +210,20 @@ func recordView(e *core.RequestEvent) error {
 		return nil
 	}
 
-	record, fetchErr := e.App.FindRecordById(collection, recordId, ruleFunc)
+	var record *core.Record
+	var fetchErr error
+
+	// popgres: in the RLS strict mode the view rule is enforced by the RLS
+	// policies of the main query (executed as the RLS API role)
+	if isRLSStrictRequest(e, requestInfo, collection, core.RLSRuleView) {
+		fetchErr = core.RunAsRLSRole(e.App, requestInfo.Auth, core.RLSRuleView, func(txApp core.App) error {
+			var err error
+			record, err = txApp.FindRecordById(collection, recordId)
+			return err
+		})
+	} else {
+		record, fetchErr = e.App.FindRecordById(collection, recordId, ruleFunc)
+	}
 	if fetchErr != nil || record == nil {
 		return firstApiError(err, e.NotFoundError("", fetchErr))
 	}

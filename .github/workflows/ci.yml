@@ -149,6 +149,13 @@ jobs:
           POPGRES_TEST_URL: postgres://popgres_app:${{ env.APP_PASSWORD }}@localhost:5432/popgres_test?sslmode=disable
         run: ./scripts/ci-test.sh
 
+      # the list and view rules enforced by the RLS policies (POPGRES_RLS_STRICT)
+      - name: Test the RLS strict mode
+        env:
+          POPGRES_TEST_URL: postgres://popgres_app:${{ env.APP_PASSWORD }}@localhost:5432/popgres_test?sslmode=disable
+          POPGRES_RLS_STRICT: 'true'
+        run: go test -count=1 -p 4 -timeout 20m ./apis/... ./tests/...
+
       - name: Upload the test output
         if: always()
         uses: actions/upload-artifact@v5

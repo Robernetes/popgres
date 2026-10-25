@@ -69,6 +69,7 @@ type Provider struct {
 	page               int
 	perPage            int
 	skipTotal          bool
+	sequential         bool
 	maxFilterExprLimit int
 	maxSortExprLimit   int
 }
@@ -120,6 +121,14 @@ func (s *Provider) Query(query *dbx.SelectQuery) *Provider {
 // SkipTotal changes the `skipTotal` field of the current search provider.
 func (s *Provider) SkipTotal(skipTotal bool) *Provider {
 	s.skipTotal = skipTotal
+	return s
+}
+
+// Sequential executes the count and the models queries one after
+// another instead of concurrently (eg. when the query builder is a
+// transaction, which can't execute concurrent queries).
+func (s *Provider) Sequential(sequential bool) *Provider {
+	s.sequential = sequential
 	return s
 }
 
@@ -324,7 +333,14 @@ func (s *Provider) Exec(items any) (*Result, error) {
 		return modelsQuery.All(items)
 	}
 
-	if !s.skipTotal {
+	if !s.skipTotal && s.sequential {
+		if err := countExec(); err != nil {
+			return nil, err
+		}
+		if err := modelsExec(); err != nil {
+			return nil, err
+		}
+	} else if !s.skipTotal {
 		// execute the 2 queries concurrently
 		errg := new(errgroup.Group)
 		errg.Go(routine.SafeWrap(countExec))

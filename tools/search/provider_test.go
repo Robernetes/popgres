@@ -98,6 +98,48 @@ func TestProviderSkipTotal(t *testing.T) {
 	}
 }
 
+func TestProviderSequential(t *testing.T) {
+	p := NewProvider(&testFieldResolver{})
+
+	if p.sequential {
+		t.Fatalf("Expected the default sequential to be %v, got %v", false, p.sequential)
+	}
+
+	p.Sequential(true)
+
+	if !p.sequential {
+		t.Fatalf("Expected sequential to change to %v, got %v", true, p.sequential)
+	}
+}
+
+func TestProviderExecSequentialInTransaction(t *testing.T) {
+	testDB, err := createTestDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer testDB.Close()
+
+	err = testDB.Transactional(func(tx *dbx.Tx) error {
+		// repeat a few times since the concurrent execution in a transaction fails randomly
+		for i := 0; i < 20; i++ {
+			result, err := NewProvider(&testFieldResolver{}).
+				Query(tx.Select("*").From("test")).
+				Sequential(true).
+				Exec(&[]testTableStruct{})
+			if err != nil {
+				return err
+			}
+			if result.TotalItems != 2 {
+				t.Fatalf("Expected 2 total items, got %d", result.TotalItems)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProviderCountCol(t *testing.T) {
 	p := NewProvider(&testFieldResolver{})
 

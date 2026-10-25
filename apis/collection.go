@@ -23,6 +23,7 @@ func bindCollectionApi(app core.App, rg *router.RouterGroup[*core.RequestEvent])
 	subGroup.PATCH("/{collection}", collectionUpdate)
 	subGroup.DELETE("/{collection}", collectionDelete)
 	subGroup.DELETE("/{collection}/truncate", collectionTruncate)
+	subGroup.GET("/{collection}/rls", collectionRLS) // popgres
 	subGroup.PUT("/import", collectionsImport)
 	subGroup.GET("/meta/scaffolds", collectionScaffolds)
 
