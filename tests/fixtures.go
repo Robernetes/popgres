@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,18 +96,33 @@ func ensureFixturesTemplate() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if exists {
-		return name, nil
+	if !exists {
+		if err := createFixturesTemplate(name, string(fixtures)); err != nil {
+			return "", errors.Join(err, DropTestDatabase(name))
+		}
 	}
 
-	if err := createFixturesTemplate(name, string(fixtures)); err != nil {
-		return "", errors.Join(err, DropTestDatabase(name))
-	}
+	// mark the template as recently used so that it is not dropped
+	// as stale by a concurrent run with different fixtures
+	_, _ = conn.ExecContext(ctx, fmt.Sprintf(
+		"COMMENT ON DATABASE %s IS '%s%d'",
+		quoteIdent(name),
+		fixturesUsedCommentPrefix,
+		time.Now().Unix(),
+	))
 
 	dropStaleFixturesTemplates(conn, name)
 
 	return name, nil
 }
+
+const (
+	fixturesUsedCommentPrefix = "popgres fixtures template, last used at "
+
+	// fixturesStaleAfter is the minimum time after the last use
+	// of a fixtures template of another version before it is dropped
+	fixturesStaleAfter = time.Hour
+)
 
 func createFixturesTemplate(name string, fixtures string) error {
 	db, err := newTestDatabaseFrom(rootTemplateName())
@@ -174,7 +190,7 @@ func execSQLFile(url string, content string) error {
 func dropStaleFixturesTemplates(conn *sql.Conn, current string) {
 	rows, err := conn.QueryContext(
 		context.Background(),
-		"SELECT datname FROM pg_database WHERE starts_with(datname, $1) AND datname <> $2",
+		"SELECT datname, COALESCE(shobj_description(oid, 'pg_database'), '') FROM pg_database WHERE starts_with(datname, $1) AND datname <> $2",
 		FixturesDatabasePrefix,
 		current,
 	)
@@ -184,10 +200,18 @@ func dropStaleFixturesTemplates(conn *sql.Conn, current string) {
 
 	names := []string{}
 	for rows.Next() {
-		var name string
-		if rows.Scan(&name) == nil {
-			names = append(names, name)
+		var name, comment string
+		if rows.Scan(&name, &comment) != nil {
+			continue
 		}
+
+		// keep the templates that could be in use by another run
+		lastUsed, _ := strconv.ParseInt(strings.TrimPrefix(comment, fixturesUsedCommentPrefix), 10, 64)
+		if time.Since(time.Unix(lastUsed, 0)) < fixturesStaleAfter {
+			continue
+		}
+
+		names = append(names, name)
 	}
 	rows.Close()
 

@@ -171,7 +171,8 @@ func newTestApp(config core.BaseAppConfig) (*TestApp, error) {
 
 	// the SQLite databases of the default tests data directory are only
 	// the source of the Postgres fixtures (see scripts/gen-fixtures.sh)
-	for _, name := range []string{"data.db", "auxiliary.db"} {
+	// and the fixtures are already loaded in the test database
+	for _, name := range []string{"data.db", "auxiliary.db", FixturesFile} {
 		_ = os.Remove(filepath.Join(tempDir, name))
 	}
 

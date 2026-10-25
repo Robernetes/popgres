@@ -76,8 +76,15 @@ var (
 
 // captureGolden registers a cleanup that saves the scenario response
 // as golden file if the test passed and the golden capture is enabled.
+//
+// When the golden capture is not enabled (and GoldenEnvVar is not "off")
+// the response is compared with its existing golden file instead.
 func (scenario *ApiScenario) captureGolden(t testing.TB, recorder *httptest.ResponseRecorder) {
 	mode := os.Getenv(GoldenEnvVar)
+	if mode == "" {
+		scenario.compareGolden(t, recorder)
+		return
+	}
 	if mode != "write" && mode != "merge" {
 		return
 	}
@@ -410,6 +417,212 @@ func mergeGoldenNodes(a, b *goldenNode) *goldenNode {
 		}
 		return b
 	}
+}
+
+// -------------------------------------------------------------------
+
+// goldenAcceptedFile lists the accepted golden differences, one per line:
+//
+//	<golden file path relative to tests/golden/api> <difference path prefix or *> [# reason]
+//
+// Every accepted difference must be documented in docs/COMPATIBILITY.md.
+const goldenAcceptedFile = "accepted.txt"
+
+var (
+	goldenAcceptedOnce sync.Once
+	goldenAccepted     map[string][]string // file -> difference path prefixes
+	goldenAcceptedErr  error
+)
+
+// compareGolden compares the scenario response with its golden file (if any).
+func (scenario *ApiScenario) compareGolden(t testing.TB, recorder *httptest.ResponseRecorder) {
+	// benchmarks are not compared
+	if _, ok := t.(*testing.T); !ok {
+		return
+	}
+
+	file, err := goldenFilePath(t.Name())
+	if err != nil {
+		t.Errorf("Failed to resolve the golden file path: %v", err)
+		return
+	}
+
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("Failed to read golden file: %v", err)
+		}
+		return // no golden file for the scenario
+	}
+
+	expected, err := parseGoldenJSON(raw)
+	if err != nil {
+		t.Errorf("Failed to parse golden file %s: %v", file, err)
+		return
+	}
+
+	actual, err := newGoldenNode(recorder.Code, recorder.Header().Get("Content-Type"), recorder.Body.Bytes())
+	if err != nil {
+		t.Errorf("Failed to build the golden tree: %v", err)
+		return
+	}
+
+	diffs := diffGoldenNodes("", expected, actual, nil)
+	if len(diffs) == 0 {
+		return
+	}
+
+	accepted, err := goldenAcceptedDiffs(file)
+	if err != nil {
+		t.Errorf("Failed to load the accepted golden differences: %v", err)
+		return
+	}
+
+	for _, d := range diffs {
+		if !isGoldenDiffAccepted(d.path, accepted) {
+			t.Errorf("Golden mismatch (%s) at %q: expected %s, got %s", file, d.path, d.expected, d.actual)
+		}
+	}
+}
+
+type goldenDiff struct {
+	path     string
+	expected string
+	actual   string
+}
+
+// diffGoldenNodes returns the differences between the expected (golden) and actual trees.
+//
+// The [GoldenDynamic] expected values match any actual value.
+func diffGoldenNodes(path string, expected, actual *goldenNode, diffs []goldenDiff) []goldenDiff {
+	if expected.kind == '"' && expected.value == GoldenDynamic {
+		return diffs
+	}
+
+	if expected.kind != actual.kind {
+		return append(diffs, goldenDiff{path, expected.summary(), actual.summary()})
+	}
+
+	switch expected.kind {
+	case '{':
+		actualMembers := make(map[string]*goldenNode, len(actual.members))
+		for _, m := range actual.members {
+			actualMembers[m.name] = m.node
+		}
+		for _, m := range expected.members {
+			child, ok := actualMembers[m.name]
+			if !ok {
+				diffs = append(diffs, goldenDiff{joinGoldenPath(path, m.name), m.node.summary(), "<missing>"})
+				continue
+			}
+			diffs = diffGoldenNodes(joinGoldenPath(path, m.name), m.node, child, diffs)
+			delete(actualMembers, m.name)
+		}
+		for _, m := range actual.members {
+			if _, ok := actualMembers[m.name]; ok {
+				diffs = append(diffs, goldenDiff{joinGoldenPath(path, m.name), "<missing>", m.node.summary()})
+			}
+		}
+	case '[':
+		if len(expected.items) != len(actual.items) {
+			return append(diffs, goldenDiff{path, fmt.Sprintf("%d items", len(expected.items)), fmt.Sprintf("%d items", len(actual.items))})
+		}
+		for i := range expected.items {
+			diffs = diffGoldenNodes(fmt.Sprintf("%s[%d]", path, i), expected.items[i], actual.items[i], diffs)
+		}
+	default:
+		if expected.value != actual.value {
+			diffs = append(diffs, goldenDiff{path, expected.summary(), actual.summary()})
+		}
+	}
+
+	return diffs
+}
+
+func joinGoldenPath(path string, name string) string {
+	if path == "" {
+		return name
+	}
+	return path + "." + name
+}
+
+// summary returns a short text representation of the node used in the error messages.
+func (n *goldenNode) summary() string {
+	switch n.kind {
+	case '{':
+		return fmt.Sprintf("<object with %d keys>", len(n.members))
+	case '[':
+		return fmt.Sprintf("<array with %d items>", len(n.items))
+	case '"':
+		v := n.value
+		if len(v) > 200 {
+			v = v[:200] + "..."
+		}
+		return fmt.Sprintf("%q", v)
+	default:
+		return n.value
+	}
+}
+
+func isGoldenDiffAccepted(path string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if p == "*" || path == p || strings.HasPrefix(path, p+".") || strings.HasPrefix(path, p+"[") {
+			return true
+		}
+	}
+	return false
+}
+
+// goldenAcceptedDiffs returns the accepted difference path prefixes of the golden file.
+func goldenAcceptedDiffs(file string) ([]string, error) {
+	goldenAcceptedOnce.Do(func() {
+		root, err := goldenModuleRoot()
+		if err != nil {
+			goldenAcceptedErr = err
+			return
+		}
+
+		goldenAccepted = map[string][]string{}
+
+		raw, err := os.ReadFile(filepath.Join(root, "tests", "golden", goldenAcceptedFile))
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				goldenAcceptedErr = err
+			}
+			return
+		}
+
+		for i, line := range strings.Split(string(raw), "\n") {
+			if idx := strings.Index(line, "#"); idx >= 0 {
+				line = line[:idx]
+			}
+			fields := strings.Fields(line)
+			if len(fields) == 0 {
+				continue
+			}
+			if len(fields) != 2 {
+				goldenAcceptedErr = fmt.Errorf("invalid %s line %d: %q", goldenAcceptedFile, i+1, line)
+				return
+			}
+			goldenAccepted[fields[0]] = append(goldenAccepted[fields[0]], fields[1])
+		}
+	})
+
+	if goldenAcceptedErr != nil {
+		return nil, goldenAcceptedErr
+	}
+
+	root, err := goldenModuleRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	rel, err := filepath.Rel(filepath.Join(root, "tests", "golden", "api"), file)
+	if err != nil {
+		return nil, err
+	}
+
+	return goldenAccepted[filepath.ToSlash(rel)], nil
 }
 
 func maskGoldenText(v string) string {
