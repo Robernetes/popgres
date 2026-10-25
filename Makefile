@@ -6,11 +6,9 @@ lint:
 test:
 	go test -p 4 ./... -v --cover
 
-# acceptance tests of the current phase (run by the CI until the full suite passes on Postgres)
+# the whole suite with the parity check of the PocketBase v0.40.6 tests (run by the CI)
 test-accept:
-	go test -count=1 -p 4 ./tests/e2e/... ./tests/ ./tools/dbutils/
-	go test -count=1 ./core/validators/ -run '^TestNormalizeUniqueIndexError$$'
-	go test -count=1 ./core/ -run '^(TestDSNWithRuntimeParam|TestBaseLockRetry|TestBaseLockRetryInFailedTransaction|TestSQLState|TestGetDefaultRetryInterval)$$'
+	./scripts/ci-test.sh
 
 # drops the leftover popgres_t_* and popgres_fx_* test databases
 test-clean:

@@ -118,12 +118,20 @@ jobs:
           docker exec popgres_ci psql -U postgres -d popgres_test -Atc \
             "select version(), current_setting('wal_level'), (select string_agg(extname, ',') from pg_extension)"
 
-      # Acceptance tests of the current phase against POPGRES_TEST_URL with the
-      # non-superuser role popgres_app (the whole suite runs once it passes on Postgres).
+      # The whole suite against POPGRES_TEST_URL with the non-superuser role
+      # popgres_app and the parity check with the PocketBase v0.40.6 tests.
       - name: Test
         env:
           POPGRES_TEST_URL: postgres://popgres_app:${{ env.APP_PASSWORD }}@localhost:5432/popgres_test?sslmode=disable
-        run: make test-accept
+        run: ./scripts/ci-test.sh
+
+      - name: Upload the test output
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-output-pg${{ matrix.postgres }}
+          path: test-output.jsonl
+          if-no-files-found: ignore
 
       - name: Leftover test databases
         if: always()
