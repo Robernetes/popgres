@@ -94,6 +94,15 @@ The result columns are described by Postgres:
 - The backups require `pg_dump` (and `pg_restore` to restore) in the `PATH`, with the same or a newer major version than the server. The paths can be changed with `POPGRES_PG_DUMP` and `POPGRES_PG_RESTORE`.
 - A backup can be restored only from the command line with `popgres restore <backup> --yes` (stop all the app instances first). The restore API (`POST /api/backups/{key}/restore`) and the dashboard button return an error.
 
+## Realtime
+
+With the default `hooks` source the realtime events work as in PocketBase. With `POPGRES_REALTIME_SOURCE=replication` (see [REALTIME.md](REALTIME.md)):
+
+- the changes made outside of the app (eg. with direct SQL) are also broadcasted;
+- the events are sent after the transaction commit is decoded from the WAL (a few milliseconds later than with the hooks).
+
+The superusers health data (`GET /api/health`) has an extra `realtime` object with the realtime source and the replication slot metrics.
+
 ## Multiple instances
 
 popgres can run multiple instances with the same database (see [CLUSTER.md](CLUSTER.md)). This adds a few differences even for a single instance:
