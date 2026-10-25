@@ -73,6 +73,12 @@ func (r *runner) run() (*search.ResolverResult, error) {
 
 	r.prepare()
 
+	// popgres: the request data other than the auth record and the
+	// request specific modifiers are not available in the RLS policies
+	if r.resolver.rls != nil && !r.resolver.rls.checkTranslatable(r.fieldName) {
+		return &search.ResolverResult{Identifier: "NULL"}, nil
+	}
+
 	// check for @collection field (aka. non-relational join)
 	// must be in the format "@collection.COLLECTION_NAME.FIELD[.FIELD2....]"
 	if r.activeProps[0] == "@collection" {
@@ -204,7 +210,7 @@ func (r *runner) processRequestAuthField() (*search.ResolverResult, error) {
 
 	// plain auth field
 	// ---
-	if _, ok := plainRequestAuthFields[r.fieldName]; ok {
+	if _, ok := plainRequestAuthFields[r.fieldName]; ok && (r.resolver.rls == nil || isRLSStaticAuthField(r.fieldName)) {
 		return r.resolver.resolveStaticRequestField(r.activeProps[1:]...)
 	}
 

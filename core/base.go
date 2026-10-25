@@ -96,6 +96,12 @@ type BaseAppConfig struct {
 	// shared by all nodes). If not set, it fallbacks to the POPGRES_CLUSTER env variable.
 	ClusterMode bool
 
+	// RLSStrict executes the main record queries of the API list and view
+	// requests of the non-superusers as the external RLS roles, so that the
+	// RLS policies apply also to the API (defense in depth).
+	// If not set, it fallbacks to the POPGRES_RLS_STRICT env variable.
+	RLSStrict bool
+
 	DataDir          string
 	EncryptionEnv    string
 	QueryTimeout     time.Duration
@@ -286,6 +292,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 	if app.config.RealtimeSource == "" {
 		app.config.RealtimeSource = os.Getenv(RealtimeSourceEnv)
+	}
+	if !app.config.RLSStrict {
+		app.config.RLSStrict, _ = strconv.ParseBool(os.Getenv(RLSStrictEnv))
 	}
 	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns

@@ -95,6 +95,10 @@ type App interface {
 	// the app instances (nodes) that share the same database.
 	Cluster() *cluster.Cluster
 
+	// IsRLSStrict reports whether the RLS strict mode is enabled
+	// (see [BaseAppConfig.RLSStrict]).
+	IsRLSStrict() bool
+
 	// NewMailClient creates and returns a new SMTP or Sendmail client
 	// based on the current app settings.
 	NewMailClient() mailer.Mailer

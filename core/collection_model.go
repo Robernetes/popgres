@@ -735,7 +735,12 @@ func onCollectionDeleteExecute(e *CollectionEvent) error {
 		}
 
 		// delete
-		return e.Next()
+		if err := e.Next(); err != nil {
+			return err
+		}
+
+		// popgres: the rules of the other collections could depend on the deleted one
+		return SyncRLSPolicies(txApp)
 	})
 
 	e.App = originalApp
@@ -917,7 +922,8 @@ func onCollectionSaveExecute(e *CollectionEvent) error {
 			}
 		}
 
-		return nil
+		// popgres: the rules of all collections could depend on the changed one
+		return SyncRLSPolicies(e.App)
 	})
 	e.App = originalApp
 

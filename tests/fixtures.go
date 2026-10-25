@@ -35,6 +35,34 @@ func testsDataDir() string {
 	return filepath.Join(filepath.Dir(currentFile), "data")
 }
 
+// schemaFingerprint returns the identifiers of the schema created on top of
+// the fixtures (the system migrations and their source files, if available)
+// so that the fixtures template is recreated when they change.
+func schemaFingerprint() []byte {
+	var b strings.Builder
+
+	for _, m := range core.SystemMigrations.Items() {
+		b.WriteString(m.File)
+		b.WriteString("\n")
+	}
+
+	_, currentFile, _, _ := runtime.Caller(0)
+	root := filepath.Dir(filepath.Dir(currentFile))
+
+	sources, _ := filepath.Glob(filepath.Join(root, "migrations", "*.go"))
+	rlsSources, _ := filepath.Glob(filepath.Join(root, "core", "rls*.go"))
+	for _, path := range append(sources, rlsSources...) {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		if content, err := os.ReadFile(path); err == nil {
+			b.Write(content)
+		}
+	}
+
+	return []byte(b.String())
+}
+
 // NewFixturesTestDatabase creates a new test database with the default
 // test fixtures (see [FixturesFile]).
 //
@@ -67,7 +95,7 @@ func ensureFixturesTemplate() (string, error) {
 		return "", fmt.Errorf("failed to read the test fixtures: %w", err)
 	}
 
-	sum := sha256.Sum256(fixtures)
+	sum := sha256.Sum256(append(fixtures, schemaFingerprint()...))
 	name := FixturesDatabasePrefix + hex.EncodeToString(sum[:])[:16]
 
 	admin, err := testAdminDB(os.Getenv(TestDatabaseURLEnv))

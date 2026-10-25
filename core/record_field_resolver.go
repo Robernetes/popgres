@@ -59,6 +59,9 @@ type RecordFieldResolver struct {
 	listRuleJoins       []ruleJoin
 	joinAliasSuffix     string // used for uniqueness in the flatten collection list rule join
 	baseCollectionAlias string
+	// ---
+	// popgres: the RLS policies compilation (see rls.go)
+	rls *rlsResolverState
 }
 
 // AllowedFields returns a copy of the resolver's allowed fields.
@@ -394,6 +397,11 @@ func (r *RecordFieldResolver) resolveStaticRequestField(path ...string) (*search
 func (r *RecordFieldResolver) loadCollection(collectionNameOrId string) (*Collection, error) {
 	if collectionNameOrId == r.baseCollection.Name || collectionNameOrId == r.baseCollection.Id {
 		return r.baseCollection, nil
+	}
+
+	// popgres: the RLS compilation uses the collections of its transaction
+	if r.rls != nil {
+		return r.rls.findCollection(collectionNameOrId)
 	}
 
 	return getCollectionByModelOrIdentifier(r.app, collectionNameOrId)
