@@ -10,7 +10,6 @@ import (
 	"github.com/Robernetes/popgres/tools/router"
 	"github.com/Robernetes/popgres/tools/routine"
 	"github.com/Robernetes/popgres/tools/types"
-	"github.com/spf13/cast"
 )
 
 // bindBackupApi registers the file api endpoints and the corresponding handlers.
@@ -110,7 +109,7 @@ func backupDelete(e *core.RequestEvent) error {
 
 	key := e.Request.PathValue("key")
 
-	if key != "" && cast.ToString(e.App.Store().Get(core.StoreKeyActiveBackup)) == key {
+	if key != "" && core.ActiveBackupName(e.App) == key {
 		return e.BadRequestError("The backup is currently being used and cannot be deleted.", nil)
 	}
 
@@ -122,7 +121,7 @@ func backupDelete(e *core.RequestEvent) error {
 }
 
 func backupRestore(e *core.RequestEvent) error {
-	if e.App.Store().Has(core.StoreKeyActiveBackup) {
+	if core.IsBackupActive(e.App) {
 		return e.BadRequestError("Try again later - another backup/restore process has already been started.", nil)
 	}
 

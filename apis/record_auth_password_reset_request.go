@@ -39,7 +39,7 @@ func recordRequestPasswordReset(e *core.RequestEvent) error {
 	}
 
 	resendKey := getPasswordResetResendKey(record)
-	if e.App.Store().Has(resendKey) {
+	if e.App.Cluster().KV().Has(resendKey) {
 		// eagerly write 204 response as a very basic measure against emails enumeration
 		e.NoContent(http.StatusNoContent)
 		return errors.New("try again later - you've already requested a password reset email")
@@ -59,10 +59,10 @@ func recordRequestPasswordReset(e *core.RequestEvent) error {
 				return
 			}
 
-			app.Store().Set(resendKey, struct{}{})
-			time.AfterFunc(2*time.Minute, func() {
-				app.Store().Remove(resendKey)
-			})
+			// popgres: shared by all app instances (nodes)
+			if err := app.Cluster().KV().Set(resendKey, "", 2*time.Minute); err != nil {
+				app.Logger().Error("Failed to store the password reset resend timeout", "error", err)
+			}
 		})
 
 		return execAfterSuccessTx(true, e.App, func() error {

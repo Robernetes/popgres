@@ -101,9 +101,12 @@ func recordAuthWithOAuth2(e *core.RequestEvent) error {
 	// so we try to assign the [apis.oauth2SubscriptionRedirect] forwarded name.
 	if form.Provider == auth.NameApple && authUser.Name == "" {
 		nameKey := oauth2RedirectAppleNameStoreKeyPrefix + form.Code
-		name, ok := e.App.Store().Get(nameKey).(string)
+		// popgres: the redirect could have been handled by another app instance (node)
+		name, ok, err := e.App.Cluster().KV().Pop(nameKey)
+		if err != nil {
+			e.App.Logger().Warn("Failed to load the Apple user's name", "error", err)
+		}
 		if ok {
-			e.App.Store().Remove(nameKey)
 			authUser.Name = name
 		} else {
 			e.App.Logger().Debug("Missing or already removed Apple user's name")

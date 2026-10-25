@@ -39,7 +39,7 @@ func recordRequestVerification(e *core.RequestEvent) error {
 	}
 
 	resendKey := getVerificationResendKey(record)
-	if !record.Verified() && e.App.Store().Has(resendKey) {
+	if !record.Verified() && e.App.Cluster().KV().Has(resendKey) {
 		// eagerly write 204 response as a very basic measure against emails enumeration
 		e.NoContent(http.StatusNoContent)
 		return errors.New("try again later - you've already requested a verification email")
@@ -62,10 +62,10 @@ func recordRequestVerification(e *core.RequestEvent) error {
 				app.Logger().Error("Failed to send verification email", "error", err)
 			}
 
-			app.Store().Set(resendKey, struct{}{})
-			time.AfterFunc(2*time.Minute, func() {
-				app.Store().Remove(resendKey)
-			})
+			// popgres: shared by all app instances (nodes)
+			if err := app.Cluster().KV().Set(resendKey, "", 2*time.Minute); err != nil {
+				app.Logger().Error("Failed to store the verification resend timeout", "error", err)
+			}
 		})
 
 		return execAfterSuccessTx(true, e.App, func() error {

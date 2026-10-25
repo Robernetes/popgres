@@ -170,11 +170,6 @@ func parseAndStoreAppleRedirectName(app core.App, nameKey string, serializedName
 		return nil
 	}
 
-	// store (and remove)
-	app.Store().Set(nameKey, fullName)
-	time.AfterFunc(1*time.Minute, func() {
-		app.Store().Remove(nameKey)
-	})
-
-	return nil
+	// store (with expiration) in the store shared by all app instances (nodes)
+	return app.Cluster().KV().Set(nameKey, fullName, 1*time.Minute)
 }

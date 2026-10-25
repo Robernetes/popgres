@@ -28,7 +28,7 @@ func healthCheck(e *core.RequestEvent) error {
 	// @todo evaluate whether it is worth removing the extra info from the health endpoint
 	if e.HasSuperuserAuth() {
 		resp.Data = make(map[string]any, 3)
-		resp.Data["canBackup"] = !e.App.Store().Has(core.StoreKeyActiveBackup)
+		resp.Data["canBackup"] = !core.IsBackupActive(e.App)
 		resp.Data["realIP"] = e.RealIP()
 
 		// loosely check if behind a reverse proxy

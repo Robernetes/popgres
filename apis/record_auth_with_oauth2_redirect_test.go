@@ -296,7 +296,7 @@ func TestRecordAuthWithOAuth2Redirect(t *testing.T) {
 					t.Fatalf("Expected oauth2 subscription to be removed")
 				}
 
-				if storedName := app.Store().Get("@redirect_name_" + strings.Repeat("a", 986)); storedName != nil {
+				if storedName, ok, _ := app.Cluster().KV().Get("@redirect_name_" + strings.Repeat("a", 986)); ok {
 					t.Fatalf("Didn't expect stored name, got %q", storedName)
 				}
 			},
@@ -329,7 +329,7 @@ func TestRecordAuthWithOAuth2Redirect(t *testing.T) {
 					t.Fatalf("Expected oauth2 subscription to be removed")
 				}
 
-				storedName, _ := app.Store().Get("@redirect_name_" + strings.Repeat("a", 985)).(string)
+				storedName, _, _ := app.Cluster().KV().Get("@redirect_name_" + strings.Repeat("a", 985))
 				expectedName := "aaa " + strings.Repeat("b", 146)
 				if storedName != expectedName {
 					t.Fatalf("Expected stored name\n%q\ngot\n%q", expectedName, storedName)

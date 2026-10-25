@@ -57,7 +57,9 @@ func recordConfirmVerification(e *core.RequestEvent) error {
 			}
 		}
 
-		e.App.Store().Remove(getVerificationResendKey(e.Record))
+		if err := e.App.Cluster().KV().Delete(getVerificationResendKey(e.Record)); err != nil {
+			e.App.Logger().Warn("Failed to remove the verification resend timeout", "error", err)
+		}
 
 		return execAfterSuccessTx(true, e.App, func() error {
 			return e.NoContent(http.StatusNoContent)

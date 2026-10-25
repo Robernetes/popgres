@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -157,4 +158,71 @@ func getEntryNames(entries []fs.DirEntry) []string {
 	}
 
 	return names
+}
+
+func TestCreateBackupClusterLock(t *testing.T) {
+	t.Parallel()
+
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
+	// two app instances (nodes) sharing the same database
+	app1 := core.NewBaseApp(core.BaseAppConfig{DataDir: t.TempDir(), DatabaseURL: db.URL})
+	if err := app1.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	defer app1.ClearBootstrap()
+
+	app2 := core.NewBaseApp(core.BaseAppConfig{DataDir: t.TempDir(), DatabaseURL: db.URL})
+	if err := app2.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	defer app2.ClearBootstrap()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	errStop := errors.New("stop")
+
+	// block the app1 backup after the lock is acquired
+	app1.OnBackupCreate().BindFunc(func(e *core.BackupEvent) error {
+		close(started)
+		<-release
+		return errStop
+	})
+
+	app1Done := make(chan error, 1)
+	go func() {
+		app1Done <- app1.CreateBackup(context.Background(), "app1_backup.zip")
+	}()
+
+	<-started
+
+	if !core.IsBackupActive(app2) {
+		t.Fatal("Expected an active backup in app2")
+	}
+
+	if name := core.ActiveBackupName(app2); name != "app1_backup.zip" {
+		t.Fatalf("Expected the app1 active backup name, got %q", name)
+	}
+
+	if err := app2.CreateBackup(context.Background(), "app2_backup.zip"); err == nil {
+		t.Fatal("Expected app2 backup to fail while app1 is creating a backup")
+	}
+
+	close(release)
+
+	if err := <-app1Done; !errors.Is(err, errStop) {
+		t.Fatalf("Expected the stop error, got %v", err)
+	}
+
+	if core.IsBackupActive(app2) {
+		t.Fatal("Expected no active backup in app2 after the app1 backup completion")
+	}
+
+	if name := core.ActiveBackupName(app2); name != "" {
+		t.Fatalf("Expected no active backup name, got %q", name)
+	}
 }

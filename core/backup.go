@@ -14,6 +14,54 @@ const (
 	StoreKeyActiveBackup = "@activeBackup"
 )
 
+const (
+	// backupLockName is the cluster lock held during a backup operation
+	// (it prevents concurrent backups by multiple app instances).
+	backupLockName = "backup"
+
+	// kvKeyActiveBackup is the shared key with the name of the active backup.
+	kvKeyActiveBackup = "@activeBackup"
+
+	// kvActiveBackupTTL is the max duration of the active backup shared key
+	// (it is deleted when the backup completes and the cluster lock is the
+	// actual indicator of an active backup).
+	kvActiveBackupTTL = 24 * time.Hour
+)
+
+// IsBackupActive reports whether a backup operation is in progress
+// in the current or in another app instance (node).
+func IsBackupActive(app App) bool {
+	if app.Store().Has(StoreKeyActiveBackup) {
+		return true
+	}
+
+	locked, err := app.Cluster().IsLocked(context.Background(), backupLockName)
+	if err != nil {
+		app.Logger().Warn("Failed to check the backup cluster lock", slog.String("error", err.Error()))
+		return false
+	}
+
+	return locked
+}
+
+// ActiveBackupName returns the name of the backup that is being created in
+// the current or in another app instance (node), or an empty string if none.
+func ActiveBackupName(app App) string {
+	if app.Store().Has(StoreKeyActiveBackup) {
+		name, _ := app.Store().Get(StoreKeyActiveBackup).(string)
+		return name
+	}
+
+	locked, err := app.Cluster().IsLocked(context.Background(), backupLockName)
+	if err != nil || !locked {
+		return ""
+	}
+
+	name, _, _ := app.Cluster().KV().Get(kvKeyActiveBackup)
+
+	return name
+}
+
 // generateBackupName generates a new backup name based on the app name and current date.
 func generateBackupName(app App, prefix string) string {
 	appName := inflector.Snakecase(app.Settings().Meta.AppName)

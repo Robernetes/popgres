@@ -52,7 +52,9 @@ func recordConfirmPasswordReset(e *core.RequestEvent) error {
 			return firstApiError(err, e.BadRequestError("Failed to set new password.", err))
 		}
 
-		e.App.Store().Remove(getPasswordResetResendKey(authRecord))
+		if err := e.App.Cluster().KV().Delete(getPasswordResetResendKey(authRecord)); err != nil {
+			e.App.Logger().Warn("Failed to remove the password reset resend timeout", "error", err)
+		}
 
 		return execAfterSuccessTx(true, e.App, func() error {
 			return e.NoContent(http.StatusNoContent)

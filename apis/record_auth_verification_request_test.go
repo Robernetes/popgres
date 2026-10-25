@@ -110,7 +110,9 @@ func TestRecordRequestVerification(t *testing.T) {
 					t.Fatal(err)
 				}
 				resendKey := "@limitVerificationEmail_" + authRecord.Collection().Id + authRecord.Id
-				app.Store().Set(resendKey, struct{}{})
+				if err := app.Cluster().KV().Set(resendKey, "", time.Minute); err != nil {
+					t.Fatal(err)
+				}
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 				if app.TestMailer.TotalSend() != 0 {

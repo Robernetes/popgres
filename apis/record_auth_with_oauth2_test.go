@@ -1981,7 +1981,9 @@ func TestRecordAuthWithOAuth2(t *testing.T) {
 					}
 				}
 
-				app.Store().Set("@redirect_name_test_code", "test_store_name")
+				if err := app.Cluster().KV().Set("@redirect_name_test_code", "test_store_name", time.Minute); err != nil {
+					t.Fatal(err)
+				}
 
 				// add the test provider in the collection
 				users.MFA.Enabled = false
@@ -2001,7 +2003,7 @@ func TestRecordAuthWithOAuth2(t *testing.T) {
 				`"name":"test_store_name"`,
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				if app.Store().Has("@redirect_name_test_code") {
+				if app.Cluster().KV().Has("@redirect_name_test_code") {
 					t.Fatal("Expected @redirect_name_test_code store key to be removed")
 				}
 			},
@@ -2029,7 +2031,9 @@ func TestRecordAuthWithOAuth2(t *testing.T) {
 					}
 				}
 
-				app.Store().Set("@redirect_name_test_code", "test_store_name")
+				if err := app.Cluster().KV().Set("@redirect_name_test_code", "test_store_name", time.Minute); err != nil {
+					t.Fatal(err)
+				}
 
 				// add the test provider in the collection
 				users.MFA.Enabled = false
@@ -2048,7 +2052,7 @@ func TestRecordAuthWithOAuth2(t *testing.T) {
 				`"name":"test_store_name"`,
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				if !app.Store().Has("@redirect_name_test_code") {
+				if !app.Cluster().KV().Has("@redirect_name_test_code") {
 					t.Fatal("Expected @redirect_name_test_code store key to NOT be deleted")
 				}
 			},

@@ -64,12 +64,33 @@ var errIsDir = errors.New("the specified path is a directory and not a regular f
 // acceptable trade-off between performance and correctness because in
 // the worst case there will be some unused storage files in the backup that don't do any harm.
 func (app *BaseApp) CreateBackup(ctx context.Context, name string) error {
+	errActiveBackup := errors.New("try again later - another backup/restore operation has already been started")
+
 	if app.Store().Has(StoreKeyActiveBackup) {
-		return errors.New("try again later - another backup/restore operation has already been started")
+		return errActiveBackup
 	}
+
+	// popgres: prevent concurrent backups by the other app instances (nodes)
+	unlock, err := app.Cluster().TryLock(ctx, backupLockName)
+	if err != nil {
+		return fmt.Errorf("failed to acquire the backup lock: %w", err)
+	}
+	if unlock == nil {
+		return errActiveBackup
+	}
+	defer unlock()
 
 	app.Store().Set(StoreKeyActiveBackup, name)
 	defer app.Store().Remove(StoreKeyActiveBackup)
+
+	if err := app.Cluster().KV().Set(kvKeyActiveBackup, name, kvActiveBackupTTL); err != nil {
+		app.Logger().Warn("Failed to store the active backup name", slog.String("error", err.Error()))
+	}
+	defer func() {
+		if err := app.Cluster().KV().Delete(kvKeyActiveBackup); err != nil {
+			app.Logger().Warn("Failed to remove the active backup name", slog.String("error", err.Error()))
+		}
+	}()
 
 	startTime := time.Now()
 

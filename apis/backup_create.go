@@ -10,7 +10,7 @@ import (
 )
 
 func backupCreate(e *core.RequestEvent) error {
-	if e.App.Store().Has(core.StoreKeyActiveBackup) {
+	if core.IsBackupActive(e.App) {
 		return e.BadRequestError("Try again later - another backup/restore process has already been started", nil)
 	}
 

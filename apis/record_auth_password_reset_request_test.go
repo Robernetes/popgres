@@ -98,7 +98,9 @@ func TestRecordRequestPasswordReset(t *testing.T) {
 					t.Fatal(err)
 				}
 				resendKey := "@limitPasswordResetEmail_" + authRecord.Collection().Id + authRecord.Id
-				app.Store().Set(resendKey, struct{}{})
+				if err := app.Cluster().KV().Set(resendKey, "", time.Minute); err != nil {
+					t.Fatal(err)
+				}
 			},
 		},
 		{
