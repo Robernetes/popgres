@@ -10,6 +10,7 @@ import (
 
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/router"
+	"github.com/Robernetes/popgres/tools/tokenizer"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 )
 
@@ -75,7 +76,9 @@ type runSQLResult struct {
 
 var knownWriteQueryPrefixes = []string{
 	"INSERT", "CREATE", "UPDATE", "DELETE",
-	"DROP", "DETACH", "ALTER", "REPLACE",
+	"DROP", "ALTER", "TRUNCATE", "MERGE",
+	"GRANT", "REVOKE", "COMMENT", "REINDEX",
+	"CLUSTER", "REFRESH", "SECURITY", "LOCK",
 }
 
 func executeQuery(app core.App, query string, maxRows int) (*runSQLResult, error) {
@@ -141,6 +144,54 @@ func executeQuery(app core.App, query string, maxRows int) (*runSQLResult, error
 
 	// assume query returning rows
 	// ---------------------------------------------------------------
+
+	// Postgres doesn't allow multiple statements in a query with result rows
+	// so the previous statements are executed separately and only the
+	// result of the last one is returned (the same as with SQLite)
+	statements := splitSQLStatements(query)
+	if len(statements) > 1 {
+		var multiResult *runSQLResult
+		txErr := app.RunInTransaction(func(txApp core.App) error {
+			for _, stmt := range statements[:len(statements)-1] {
+				if _, err := txApp.NonconcurrentDB().NewQuery(stmt).WithContext(ctx).Execute(); err != nil {
+					return err
+				}
+			}
+
+			var err error
+			multiResult, err = readQueryRows(ctx, txApp, statements[len(statements)-1], maxRows, result)
+			return err
+		})
+		if txErr != nil {
+			return nil, txErr
+		}
+
+		return multiResult, nil
+	}
+
+	return readQueryRows(ctx, app, query, maxRows, result)
+}
+
+// splitSQLStatements splits the query by ";" (ignoring the ones inside quotes)
+// and returns the non-empty statements.
+func splitSQLStatements(query string) []string {
+	tk := tokenizer.NewFromString(query)
+	tk.Separators(';')
+	tk.KeepSeparator(false)
+
+	parts, _ := tk.ScanAll()
+
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			result = append(result, p)
+		}
+	}
+
+	return result
+}
+
+func readQueryRows(ctx context.Context, app core.App, query string, maxRows int, result *runSQLResult) (*runSQLResult, error) {
 	rows, err := app.ConcurrentDB().NewQuery(query).WithContext(ctx).Rows()
 	if err != nil {
 		return nil, err

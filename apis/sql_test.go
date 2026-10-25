@@ -8,6 +8,7 @@ import (
 	"github.com/Robernetes/popgres/tests"
 )
 
+// note: the column names and types and the error messages are the Postgres ones (see docs/COMPATIBILITY.md)
 func TestSQLRun(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +48,7 @@ func TestSQLRun(t *testing.T) {
 			ExpectedContent: []string{
 				`"execTime":`,
 				`"affectedRows":0`,
-				`"columns":[{"name":"1","type":"","nullable":true}]`,
+				`"columns":[{"name":"?column?","type":"INT4","nullable":false}]`,
 				`"rows":[["1"]]`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
@@ -81,7 +82,7 @@ func TestSQLRun(t *testing.T) {
 			ExpectedContent: []string{
 				`"data":{}`,
 				`Raw error:`,
-				`SQL logic error`,
+				`syntax error at or near`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},
@@ -114,7 +115,7 @@ func TestSQLRun(t *testing.T) {
 			ExpectedContent: []string{
 				`"execTime":`,
 				`"affectedRows":0`,
-				`"columns":[{"name":"id","type":"","nullable":true}]`,
+				`"columns":[{"name":"id","type":"TEXT","nullable":false}]`,
 				`"rows":[["aaa`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
@@ -189,7 +190,7 @@ func TestSQLRun(t *testing.T) {
 			ExpectedContent: []string{
 				`"data":{}`,
 				`Raw error:`,
-				`SQL logic error`,
+				`syntax error at or near`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
 		},
@@ -207,7 +208,7 @@ func TestSQLRun(t *testing.T) {
 				`"execTime":`,
 				`"affectedRows":0`,
 				// only the result of the last query should be returned
-				`"columns":[{"name":"2","type":"","nullable":true}]`,
+				`"columns":[{"name":"?column?","type":"INT4","nullable":false}]`,
 				`"rows":[["2"]]`,
 			},
 			ExpectedEvents: map[string]int{"*": 0},
