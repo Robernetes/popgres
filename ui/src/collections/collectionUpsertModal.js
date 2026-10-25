@@ -1,6 +1,7 @@
 import { toDeleteProp } from "@/base/fieldSettings";
 import { collectionAuthOptionsTab } from "./collectionAuthOptionsTab";
 import { collectionFieldsTab } from "./collectionFieldsTab";
+import { collectionRLSTab } from "./collectionRLSTab";
 import { collectionRulesTab } from "./collectionRulesTab";
 import { collectionViewQueryTab } from "./collectionViewQueryTab";
 
@@ -35,6 +36,7 @@ window.app.collectionTypes = {
         "tabs": {
             "Fields": collectionFieldsTab,
             "API rules": collectionRulesTab,
+            "RLS": collectionRLSTab,
         },
     },
     "view": {
@@ -50,6 +52,7 @@ window.app.collectionTypes = {
             "Fields": collectionFieldsTab,
             "API rules": collectionRulesTab,
             "Options": collectionAuthOptionsTab,
+            "RLS": collectionRLSTab,
         },
     },
 };
