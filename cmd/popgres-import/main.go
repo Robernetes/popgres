@@ -22,17 +22,19 @@ import (
 
 func main() {
 	var (
-		databaseURL string
-		dataDir     string
-		skipLogs    bool
-		force       bool
-		debug       bool
+		databaseURL   string
+		dataDir       string
+		encryptionEnv string
+		skipLogs      bool
+		force         bool
+		debug         bool
 	)
 
 	flag.StringVar(&databaseURL, "db", os.Getenv(core.DatabaseURLEnv), "the target popgres database connection string (default DATABASE_URL)")
 	flag.StringVar(&dataDir, "dir", "", "the target popgres_data directory where the storage files will be copied (the files are not copied if empty)")
+	flag.StringVar(&encryptionEnv, "encryptionEnv", "", "the env variable with the encryption key of the PocketBase settings (if they were encrypted)")
 	flag.BoolVar(&skipLogs, "skipLogs", false, "skip the import of the request logs")
-	flag.BoolVar(&force, "force", false, "allow importing into a database that already has non-system collections")
+	flag.BoolVar(&force, "force", false, "import into a database that already has collections (the imported collections and records are replaced, so the import can be repeated)")
 	flag.BoolVar(&debug, "debug", false, "print the executed SQL statements")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: popgres-import [flags] <pb_data dir>\n\n")
@@ -62,9 +64,10 @@ func main() {
 	}
 
 	app := core.NewBaseApp(core.BaseAppConfig{
-		DataDir:     appDataDir,
-		DatabaseURL: databaseURL,
-		IsDev:       debug,
+		DataDir:       appDataDir,
+		DatabaseURL:   databaseURL,
+		EncryptionEnv: encryptionEnv,
+		IsDev:         debug,
 	})
 	if err := app.Bootstrap(); err != nil {
 		log.Fatal(err)
@@ -85,9 +88,13 @@ func main() {
 		}
 	}
 
+	if dataDir != "" && report.Storage != "" && !app.Settings().S3.Enabled {
+		report.Storage = "local storage, copied to " + dataDir
+	}
+
 	fmt.Print(report.String())
 
-	if len(report.FailedViews) > 0 {
+	if report.HasManualChanges() {
 		os.Exit(3)
 	}
 }
