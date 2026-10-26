@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/core/cluster"
@@ -90,11 +91,28 @@ func bindRealtimeClusterEvents(app core.App) {
 			return
 		}
 
-		if err := realtimeBroadcastReplicationEvents(app, ids); err != nil {
-			// note: the events are not retried (their ids are already marked as received)
+		// the failed events are retried a few times (eg. a temporary database error)
+		var err error
+		for attempt := 0; len(ids) > 0; attempt++ {
+			ids, err = realtimeBroadcastReplicationEvents(app, ids)
+			if len(ids) == 0 || attempt >= len(realtimeReplicationRetries) {
+				break
+			}
+			time.Sleep(realtimeReplicationRetries[attempt])
+		}
+
+		if len(ids) > 0 {
+			// allow a later publish of the same events (eg. by a new leader) to deliver them
+			dedup.Forget(ids)
+
+			for range ids {
+				app.Cluster().AddRealtimeFailure()
+			}
+
 			app.Logger().Warn(
 				"Failed to broadcast the realtime replication events",
-				slog.String("error", err.Error()),
+				slog.Any("ids", ids),
+				slog.Any("error", err),
 			)
 		}
 	})
@@ -462,22 +480,39 @@ func realtimeFromReplication(app core.App) bool {
 	return app.Cluster().RealtimeSource() == cluster.RealtimeSourceReplication
 }
 
-// realtimeBroadcastReplicationEvents broadcasts the stored replication events to the local clients.
-func realtimeBroadcastReplicationEvents(app core.App, ids []string) error {
+// realtimeReplicationRetries are the delays of the realtime replication events broadcast retries.
+var realtimeReplicationRetries = []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 2 * time.Second}
+
+// realtimeBroadcastReplicationEvents broadcasts the stored replication events to
+// the local clients and returns the ids of the events that failed (or were not found).
+func realtimeBroadcastReplicationEvents(app core.App, ids []string) ([]string, error) {
 	events, err := app.Cluster().FindRealtimeEvents(ids)
 	if err != nil {
-		return err
+		return ids, err
 	}
 
+	found := make(map[string]struct{}, len(events))
+
+	var failed []string
 	var errs []error
 
 	for _, event := range events {
+		found[event.Id] = struct{}{}
+
 		if err := realtimeBroadcastReplicationEvent(app, event); err != nil {
+			failed = append(failed, event.Id)
 			errs = append(errs, fmt.Errorf("event %s: %w", event.Id, err))
 		}
 	}
 
-	return errors.Join(errs...)
+	for _, id := range ids {
+		if _, ok := found[id]; !ok {
+			failed = append(failed, id)
+			errs = append(errs, fmt.Errorf("event %s: not found", id))
+		}
+	}
+
+	return failed, errors.Join(errs...)
 }
 
 func realtimeBroadcastReplicationEvent(app core.App, event *cluster.RealtimeEvent) error {

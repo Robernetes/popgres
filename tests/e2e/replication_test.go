@@ -287,8 +287,9 @@ func TestReplicationLeaderFailover(t *testing.T) {
 			_ = db.Select("count(*)").From("_realtime_events").Where(dbx.In("record_id", list.ToInterfaceSlice(missing)...)).Row(&stored)
 		}
 		t.Fatalf(
-			"Expected each change exactly once, got %d missing (%d of them stored in _realtime_events: %v) and %d duplicated (%d events)",
+			"Expected each change exactly once, got %d missing (%d of them stored in _realtime_events: %v) and %d duplicated (%d events); follower dropped messages %d, failed broadcasts %d",
 			len(missing), stored, missing, len(duplicated), len(events),
+			follower.app.Cluster().DroppedMessages(), follower.app.Cluster().RealtimeFailures(),
 		)
 	}
 

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -771,6 +772,23 @@ type EventsDeduplicator struct {
 	order []string
 	max   int
 	mu    sync.Mutex
+}
+
+// Forget removes the provided ids from the received ones
+// (eg. the events that failed to broadcast, so that a new publish delivers them).
+func (d *EventsDeduplicator) Forget(ids []string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for _, id := range ids {
+		if _, ok := d.seen[id]; !ok {
+			continue
+		}
+		delete(d.seen, id)
+		if i := slices.Index(d.order, id); i >= 0 {
+			d.order = slices.Delete(d.order, i, i+1)
+		}
+	}
 }
 
 // NewEventsDeduplicator creates a new deduplicator that remembers the last max ids.

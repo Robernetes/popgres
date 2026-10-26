@@ -59,6 +59,9 @@ type Handler func(msg Message)
 // The LISTEN connection is dedicated (it is not part of the app pool) and it
 // is automatically reconnected with a backoff in case of an error.
 type Cluster struct {
+	droppedMessages  atomic.Int64
+	realtimeFailures atomic.Int64
+
 	nodeId  string
 	dsn     func() string
 	logger  func() *slog.Logger
@@ -369,8 +372,27 @@ func (c *Cluster) enqueue(queue chan func(), fn func()) {
 	select {
 	case queue <- fn:
 	default:
+		c.droppedMessages.Add(1)
 		c.logger().Warn("Cluster dispatch queue is full, dropping a message")
 	}
+}
+
+// DroppedMessages returns the number of the received messages that were
+// dropped because the dispatch queue was full.
+func (c *Cluster) DroppedMessages() int64 {
+	return c.droppedMessages.Load()
+}
+
+// AddRealtimeFailure increments the counter of the realtime replication
+// events that couldn't be broadcasted (see [Cluster.RealtimeFailures]).
+func (c *Cluster) AddRealtimeFailure() {
+	c.realtimeFailures.Add(1)
+}
+
+// RealtimeFailures returns the number of the realtime replication events
+// that couldn't be broadcasted to the local clients.
+func (c *Cluster) RealtimeFailures() int64 {
+	return c.realtimeFailures.Load()
 }
 
 func (c *Cluster) dispatch(queue chan func()) {
