@@ -4,13 +4,22 @@ popgres is a fork of PocketBase v0.40.6 that runs only on PostgreSQL 17+.
 
 The REST API, the JSON responses, the filter syntax and the official JS and Dart SDKs are compatible with PocketBase. This document lists the known differences.
 
-The API test scenarios are compared with the responses of PocketBase v0.40.6 (`tests/golden/api`). The accepted differences are listed in `tests/golden/accepted.txt` and each of them must be explained here.
+How the compatibility is checked:
+
+- the API test scenarios are compared with the responses of PocketBase v0.40.6 (`tests/golden/api`); the accepted differences are listed in `tests/golden/accepted.txt` and each of them is explained here;
+- every test of PocketBase v0.40.6 must pass in popgres or be skipped with a documented reason (`tests/golden/pocketbase-v0.40.6-tests.txt`);
+- the official JS SDK (`pocketbase` 0.28.1) runs its compatibility suite against a popgres server in the CI (`tests/sdk/js`): auth, records CRUD with the API rules, files, filters, expand and realtime.
+
+## Versioning
+
+popgres follows semantic versioning from v1.0.0. The compatibility target is the PocketBase v0.40.6 REST API and the JS SDK 0.28.x; a change of that target or of the documented differences is a major version change.
 
 ## Database
 
 - The data is stored in a Postgres database (`DATABASE_URL`). The logs are stored in the `_aux` schema of the same database or in a separate database (`POPGRES_LOGS_URL`).
 - There are no `data.db` and `auxiliary.db` files in `pb_data`. The directory keeps only the local files (storage, backups, etc.).
-- To migrate an existing `pb_data` use the `popgres-import` command.
+- To migrate an existing `pb_data` use the `popgres-import` command (see [MIGRATING.md](MIGRATING.md)).
+- `serve --dev` without a `DATABASE_URL` starts an embedded Postgres in the data directory (development only, without pgvector and `pg_dump`, see [DEV.md](DEV.md)).
 
 ### Column types
 
@@ -136,3 +145,4 @@ In cluster mode (`POPGRES_CLUSTER=true`) the realtime client ids start with the 
 
 - The `__pbDBOptimize__` cron job (`PRAGMA optimize`, `VACUUM`). Postgres autovacuum is used instead, so the job is not listed by `GET /api/crons`.
 - The logs `VACUUM` after their deletion.
+- The `update` command (the self-update from the PocketBase releases). Update popgres with a new release binary or Docker image.

@@ -1,163 +1,108 @@
-<p align="center">
-    <a href="https://pocketbase.io" target="_blank" rel="noopener">
-        <img src="https://i.imgur.com/aCBbjKx.png" alt="PocketBase - open source backend in 1 file" />
-    </a>
-</p>
+# popgres
 
-<p align="center">
-    <a href="https://github.com/pocketbase/pocketbase/actions/workflows/release.yaml" target="_blank" rel="noopener"><img src="https://github.com/pocketbase/pocketbase/actions/workflows/release.yaml/badge.svg" alt="build" /></a>
-    <a href="https://github.com/pocketbase/pocketbase/releases" target="_blank" rel="noopener"><img src="https://img.shields.io/github/release/pocketbase/pocketbase.svg" alt="Latest releases" /></a>
-    <a href="https://pkg.go.dev/github.com/pocketbase/pocketbase" target="_blank" rel="noopener"><img src="https://godoc.org/github.com/pocketbase/pocketbase?status.svg" alt="Go package documentation" /></a>
-</p>
+popgres is a fork of [PocketBase](https://pocketbase.io) v0.40.6 that runs on **PostgreSQL 17+** instead of SQLite.
 
-[PocketBase](https://pocketbase.io) is an open source Go backend that includes:
+It keeps the PocketBase experience (a single binary with the REST API, realtime, auth, files and the dashboard UI) and the compatibility with the official [JS](https://github.com/pocketbase/js-sdk) and [Dart](https://github.com/pocketbase/dart-sdk) SDKs, and adds what Postgres makes possible:
 
-- embedded database (_SQLite_) with **realtime subscriptions**
-- built-in **files and users management**
-- convenient **Admin dashboard UI**
-- and simple **REST-ish API**
+- **Multiple instances** behind a load balancer, coordinated only through Postgres ([CLUSTER.md](docs/CLUSTER.md)).
+- **Row level security**: the collection API rules are compiled to Postgres RLS policies, so they also apply to direct SQL clients ([RLS.md](docs/RLS.md)).
+- **Realtime from the database**: optionally, the realtime events come from the Postgres logical replication, including the changes made outside of the API ([REALTIME.md](docs/REALTIME.md)).
+- **Vector search** with a pgvector `vector` field and a similarity search endpoint ([VECTOR.md](docs/VECTOR.md)).
+- **MCP server** for AI agents, with tools generated from the collections and the same API rules ([MCP.md](docs/MCP.md)).
+- **Embedded Postgres for development**: `popgres serve --dev` without a database starts a local Postgres ([DEV.md](docs/DEV.md)).
 
-**For documentation and examples, please visit https://pocketbase.io/docs.**
+The differences with PocketBase are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
-> [!WARNING]
-> Please keep in mind that PocketBase is still under active development
-> and therefore full backward compatibility is not guaranteed before reaching v1.0.0.
+## Quick start
 
-## API SDK clients
-
-The easiest way to interact with the PocketBase Web APIs is to use one of the official SDK clients:
-
-- **JavaScript - [pocketbase/js-sdk](https://github.com/pocketbase/js-sdk)** (_Browser, Node.js, React Native_)
-- **Dart - [pocketbase/dart-sdk](https://github.com/pocketbase/dart-sdk)** (_Web, Mobile, Desktop, CLI_)
-
-You could also check the recommendations in https://pocketbase.io/docs/how-to-use/.
-
-
-## Overview
-
-### Use as standalone app
-
-You could download the prebuilt executable for your platform from the [Releases page](https://github.com/pocketbase/pocketbase/releases).
-Once downloaded, extract the archive and run `./pocketbase serve` in the extracted directory.
-
-The prebuilt executables are based on the [`examples/base/main.go` file](https://github.com/pocketbase/pocketbase/blob/master/examples/base/main.go) and comes with the JS VM plugin enabled by default which allows to extend PocketBase with JavaScript (_for more details please refer to [Extend with JavaScript](https://pocketbase.io/docs/js-overview/)_).
-
-### Use as a Go framework/toolkit
-
-PocketBase is distributed as a regular Go library package which allows you to build
-your own custom app specific business logic and still have a single portable executable at the end.
-
-Here is a minimal example:
-
-0. [Install Go 1.27+](https://go.dev/doc/install) (_if you haven't already_)
-
-1. Create a new project directory with the following `main.go` file inside it:
-    ```go
-    package main
-
-    import (
-        "log"
-
-        "github.com/pocketbase/pocketbase"
-        "github.com/pocketbase/pocketbase/core"
-    )
-
-    func main() {
-        app := pocketbase.New()
-
-        app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-            // registers new "GET /hello" route
-            se.Router.GET("/hello", func(re *core.RequestEvent) error {
-                return re.String(200, "Hello world!")
-            })
-
-            return se.Next()
-        })
-
-        if err := app.Start(); err != nil {
-            log.Fatal(err)
-        }
-    }
-    ```
-
-2. To init the dependencies, run `go mod init myapp && go mod tidy`.
-
-3. To start the application, run `go run main.go serve`.
-
-4. To build a statically linked executable, you can run `CGO_ENABLED=0 go build` and then start the created executable with `./myapp serve`.
-
-_For more details please refer to [Extend with Go](https://pocketbase.io/docs/go-overview/)._
-
-### Building and running the repo main.go example
-
-To build the minimal standalone executable, like the prebuilt ones in the releases page, you can simply run `go build` inside the `examples/base` directory:
-
-0. [Install Go 1.27+](https://go.dev/doc/install) (_if you haven't already_)
-1. Clone/download the repo
-2. Navigate to `examples/base`
-3. Run `CGO_ENABLED=0 go build` to build a binary for your current environment
-   _(or to target other platforms use `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build`; see https://go.dev/doc/install/source#environment)_
-4. Start the created executable by running `./base serve`.
-
-Note that the supported build targets by the pure Go SQLite driver at the moment are:
-
-| GOOS    | GOARCH  |
-|---------|---------|
-| darwin  | amd64   |
-| darwin  | arm64   |
-| freebsd | 386     |
-| freebsd | amd64   |
-| freebsd | arm     |
-| freebsd | arm64   |
-| linux   | 386     |
-| linux   | amd64   |
-| linux   | arm     |
-| linux   | arm64   |
-| linux   | loong64 |
-| linux   | ppc64le |
-| linux   | riscv64 |
-| linux   | s390x   |
-| netbsd  | amd64   |
-| openbsd | amd64   |
-| openbsd | arm64   |
-| windows | 386     |
-| windows | amd64   |
-| windows | arm64   |
-
-### Testing
-
-PocketBase comes with mixed bag of unit and integration tests.
-To run them, use the standard `go test` command:
+### Docker
 
 ```sh
-go test ./...
+docker build -t popgres .
+
+docker run -d -p 8090:8090 \
+  -e DATABASE_URL="postgres://user:pass@db-host:5432/popgres" \
+  -v popgres_data:/app/popgres_data \
+  popgres
 ```
 
-Check also the [Testing guide](http://pocketbase.io/docs/testing) to learn how to write your own custom application tests.
+Open `http://localhost:8090/_/` to create the first superuser. The image includes the Postgres client tools for the backups and the `popgres-import` command.
 
-## Security
+### Binary
 
-If you discover a security vulnerability within PocketBase, please send an e-mail to **support at pocketbase.io**.
+Download the `popgres` archive for your platform from the releases page and run:
 
-You could find more details in the project [Security policy](https://github.com/pocketbase/pocketbase/security/policy).
+```sh
+DATABASE_URL="postgres://user:pass@localhost:5432/popgres" ./popgres serve
+```
 
-## Contributing
+The database needs the `pgcrypto` extension (and `vector` for the vector fields). The app role needs the `CREATEROLE` attribute for the RLS roles (see [RLS.md](docs/RLS.md)).
 
-PocketBase is free and open source project licensed under the [MIT License](LICENSE.md).
-You are free to do whatever you want with it, even offering it as a paid service.
+### Development
 
-You could help continuing its development by:
+```sh
+./popgres serve --dev
+```
 
-- [Contribute to the source code](CONTRIBUTING.md)
-- [Suggest new features and report issues](https://github.com/pocketbase/pocketbase/issues)
+Without a `DATABASE_URL`, the dev mode downloads and starts an embedded Postgres in `popgres_data/.pg`.
 
-Please refrain creating PRs for _new features_ without previously discussing the implementation details.
-PocketBase has a [roadmap](https://github.com/orgs/pocketbase/projects/2) and I try to work on issues in specific order and such PRs often come in out of nowhere and skew all initial planning with tedious back-and-forth communication.
+## Migrating from PocketBase
 
-Don't get upset if I close your PR, even if it is well executed and tested. This doesn't mean that it will never be merged.
-Later we can always refer to it and/or take pieces of your implementation when the time comes to work on the issue (don't worry you'll be credited in the release notes).
+```sh
+DATABASE_URL="postgres://..." popgres-import -dir ./popgres_data ./pb_data
+```
 
-> [!IMPORTANT]
-> Due to recent LLM spam, PRs are temporary disabled and only existing collaborators can open a PR.
-> If you stumble on a problem that you want to fix, please consider instead opening an issue or discussion with link to your fork _(if not obvious - LLM contributions are not welcome)_.
-> This status may change in the future in case GitHub finally decide to do something about the constant spam, or when I find time to move the project somewhere else.
+The collections, records, settings, logs and files are imported, and the report lists what needs manual changes (eg. SQLite specific view queries). Your SDK clients and their auth tokens keep working. See [MIGRATING.md](docs/MIGRATING.md).
+
+## Use as a Go framework
+
+popgres is a Go library with the same API as PocketBase (hooks, routes, migrations, the JS VM plugin):
+
+```go
+package main
+
+import (
+    "log"
+
+    "github.com/Robernetes/popgres"
+    "github.com/Robernetes/popgres/core"
+)
+
+func main() {
+    app := popgres.New()
+
+    app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+        se.Router.GET("/hello", func(re *core.RequestEvent) error {
+            return re.String(200, "Hello world!")
+        })
+
+        return se.Next()
+    })
+
+    if err := app.Start(); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+The raw SQL of the hooks and migrations must be Postgres SQL (see [COMPATIBILITY.md](docs/COMPATIBILITY.md)).
+
+## Development of popgres
+
+```sh
+# Postgres 18 + pgvector for development (credentials in .env)
+docker compose -f docker-compose.dev.yml up -d
+
+# the test suite (POPGRES_TEST_URL is the template database of the tests)
+POPGRES_TEST_URL="postgres://user:pass@localhost:5433/popgres_test" go test ./...
+
+# the JS SDK compatibility tests against a server built from the sources
+DATABASE_URL="postgres://..." ./scripts/sdk-test.sh
+
+# the dashboard UI (Node 25+)
+npm --prefix ui ci && npm --prefix ui run build
+```
+
+## License
+
+popgres is distributed under the MIT license, the same as PocketBase. PocketBase is created and maintained by Gani Georgiev; popgres is not affiliated with the PocketBase project.
