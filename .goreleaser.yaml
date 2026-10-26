@@ -13,7 +13,7 @@ builds:
     main: ./examples/base
     binary: popgres
     ldflags:
-      - -s -w -X github.com/Robernetes/popgres.Version={{ .Version }}
+      - -s -w -X github.com/Robernetes/popgres.Version={{ .Version }} -X github.com/Robernetes/popgres/apis.MCPVersion={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:
@@ -42,16 +42,39 @@ builds:
       - goos: darwin
         goarch: ppc64le
 
+  # the PocketBase importer (the only binary that links a SQLite driver)
+  - id: build_import
+    main: ./cmd/popgres-import
+    binary: popgres-import
+    ldflags:
+      - -s -w
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
 release:
   draft: true
 
 archives:
   - id: archive_noncgo
-    builds: [build_noncgo]
-    format: zip
+    ids: [build_noncgo]
+    formats: [zip]
     files:
       - LICENSE.md
       - CHANGELOG.md
+
+  - id: archive_import
+    ids: [build_import]
+    name_template: 'popgres-import_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    formats: [zip]
+    files:
+      - LICENSE.md
 
 checksum:
   name_template: 'checksums.txt'

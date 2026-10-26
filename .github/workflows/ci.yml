@@ -86,6 +86,33 @@ jobs:
           POPGRES_TEST_EMBEDDED: '1'
         run: go test -count=1 -v -run "TestDevPostgres|TestShouldUseDevPostgres|TestResetDevPostgres" .
 
+  # the release archives of the two binaries (the main one without SQLite)
+  release-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+
+      - name: GoReleaser snapshot
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e GOTOOLCHAIN=auto -e GOFLAGS=-buildvcs=false \
+            goreleaser/goreleaser:v2.12.7 release --snapshot --clean --skip=before
+          sudo chown -R "$(id -u):$(id -g)" .builds
+
+      - name: Check the binaries
+        run: |
+          go version -m .builds/build_import_linux_amd64_v1/popgres-import | grep -q modernc.org/sqlite
+          if go version -m .builds/build_noncgo_linux_amd64_v1/popgres | grep modernc.org/sqlite; then
+            echo "the popgres binary must not link SQLite"
+            exit 1
+          fi
+          ls .builds/*.zip
+
   # the official PocketBase JS SDK against a popgres server (tests/sdk/js)
   sdk:
     runs-on: ubuntu-latest
