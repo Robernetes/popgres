@@ -1,0 +1,14 @@
+# The Go and npm dependencies get only the security updates (enabled in the
+# repository settings); the GitHub Actions are kept up to date monthly.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
