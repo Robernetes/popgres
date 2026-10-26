@@ -1,4 +1,12 @@
-# popgres
+<p align="center">
+    <img src="assets/brand/popgres_logo.png" alt="popgres logo" width="160" />
+    <br />
+    <img src="assets/brand/popgres_name.png" alt="popgres" width="320" />
+</p>
+
+<p align="center">
+    The PocketBase experience on PostgreSQL.
+</p>
 
 popgres is a fork of [PocketBase](https://pocketbase.io) v0.40.6 that runs on **PostgreSQL 17+** instead of SQLite.
 
