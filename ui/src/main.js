@@ -60,6 +60,7 @@ import "./fields/relation/init";
 import "./fields/select/init";
 import "./fields/json/init";
 import "./fields/geoPoint/init";
+import "./fields/vector/init";
 import "./fields/password/init";
 import "./collections/indexUpsertModal";
 import "./collections/collectionUpsertModal";
