@@ -87,7 +87,7 @@ func (p *devPostgres) Start() error {
 	if err != nil {
 		return err
 	}
-	port, err := strconv.Atoi(u.Port())
+	port, err := strconv.ParseUint(u.Port(), 10, 16)
 	if err != nil {
 		return err
 	}
