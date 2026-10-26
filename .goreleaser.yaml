@@ -59,7 +59,8 @@ builds:
       - arm64
 
 release:
-  draft: true
+  name_template: 'popgres {{ .Tag }}'
+  draft: false
 
 archives:
   - id: archive_noncgo

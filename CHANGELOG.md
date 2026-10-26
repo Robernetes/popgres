@@ -1,3 +1,11 @@
+## popgres v1.0.0
+
+The first popgres release, a fork of PocketBase v0.40.6 that runs on PostgreSQL 17+. See the [release notes](docs/releases/v1.0.0.md) and [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
+The entries below are the PocketBase changelog until the fork.
+
+---
+
 ## v0.40.6
 
 - Replaced the GitHub update command with update from the new host in relation to [#7841](https://github.com/pocketbase/pocketbase/discussions/7841).
