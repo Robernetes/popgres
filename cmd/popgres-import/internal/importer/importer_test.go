@@ -33,6 +33,33 @@ func testsDataDir() string {
 	return filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "..", "tests", "data")
 }
 
+// copyPBData copies the SQLite test data into a new temp pb_data directory.
+//
+// The shared tests/data directory is never opened with SQLite because it
+// creates temporary -shm/-wal files next to the databases, which the other
+// test packages (running in parallel) would copy with the test data.
+func copyPBData(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	for _, name := range []string{"data.db", "auxiliary.db"} {
+		raw, err := os.ReadFile(filepath.Join(testsDataDir(), name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), raw, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.Mkdir(filepath.Join(dir, core.LocalStorageDirName), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+
+	return dir
+}
+
 // newEmptyApp bootstraps a new app with an empty test database (only the system migrations).
 func newEmptyApp(t *testing.T) core.App {
 	t.Helper()
@@ -137,7 +164,9 @@ func truncate(raw []byte) string {
 func TestImportFixtures(t *testing.T) {
 	imported := newEmptyApp(t)
 
-	report, err := importer.Import(imported, testsDataDir(), importer.Options{})
+	pbData := copyPBData(t)
+
+	report, err := importer.Import(imported, pbData, importer.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +200,7 @@ func TestImportFixtures(t *testing.T) {
 	compareAPIs(t, imported, reference, report.FailedViews)
 
 	// a repeated import (with force) gives the same result
-	report2, err := importer.Import(imported, testsDataDir(), importer.Options{Force: true})
+	report2, err := importer.Import(imported, pbData, importer.Options{Force: true})
 	if err != nil {
 		t.Fatalf("Expected the repeated import to succeed, got %v", err)
 	}
@@ -182,7 +211,7 @@ func TestImportFixtures(t *testing.T) {
 	compareAPIs(t, imported, reference, report.FailedViews)
 
 	// without force the import refuses a database with collections
-	if _, err := importer.Import(imported, testsDataDir(), importer.Options{}); err == nil {
+	if _, err := importer.Import(imported, pbData, importer.Options{}); err == nil {
 		t.Fatal("Expected an error for a database with existing collections")
 	}
 }
@@ -190,16 +219,7 @@ func TestImportFixtures(t *testing.T) {
 // TestImportManualChanges imports a copy of the test data with a SQLite only
 // index and a rule that fails in Postgres: the import succeeds and reports them.
 func TestImportManualChanges(t *testing.T) {
-	pbData := t.TempDir()
-	for _, name := range []string{"data.db", "auxiliary.db"} {
-		raw, err := os.ReadFile(filepath.Join(testsDataDir(), name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(pbData, name), raw, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	pbData := copyPBData(t)
 
 	src, err := dbx.Open("sqlite", filepath.Join(pbData, "data.db"))
 	if err != nil {
