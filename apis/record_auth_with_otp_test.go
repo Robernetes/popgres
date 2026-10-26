@@ -579,10 +579,38 @@ func TestRecordAuthWithOTP(t *testing.T) {
 func TestRecordAuthWithOTPManualRateLimiterCheck(t *testing.T) {
 	t.Parallel()
 
-	var storeCache map[string]any
-
 	otpAId := strings.Repeat("a", 15)
 	otpBId := strings.Repeat("b", 15)
+
+	// popgres: all scenarios share a single app (and its rate limiters store)
+	// because creating a new test database for each scenario could exceed the
+	// 180s window of the OTP rate limiter when the whole suite runs in parallel
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user.Collection().MFA.Enabled = false
+	if err := app.Save(user.Collection()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{otpAId, otpBId} {
+		otp := core.NewOTP(app)
+		otp.Id = id
+		otp.SetCollectionRef(user.Collection().Id)
+		otp.SetRecordRef(user.Id)
+		otp.SetPassword("123456")
+		if err := app.Save(otp); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	scenarios := []struct {
 		otpId          string
@@ -608,37 +636,12 @@ func TestRecordAuthWithOTPManualRateLimiterCheck(t *testing.T) {
 				"otpId":"` + s.otpId + `",
 				"password":"` + s.password + `"
 			}`),
-			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-				for k, v := range storeCache {
-					app.Store().Set(k, v)
-				}
-
-				user, err := app.FindAuthRecordByEmail("users", "test@example.com")
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				user.Collection().MFA.Enabled = false
-				if err := app.Save(user.Collection()); err != nil {
-					t.Fatal(err)
-				}
-
-				for _, id := range []string{otpAId, otpBId} {
-					otp := core.NewOTP(app)
-					otp.Id = id
-					otp.SetCollectionRef(user.Collection().Id)
-					otp.SetRecordRef(user.Id)
-					otp.SetPassword("123456")
-					if err := app.Save(otp); err != nil {
-						t.Fatal(err)
-					}
-				}
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return app
 			},
-			ExpectedStatus:  s.expectedStatus,
-			ExpectedContent: []string{`"`}, // it doesn't matter anything non-empty
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				storeCache = app.Store().GetAll()
-			},
+			DisableTestAppCleanup: true,
+			ExpectedStatus:        s.expectedStatus,
+			ExpectedContent:       []string{`"`}, // it doesn't matter anything non-empty
 		}).Test(t)
 	}
 }
