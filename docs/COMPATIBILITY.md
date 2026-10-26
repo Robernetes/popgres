@@ -114,6 +114,14 @@ The collection API rules are also compiled to Postgres RLS policies for the exte
 
 The SQL console runs as the app connection role, so the policies don't apply to it (the same as the superusers bypass the API rules).
 
+## Vector search
+
+popgres adds the `vector` field type (pgvector), the `POST /api/collections/{collection}/vector-search` endpoint and the `@vectorDistance(field, [...])` sort field (see [VECTOR.md](VECTOR.md)). A sort expression is split only by the commas outside of parenthesis and brackets.
+
+## MCP server
+
+popgres adds the `/mcp` endpoint (disabled by default, see [MCP.md](MCP.md)). The settings have the extra `mcp` object (`{"enabled": false}`).
+
 ## Multiple instances
 
 popgres can run multiple instances with the same database (see [CLUSTER.md](CLUSTER.md)). This adds a few differences even for a single instance:
