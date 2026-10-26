@@ -23,6 +23,11 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 	}
 
 	txErr := app.RunInTransaction(func(txApp App) error {
+		// popgres: the first vector field creates the pgvector extension
+		if err := ensureVectorExtension(txApp, newCollection); err != nil {
+			return err
+		}
+
 		// create
 		// -----------------------------------------------------------
 		if oldCollection == nil || !app.HasTable(oldCollection.Name) {
@@ -286,6 +291,11 @@ func dropCollectionIndexes(app App, collection *Collection) error {
 	}
 
 	return app.RunInTransaction(func(txApp App) error {
+		// popgres: the HNSW indexes of the vector fields
+		if err := dropVectorIndexes(txApp, collection); err != nil {
+			return err
+		}
+
 		for _, raw := range collection.Indexes {
 			parsed := dbutils.ParseIndex(raw)
 
@@ -344,6 +354,7 @@ func createCollectionIndexes(app App, collection *Collection) error {
 			return validation.Errors{"indexes": errs}
 		}
 
-		return nil
+		// popgres: the HNSW indexes of the vector fields
+		return createVectorIndexes(txApp, collection)
 	})
 }

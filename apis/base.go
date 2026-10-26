@@ -40,6 +40,7 @@ func NewRouter(app core.App) (*router.Router[*core.RequestEvent], error) {
 	bindSettingsApi(app, apiGroup)
 	bindCollectionApi(app, apiGroup)
 	bindRecordCrudApi(app, apiGroup)
+	bindRecordVectorSearchApi(app, apiGroup) // popgres
 	bindRecordAuthApi(app, apiGroup)
 	bindLogsApi(app, apiGroup)
 	bindBackupApi(app, apiGroup)
@@ -55,6 +56,9 @@ func NewRouter(app core.App) (*router.Router[*core.RequestEvent], error) {
 
 	// popgres: the requests forwarded by the other app instances (nodes)
 	bindClusterForwarding(app, pbRouter)
+
+	// popgres: the MCP server
+	bindMCPApi(app, pbRouter)
 
 	return pbRouter, nil
 }

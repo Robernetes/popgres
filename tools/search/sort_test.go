@@ -33,6 +33,15 @@ func TestSortFieldBuildExpr(t *testing.T) {
 		// special _rowid_ field
 		// popgres: there is no rowid in Postgres
 		{search.SortField{"@rowid", search.SortDesc}, true, ""},
+		// popgres: pgvector distance
+		{search.SortField{"@vectorDistance(test1, [1, 2.5,-3])", search.SortAsc}, false, "([[test1]] <=> '[1,2.5,-3]'::vector) ASC"},
+		{search.SortField{"@vectorDistance(test1,[1,2],l2)", search.SortDesc}, false, "([[test1]] <-> '[1,2]'::vector) DESC"},
+		{search.SortField{"@vectorDistance(test1,[1,2],'ip')", search.SortAsc}, false, "([[test1]] <#> '[1,2]'::vector) ASC"},
+		{search.SortField{"@vectorDistance(test1,[1,2],abc)", search.SortAsc}, true, ""},
+		{search.SortField{"@vectorDistance(unknown,[1,2])", search.SortAsc}, true, ""},
+		{search.SortField{"@vectorDistance(test1,[1,'a'])", search.SortAsc}, true, ""},
+		{search.SortField{"@vectorDistance(test1,[1,2]); DROP TABLE x", search.SortAsc}, true, ""},
+		{search.SortField{"@vectorDistance(test1)", search.SortAsc}, true, ""},
 	}
 
 	for _, s := range scenarios {
@@ -63,6 +72,7 @@ func TestParseSortFromString(t *testing.T) {
 		{"test1,-test2,+test3", `[{"name":"test1","direction":"ASC"},{"name":"test2","direction":"DESC"},{"name":"test3","direction":"ASC"}]`},
 		{"@random,-test", `[{"name":"@random","direction":"ASC"},{"name":"test","direction":"DESC"}]`},
 		{"-@rowid,-test", `[{"name":"@rowid","direction":"DESC"},{"name":"test","direction":"DESC"}]`},
+		{"-@vectorDistance(a,[1,2]),b", `[{"name":"@vectorDistance(a,[1,2])","direction":"DESC"},{"name":"b","direction":"ASC"}]`},
 	}
 
 	for _, s := range scenarios {

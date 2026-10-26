@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,6 +85,13 @@ func startDevApp(t *testing.T, dataDir string) (time.Duration, func()) {
 	}
 
 	elapsed := time.Since(start)
+
+	// the embedded binaries don't include pgvector
+	vectors := core.NewBaseCollection("dev_vectors")
+	vectors.Fields.Add(&core.VectorField{Name: "embedding", Dimensions: 3})
+	if err := app.Save(vectors); err == nil || !strings.Contains(err.Error(), "pgvector") {
+		t.Errorf("Expected a clear pgvector validation error, got %v", err)
+	}
 
 	return elapsed, func() {
 		if err := app.ClearBootstrap(); err != nil {
