@@ -1,0 +1,94 @@
+# The benchmark environment (see bench/run.sh).
+#
+# All services run in the same Docker network with CPU limits:
+#   - pocketbase: PocketBase v0.40.6 (SQLite), 2 CPUs;
+#   - popgres: a single popgres instance, 2 CPUs, with the shared Postgres;
+#   - node1..node3: 3 popgres instances (2 CPUs each) with the realtime
+#     replication source (the load generator spreads the requests over them);
+#   - postgres: Postgres 18, 4 CPUs (the "single" and "cluster" databases);
+#   - runner: the load generator, 4 CPUs.
+#
+# The binaries are built by run.sh into bench/.bin.
+name: popgres-bench
+
+x-app: &app
+  image: ${BENCH_BASE_IMAGE:-debian:trixie-slim}
+  entrypoint: []
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2g
+
+x-popgres: &popgres
+  <<: *app
+  command: ["/bench/popgres", "serve", "--http=0.0.0.0:8090", "--dir=/data", "--dev=false"]
+  depends_on:
+    - postgres
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    command: >
+      postgres -c wal_level=logical -c max_connections=400
+      -c shared_buffers=1GB -c effective_cache_size=2GB
+    environment:
+      POSTGRES_PASSWORD: bench
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4g
+
+  pocketbase:
+    <<: *app
+    command: ["/bench/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data"]
+    volumes:
+      - ./.bin:/bench:ro
+      - pb_data:/data
+
+  popgres:
+    <<: *popgres
+    environment:
+      DATABASE_URL: postgres://postgres:bench@postgres:5432/single?sslmode=disable
+    volumes:
+      - ./.bin:/bench:ro
+      - popgres_data:/data
+
+  node1: &node
+    <<: *popgres
+    environment:
+      DATABASE_URL: postgres://postgres:bench@postgres:5432/cluster?sslmode=disable
+      POPGRES_REALTIME_SOURCE: replication
+    volumes:
+      - ./.bin:/bench:ro
+      - node1_data:/data
+  node2:
+    <<: *node
+    volumes:
+      - ./.bin:/bench:ro
+      - node2_data:/data
+  node3:
+    <<: *node
+    volumes:
+      - ./.bin:/bench:ro
+      - node3_data:/data
+
+  runner:
+    image: ${BENCH_BASE_IMAGE:-debian:trixie-slim}
+    entrypoint: []
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./.bin:/bench:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 2g
+
+volumes:
+  pb_data:
+  popgres_data:
+  node1_data:
+  node2_data:
+  node3_data:

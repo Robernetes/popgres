@@ -62,6 +62,10 @@ DATABASE_URL="postgres://..." popgres-import -dir ./popgres_data ./pb_data
 
 The collections, records, settings, logs and files are imported, and the report lists what needs manual changes (eg. SQLite specific view queries). Your SDK clients and their auth tokens keep working. See [MIGRATING.md](docs/MIGRATING.md).
 
+## Benchmarks
+
+On the same machine, a single popgres instance handles about 2 to 2.6 times the concurrent writes of PocketBase (SQLite has a single writer), and 3 instances more than double the reads of a single one. See [BENCHMARKS.md](docs/BENCHMARKS.md) for the setup, the results and their limitations.
+
 ## Use as a Go framework
 
 popgres is a Go library with the same API as PocketBase (hooks, routes, migrations, the JS VM plugin):
