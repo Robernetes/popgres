@@ -132,6 +132,9 @@ type settings struct {
 	TrustedProxy TrustedProxyConfig `form:"trustedProxy" json:"trustedProxy"`
 	Batch        BatchConfig        `form:"batch" json:"batch"`
 	Logs         LogsConfig         `form:"logs" json:"logs"`
+
+	// popgres: the MCP server
+	MCP MCPConfig `form:"mcp" json:"mcp"`
 }
 
 // Settings defines the PocketBase app settings.
@@ -460,6 +463,12 @@ type BatchConfig struct {
 	//
 	// If not set, fallbacks to max ~128MB.
 	MaxBodySize int64 `form:"maxBodySize" json:"maxBodySize"`
+}
+
+// MCPConfig defines the settings of the popgres MCP server (/mcp).
+type MCPConfig struct {
+	// Enabled enables the MCP server endpoint (disabled by default).
+	Enabled bool `form:"enabled" json:"enabled"`
 }
 
 // Validate makes BatchConfig validatable by implementing [validation.Validatable] interface.
