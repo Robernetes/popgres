@@ -7,7 +7,7 @@ import (
 // popgres row level security.
 //
 // Creates the external roles (popgres_anon and popgres_authenticated), the
-// popgres schema with the auth token functions and the policies compiled from
+// popgres_rls schema with the auth token functions and the policies compiled from
 // the collection API rules. The app connection role (the tables owner) is not
 // affected by the policies.
 func init() {

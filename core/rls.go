@@ -22,8 +22,8 @@ import (
 // The app connection role is the tables owner (or a superuser) and bypasses them.
 //
 // The auth record is identified with a popgres auth token stored in the
-// "popgres.token" setting (see popgres.set_claims()). The policies never trust
-// the setting value directly because any role can change it: popgres.auth()
+// "popgres.token" setting (see popgres_rls.set_claims()). The policies never trust
+// the setting value directly because any role can change it: popgres_rls.auth()
 // verifies the token signature on every query.
 
 const (
@@ -39,7 +39,7 @@ const (
 	RLSAPIRole = "popgres_api"
 
 	// RLSSchema is the schema of the popgres RLS functions.
-	RLSSchema = "popgres"
+	RLSSchema = "popgres_rls"
 
 	// RLSStrictEnv is the env variable used as fallback for BaseAppConfig.RLSStrict.
 	RLSStrictEnv = "POPGRES_RLS_STRICT"

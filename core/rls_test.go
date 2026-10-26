@@ -139,8 +139,8 @@ func TestRLSRuleStatuses(t *testing.T) {
 		{types.Pointer(""), core.RLSStatusTranslated, true, "TRUE"},
 		{types.Pointer("text = 'x'"), core.RLSStatusTranslated, true, `"demo1"."text"`},
 		{types.Pointer("text = \"it's {{a}} [[b]] {:c}\""), core.RLSStatusTranslated, true, `E'it''s \x7b\x7ba}} \x5b\x5bb]] \x7b:c}'`},
-		{types.Pointer("@request.auth.id != ''"), core.RLSStatusTranslated, true, "popgres.auth() ->> 'id'"},
-		{types.Pointer("@request.auth.verified = true"), core.RLSStatusTranslated, false, "popgres.auth() AS a"},
+		{types.Pointer("@request.auth.id != ''"), core.RLSStatusTranslated, true, "popgres_rls.auth() ->> 'id'"},
+		{types.Pointer("@request.auth.verified = true"), core.RLSStatusTranslated, false, "popgres_rls.auth() AS a"},
 		{types.Pointer("rel_one.text != ''"), core.RLSStatusTranslated, false, "rls_"},
 		{types.Pointer("@collection.demo2.title ?= text"), core.RLSStatusTranslated, false, "rls_"},
 		{types.Pointer("@request.body.text = 'x'"), core.RLSStatusDenied, false, "FALSE"},
@@ -238,7 +238,7 @@ func TestRLSSyncOnCollectionChanges(t *testing.T) {
 
 	functions := func(collectionId string) int {
 		var total int
-		err := app.DB().NewQuery("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'popgres' AND starts_with(p.proname, {:prefix})").
+		err := app.DB().NewQuery("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'popgres_rls' AND starts_with(p.proname, {:prefix})").
 			Bind(map[string]any{"prefix": "rls_" + collectionId + "_"}).
 			Row(&total)
 		if err != nil {

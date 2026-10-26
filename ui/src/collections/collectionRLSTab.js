@@ -65,7 +65,7 @@ export function collectionRLSTab(upsertData) {
             " and ",
             t.code(null, "popgres_authenticated"),
             " (eg. direct SQL connections). The auth record is set with ",
-            t.code(null, "SELECT popgres.set_claims('<token>')"),
+            t.code(null, "SELECT popgres_rls.set_claims('<token>')"),
             ".",
         ),
         () => {

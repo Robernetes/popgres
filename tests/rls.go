@@ -19,7 +19,7 @@ var errRLSRollback = errors.New("rls test rollback")
 // checked only after switching the role. Before calling fn it verifies that
 // the current role is the expected one and that it can't bypass RLS.
 //
-// If token is not empty, it is verified and set with popgres.set_claims.
+// If token is not empty, it is verified and set with popgres_rls.set_claims.
 func RunWithRLSRole(app core.App, role string, token string, fn func(txApp core.App) error) error {
 	if role != core.RLSAnonRole && role != core.RLSAuthenticatedRole {
 		return fmt.Errorf("unsupported RLS role %q", role)

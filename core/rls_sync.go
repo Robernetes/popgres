@@ -29,7 +29,7 @@ CREATE ROLE popgres_authenticated NOLOGIN NOINHERIT;
 CREATE ROLE popgres_api NOLOGIN NOINHERIT;
 GRANT popgres_anon, popgres_authenticated, popgres_api TO <app role> WITH INHERIT FALSE, SET TRUE;`
 
-// InstallRLS creates the external RLS roles (if missing), the popgres schema
+// InstallRLS creates the external RLS roles (if missing), the popgres_rls schema
 // with the auth functions and the policies of all collections.
 //
 // It is executed by the popgres RLS system migration.
@@ -218,7 +218,7 @@ func InstallRLS(txApp App) error {
 	return syncRLSPolicies(txApp, true)
 }
 
-// UninstallRLS drops the policies, the popgres schema and the external roles privileges
+// UninstallRLS drops the policies, the popgres_rls schema and the external roles privileges
 // (the roles are kept because they could be used by other databases).
 func UninstallRLS(txApp App) error {
 	collections, err := txApp.FindAllCollections()

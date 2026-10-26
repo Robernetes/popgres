@@ -38,11 +38,11 @@ Then, in the client session, set the popgres auth token of the record (eg. obtai
 
 ```sql
 SET ROLE popgres_authenticated;
-SELECT popgres.set_claims('<auth token>');   -- session; set_claims('<token>', true) for the current transaction only
+SELECT popgres_rls.set_claims('<auth token>');   -- session; set_claims('<token>', true) for the current transaction only
 SELECT id, title FROM posts;                 -- only the records allowed by the rules
 ```
 
-`popgres.set_claims` raises an error for an invalid or expired token. The token is stored in the `popgres.token` setting and it is verified again on every query by `popgres.auth()` (HS256 signature with the record token key and the collection secret, auth type and expiration). Changing the setting directly with `SET` doesn't bypass the verification. A token is rejected after its record token key changes (eg. after a password change), the same as in the API.
+`popgres_rls.set_claims` raises an error for an invalid or expired token. The token is stored in the `popgres.token` setting and it is verified again on every query by `popgres_rls.auth()` (HS256 signature with the record token key and the collection secret, auth type and expiration). Changing the setting directly with `SET` doesn't bypass the verification. A token is rejected after its record token key changes (eg. after a password change), the same as in the API.
 
 ## Rules to policies
 
