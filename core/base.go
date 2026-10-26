@@ -34,11 +34,16 @@ import (
 
 const (
 	// note: Postgres defaults to max_connections = 100 shared by all
-	// clients (and app instances), so the default pools are kept small
+	// clients (and app instances), so the default pools are kept small.
+	//
+	// The idle connections are the same as the open ones because opening a
+	// Postgres connection is expensive (a new server process and the
+	// authentication), so a smaller idle pool reopens connections constantly
+	// under a moderate load. The unused connections are closed after 3 minutes.
 	DefaultDataMaxOpenConns int           = 20
-	DefaultDataMaxIdleConns int           = 5
+	DefaultDataMaxIdleConns int           = DefaultDataMaxOpenConns
 	DefaultAuxMaxOpenConns  int           = 5
-	DefaultAuxMaxIdleConns  int           = 2
+	DefaultAuxMaxIdleConns  int           = DefaultAuxMaxOpenConns
 	DefaultQueryTimeout     time.Duration = 30 * time.Second
 
 	LocalStorageDirName       string = "storage"
@@ -300,13 +305,13 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
 	}
 	if app.config.DataMaxIdleConns <= 0 {
-		app.config.DataMaxIdleConns = DefaultDataMaxIdleConns
+		app.config.DataMaxIdleConns = app.config.DataMaxOpenConns
 	}
 	if app.config.AuxMaxOpenConns <= 0 {
 		app.config.AuxMaxOpenConns = DefaultAuxMaxOpenConns
 	}
 	if app.config.AuxMaxIdleConns <= 0 {
-		app.config.AuxMaxIdleConns = DefaultAuxMaxIdleConns
+		app.config.AuxMaxIdleConns = app.config.AuxMaxOpenConns
 	}
 	if app.config.QueryTimeout <= 0 {
 		app.config.QueryTimeout = DefaultQueryTimeout

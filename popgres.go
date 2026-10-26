@@ -62,9 +62,9 @@ type Config struct {
 	DatabaseURL      string             // default to the DATABASE_URL env variable
 	LogsDatabaseURL  string             // default to the POPGRES_LOGS_URL env variable (or DatabaseURL)
 	DataMaxOpenConns int                // default to core.DefaultDataMaxOpenConns
-	DataMaxIdleConns int                // default to core.DefaultDataMaxIdleConns
+	DataMaxIdleConns int                // default to DataMaxOpenConns
 	AuxMaxOpenConns  int                // default to core.DefaultAuxMaxOpenConns
-	AuxMaxIdleConns  int                // default to core.DefaultAuxMaxIdleConns
+	AuxMaxIdleConns  int                // default to AuxMaxOpenConns
 	DBConnect        core.DBConnectFunc // default to core.DefaultDBConnect
 }
 
