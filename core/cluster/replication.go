@@ -69,6 +69,11 @@ const (
 	maxEventIdsPerNotify   = 150
 	slotMetricsLogInterval = time.Minute
 
+	// the decoded events of consecutive transactions are stored and published
+	// together (up to maxPendingEvents or when no new message arrives within flushDelay)
+	maxPendingEvents = 500
+	flushDelay       = 5 * time.Millisecond
+
 	// RetainedWALWarningSize is the retained WAL size (in bytes) of the
 	// realtime slot above which a warning is logged.
 	RetainedWALWarningSize = 1 << 30
@@ -327,6 +332,26 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		return pglogrepl.SendStandbyStatusUpdate(ctx, conn, pglogrepl.StandbyStatusUpdate{WALWritePosition: confirmed})
 	}
 
+	// the decoded but not stored events (and the end LSN of their last transaction)
+	var pending []*RealtimeEvent
+	var pendingLSN pglogrepl.LSN
+
+	// flush stores and publishes the pending events and then confirms their LSN
+	flush := func() error {
+		if len(pending) == 0 {
+			return nil
+		}
+
+		if err := c.storeAndPublishEvents(ctx, db, pending); err != nil {
+			return err
+		}
+
+		pending = nil
+		confirmed = pendingLSN
+
+		return sendStatus()
+	}
+
 	for {
 		if time.Now().After(nextStatus) {
 			if err := sendStatus(); err != nil {
@@ -344,11 +369,20 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 			c.checkSlotMetrics(ctx, slot)
 		}
 
-		receiveCtx, cancel := context.WithDeadline(ctx, nextStatus)
+		deadline := nextStatus
+		if flushAt := time.Now().Add(flushDelay); len(pending) > 0 && flushAt.Before(deadline) {
+			deadline = flushAt
+		}
+
+		receiveCtx, cancel := context.WithDeadline(ctx, deadline)
 		rawMsg, err := conn.ReceiveMessage(receiveCtx)
 		cancel()
 		if err != nil {
 			if pgconn.Timeout(err) && ctx.Err() == nil {
+				// no new messages for now
+				if err := flush(); err != nil {
+					return err
+				}
 				continue
 			}
 			return err
@@ -370,9 +404,9 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 				return err
 			}
 
-			// outside of a transaction the WAL up to the server end has nothing to stream
-			// (it is confirmed so that the slot doesn't retain it)
-			if !decoder.inTransaction && pkm.ServerWALEnd > confirmed {
+			// outside of a transaction (and without pending events) the WAL up to the
+			// server end has nothing to stream (it is confirmed so that the slot doesn't retain it)
+			if !decoder.inTransaction && len(pending) == 0 && pkm.ServerWALEnd > confirmed {
 				confirmed = pkm.ServerWALEnd
 			}
 
@@ -393,13 +427,13 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 			}
 
 			if committed != nil {
-				if err := c.storeAndPublishEvents(ctx, db, committed); err != nil {
-					return err
-				}
+				pending = append(pending, committed...)
+				pendingLSN = endLSN
 
-				confirmed = endLSN
-				if err := sendStatus(); err != nil {
-					return err
+				if len(pending) >= maxPendingEvents {
+					if err := flush(); err != nil {
+						return err
+					}
 				}
 			}
 		}

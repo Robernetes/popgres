@@ -486,6 +486,11 @@ var realtimeReplicationRetries = []time.Duration{100 * time.Millisecond, 500 * t
 // realtimeBroadcastReplicationEvents broadcasts the stored replication events to
 // the local clients and returns the ids of the events that failed (or were not found).
 func realtimeBroadcastReplicationEvents(app core.App, ids []string) ([]string, error) {
+	// nothing to broadcast (and to load) without connected clients
+	if app.SubscriptionsBroker().TotalClients() == 0 {
+		return nil, nil
+	}
+
 	events, err := app.Cluster().FindRealtimeEvents(ids)
 	if err != nil {
 		return ids, err
@@ -496,10 +501,19 @@ func realtimeBroadcastReplicationEvents(app core.App, ids []string) ([]string, e
 	var failed []string
 	var errs []error
 
+	// load the records of the create and update events with a single query per collection
+	records, loadErr := realtimeReplicationEventsRecords(app, events)
+
 	for _, event := range events {
 		found[event.Id] = struct{}{}
 
-		if err := realtimeBroadcastReplicationEvent(app, event); err != nil {
+		if loadErr != nil && event.Op != "delete" {
+			failed = append(failed, event.Id)
+			errs = append(errs, fmt.Errorf("event %s: %w", event.Id, loadErr))
+			continue
+		}
+
+		if err := realtimeBroadcastReplicationEvent(app, event, records); err != nil {
 			failed = append(failed, event.Id)
 			errs = append(errs, fmt.Errorf("event %s: %w", event.Id, err))
 		}
@@ -515,7 +529,39 @@ func realtimeBroadcastReplicationEvents(app core.App, ids []string) ([]string, e
 	return failed, errors.Join(errs...)
 }
 
-func realtimeBroadcastReplicationEvent(app core.App, event *cluster.RealtimeEvent) error {
+// realtimeReplicationEventsRecords loads the current records of the create
+// and update events (keyed by "<collectionId>/<recordId>").
+func realtimeReplicationEventsRecords(app core.App, events []*cluster.RealtimeEvent) (map[string]*core.Record, error) {
+	byCollection := map[string][]string{}
+	for _, event := range events {
+		if event.Op != "delete" {
+			byCollection[event.CollectionId] = append(byCollection[event.CollectionId], event.RecordId)
+		}
+	}
+
+	result := make(map[string]*core.Record, len(events))
+
+	for collectionId, ids := range byCollection {
+		// note: the collection id could be the table name if it was not resolved by the leader
+		collection, err := realtimeFindClusterCollection(app, collectionId, collectionId)
+		if err != nil {
+			return nil, err
+		}
+
+		records, err := app.FindRecordsByIds(collection, ids)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, record := range records {
+			result[collectionId+"/"+record.Id] = record
+		}
+	}
+
+	return result, nil
+}
+
+func realtimeBroadcastReplicationEvent(app core.App, event *cluster.RealtimeEvent, records map[string]*core.Record) error {
 	// note: the collection id could be the table name if it was not resolved by the leader
 	collection, err := realtimeFindClusterCollection(app, event.CollectionId, event.CollectionId)
 	if err != nil {
@@ -526,12 +572,9 @@ func realtimeBroadcastReplicationEvent(app core.App, event *cluster.RealtimeEven
 		return realtimeBroadcastDeletedSnapshot(app, collection, event.Snapshot)
 	}
 
-	record, err := app.FindRecordById(collection, event.RecordId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil // already deleted
-		}
-		return err
+	record, ok := records[event.CollectionId+"/"+event.RecordId]
+	if !ok {
+		return nil // already deleted
 	}
 
 	if event.Op == "update" && collection.IsAuth() {
