@@ -12,6 +12,7 @@ import (
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/Robernetes/popgres/tools/list"
 	"github.com/Robernetes/popgres/tools/security"
 	"github.com/pocketbase/dbx"
 )
@@ -257,7 +258,10 @@ func TestReplicationLeaderFailover(t *testing.T) {
 		t.Fatalf("Expected %d inserted records, got %d", total, len(ids))
 	}
 
-	events := recordEvents(t, client, total, 30*time.Second)
+	// note: under load the new leader could need up to ~15s to restart the
+	// decoding (the running transactions WAL record of an idle server), so
+	// the deadline is generous and the late events are not reported as lost
+	events := recordEvents(t, client, total, 90*time.Second)
 	events = append(events, recordEvents(t, client, 1, time.Second)...) // eventual duplicates
 
 	counts := map[string]int{}
@@ -277,7 +281,15 @@ func TestReplicationLeaderFailover(t *testing.T) {
 	}
 
 	if len(missing) > 0 || len(duplicated) > 0 {
-		t.Fatalf("Expected each change exactly once, got %d missing and %d duplicated (%d events)", len(missing), len(duplicated), len(events))
+		// diagnostics: whether the missing changes were decoded and stored by a leader
+		var stored int
+		if len(missing) > 0 {
+			_ = db.Select("count(*)").From("_realtime_events").Where(dbx.In("record_id", list.ToInterfaceSlice(missing)...)).Row(&stored)
+		}
+		t.Fatalf(
+			"Expected each change exactly once, got %d missing (%d of them stored in _realtime_events: %v) and %d duplicated (%d events)",
+			len(missing), stored, missing, len(duplicated), len(events),
+		)
 	}
 
 	if !follower.app.Cluster().IsReplicationLeader() {

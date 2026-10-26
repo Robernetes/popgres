@@ -91,7 +91,8 @@ func bindRealtimeClusterEvents(app core.App) {
 		}
 
 		if err := realtimeBroadcastReplicationEvents(app, ids); err != nil {
-			app.Logger().Debug(
+			// note: the events are not retried (their ids are already marked as received)
+			app.Logger().Warn(
 				"Failed to broadcast the realtime replication events",
 				slog.String("error", err.Error()),
 			)
