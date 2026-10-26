@@ -1,0 +1,13 @@
+{
+    "name": "popgres-sdk-tests",
+    "private": true,
+    "description": "Compatibility tests of the official PocketBase JS SDK against a running popgres server (see scripts/sdk-test.sh).",
+    "type": "module",
+    "scripts": {
+        "test": "node --test --test-concurrency=1"
+    },
+    "dependencies": {
+        "eventsource": "5.1.3",
+        "pocketbase": "0.28.1"
+    }
+}
