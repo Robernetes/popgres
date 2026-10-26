@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a new feature or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What do you want to do that popgres doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How could popgres support it? Include the API, settings or examples you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds or other solutions you considered (eg. hooks, a custom route, a Postgres feature).
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility
+      description: popgres keeps the PocketBase REST API and the official SDKs compatible.
+      options:
+        - label: The proposal doesn't change the existing PocketBase API responses, or the description explains why it must.
+          required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to work on it.

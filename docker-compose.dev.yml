@@ -1,10 +1,11 @@
-# Postgres de desarrollo de popgres (dedicado, no compartido con otros proyectos).
-# PostgreSQL 18 + pgvector, wal_level=logical para el realtime por replicación.
-# Credenciales en .env (no versionado): POSTGRES_USER y POSTGRES_PASSWORD.
+# The development Postgres of popgres: PostgreSQL 18 + pgvector, with
+# wal_level=logical for the realtime replication source.
+# The credentials are in .env (not committed, see .env.example):
+# POSTGRES_USER and POSTGRES_PASSWORD.
 #
 #   docker compose -f docker-compose.dev.yml up -d
 #
-# Expuesto en localhost:5433 para no chocar con otros Postgres en 5432.
+# Exposed on localhost:5433 to not clash with another Postgres on 5432.
 name: popgres-dev
 
 services:
@@ -14,7 +15,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: popgres
     command:
       - postgres

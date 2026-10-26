@@ -1,85 +1,145 @@
-# Contributing to PocketBase
+# Contributing to popgres
 
-> [!IMPORTANT]
-> Due to recent LLM spam, PRs are temporary disabled and only existing collaborators can open a PR.
-> If you stumble on a problem that you want to fix, please consider instead opening an issue or discussion with link to your fork _(if not obvious - LLM contributions are not welcome)_.
-> This status may change in the future in case GitHub finally decide to do something about the constant spam, or when I find time to move the project somewhere else.
+Thanks for your interest in popgres! Bug reports, fixes, tests and documentation improvements are welcome.
 
-This document describes how to prepare a PR for a change in the main repository.
-
+- [Before you start](#before-you-start)
 - [Prerequisites](#prerequisites)
-- [Making changes in the Go code](#making-changes-in-the-go-code)
-- [Making changes in the Superuser UI](#making-changes-in-the-superuser-ui)
+- [Development database](#development-database)
+- [Running popgres](#running-popgres)
+- [Tests](#tests)
+- [Lint and checks](#lint-and-checks)
+- [Dashboard UI](#dashboard-ui)
+- [Project rules](#project-rules)
+- [Pull requests](#pull-requests)
+
+## Before you start
+
+- For a bug, open an [issue](https://github.com/Robernetes/popgres/issues/new/choose) with the steps to reproduce it.
+- For a new feature or a bigger change, open an issue first to discuss it, so that your work fits the project before you spend time on it.
+- Security problems are reported privately, see [SECURITY.md](.github/SECURITY.md).
+- popgres is a fork of PocketBase v0.40.6. Don't report the popgres problems to the PocketBase project.
 
 ## Prerequisites
 
-- Go 1.27+ (for making changes in the Go code)
-- Node 24+ (for making changes in the Superuser UI)
+- Go 1.27+
+- Docker (for the development Postgres)
+- Node 25+ (only for the dashboard UI and the JS SDK tests)
+- bash and `jq` for the scripts in `scripts/` (on Windows, Git Bash or WSL)
 
-If you haven't already, you can fork the main repository and clone your fork so that you can work locally:
+Fork the repository and clone your fork:
 
+```sh
+git clone https://github.com/<your-username>/popgres.git
+cd popgres
 ```
-git clone https://github.com/your_username/pocketbase.git
-```
 
-> [!IMPORTANT]
-> It is recommended to create a new branch from master for each of your bugfixes and features.
-> This is required if you are planning to submit multiple PRs in order to keep the changes separate for review until they eventually get merged.
+Create a branch from `main` for each change.
 
-## Making changes in the Go code
+## Development database
 
-PocketBase is distributed as a Go package, which means that in order to run the project you'll have to create a Go `main` program that imports the package.
+`docker-compose.dev.yml` starts PostgreSQL 18 with pgvector and the logical replication enabled, on `localhost:5433`.
 
-The repository already includes such program, located in `examples/base`, that is also used for the prebuilt executables.
+1. Create a `.env` file from the example and set your own passwords (`.env` is not committed):
 
-So, let's assume that you already done some changes in the PocketBase Go code and you want now to run them:
-
-1. Navigate to `examples/base`
-2. Run `go run main.go serve`
-
-This will start a web server on `http://localhost:8090` with the embedded prebuilt Superuser UI from `ui/dist`. And that's it!
-
-**Before making a PR to the main repository, it is a good idea to:**
-
-- Add unit/integration tests for your changes (we are using the standard `testing` go package).
-  To run the tests, you could execute (while in the root project directory):
-
-  ```sh
-  go test ./...
-
-  # or using the Makefile
-  make test
-  ```
-
-- Run the linter - **golangci** ([see how to install](https://golangci-lint.run/usage/install/#local-installation)):
-
-  ```sh
-  golangci-lint run -c ./golangci.yml ./...
-
-  # or using the Makefile
-  make lint
-  ```
-
-## Making changes in the Superuser UI
-
-PocketBase Superuser UI is a single-page application (SPA) built with Svelte and Vite.
-
-To start the Superuser UI:
-
-1. Navigate to the `ui` project directory
-2. Run `npm install` to install the node dependencies
-3. Start vite's dev server
    ```sh
-   npm run dev
+   cp .env.example .env
    ```
 
-You could open the browser and access the running Superuser UI at `http://localhost:5173`.
+2. Start the database:
 
-Since the Superuser UI is just a client-side application, you need to have the PocketBase backend server also running in the background (either manually running the `examples/base/main.go` or download a prebuilt executable).
+   ```sh
+   docker compose -f docker-compose.dev.yml up -d
+   ```
 
-> [!NOTE]
-> By default, the Superuser UI is expecting the backend server to be started at `http://localhost:8090`, but you could change that by creating a new `ui/.env.development.local` file with `PB_BACKEND_URL = YOUR_ADDRESS` variable inside it.
+3. Create the non-superuser role `popgres_app` and the test template database `popgres_test`, the same as the CI (replace `<app-password>` with the `APP_PASSWORD` of your `.env`):
 
-Every change you make in the Superuser UI should be automatically reflected in the browser at `http://localhost:5173` without reloading the page.
+   ```sh
+   docker exec -i popgres_db psql -U admin -d postgres -v ON_ERROR_STOP=1 \
+     -v app_password='<app-password>' < scripts/ci-db-setup.sql
+   ```
 
-Once you are done with your changes, you have to build the Superuser UI with `npm run build`, so that it can be embedded in the go package. And that's it - you can make your PR to the main PocketBase repository.
+   The script is idempotent. `admin` is the `POSTGRES_USER` of your `.env`.
+
+Use the `popgres_app` role for the tests: a superuser skips the row level security policies, so some tests can't check them.
+
+## Running popgres
+
+```sh
+# against the popgres database of the development container
+DATABASE_URL="postgres://admin:<postgres-password>@localhost:5433/popgres?sslmode=disable" \
+  go run ./examples/base serve
+
+# or with an embedded Postgres, without Docker
+go run ./examples/base serve --dev
+```
+
+Then open `http://localhost:8090/_/`.
+
+## Tests
+
+The tests need `POPGRES_TEST_URL`, the template database of the tests. Each test package clones it into temporary `popgres_t_*` and `popgres_fx_*` databases.
+
+```sh
+export POPGRES_TEST_URL="postgres://popgres_app:<app-password>@localhost:5433/popgres_test?sslmode=disable"
+
+# a single package or test
+go test ./tools/search/... -run TestFilter
+
+# the whole suite (the test databases share the Postgres connections, so -p 4)
+make test
+
+# the whole suite and the parity check with the PocketBase v0.40.6 tests, as the CI
+make test-accept
+
+# the end to end tests (startup, cluster, replication, RLS, MCP)
+go test -count=1 ./tests/e2e/...
+
+# the official JS SDK tests against a server built from the sources
+DATABASE_URL="postgres://..." ./scripts/sdk-test.sh
+
+# drop the leftover test databases of interrupted runs
+make test-clean
+```
+
+On Windows and macOS, `./scripts/test-linux.sh` runs `go test` in a Linux container like the CI.
+
+The API responses are compared with the PocketBase v0.40.6 responses in `tests/golden/`. A change that alters a response must keep it identical to PocketBase, or be documented in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) and `tests/golden/accepted.txt` with the reason.
+
+## Lint and checks
+
+```sh
+make lint                          # golangci-lint, same config as the CI
+./scripts/check-sql-patterns.sh    # no SQLite only SQL outside the importer
+```
+
+## Dashboard UI
+
+The dashboard is a Svelte + Vite app in `ui/`, embedded in the binary from `ui/dist`:
+
+```sh
+npm --prefix ui ci
+npm --prefix ui run dev     # http://localhost:5173, expects popgres on :8090
+npm --prefix ui run build   # rebuild ui/dist before committing UI changes
+```
+
+## Project rules
+
+- **Compatibility:** the REST API, the JSON responses and the official PocketBase SDKs must keep working. Don't change a response shape without a strong reason documented in `docs/COMPATIBILITY.md`.
+- **Postgres only:** popgres supports PostgreSQL 17 and 18. Don't use PostgreSQL 18 only features (eg. `uuidv7()`, `RETURNING OLD/NEW`).
+- **SQL:**
+  - use the dbx placeholders: `{{table}}`, `[[column]]` and `{:param}`;
+  - never concatenate user values into SQL, always use parameters;
+  - no SQLite syntax (backticks, double quoted strings, `json_each`, `strftime`, `PRAGMA`, `sqlite_master`, `_rowid_`).
+- **No SQLite in the main binary:** only `cmd/popgres-import` may import a SQLite driver.
+- **Multiple instances:** popgres can run as several instances sharing one database. Shared state goes to Postgres, not to `app.Store()` or the local disk. Events between instances are published after the commit (`OnModelAfter*Success`), and the `NOTIFY` payloads carry only ids (8 KB limit).
+- **Background goroutines** never call `os.Exit` or `panic`: log the error and retry.
+- **Style:** follow the PocketBase code style (naming, structure, English comments). Add tests for the changes.
+
+## Pull requests
+
+- Keep each PR focused on one change, and update the documentation in `docs/` when the behavior changes.
+- The CI must be green: lint, build, UI build, the test suite on PostgreSQL 17 and 18, the embedded Postgres and the JS SDK tests. The workflows of the first time contributors run after a maintainer approves them.
+- Commit messages use a short prefix: `feat:`, `fix:`, `perf:`, `docs:`, `test:`, `build:`, `ci:` (eg. `fix: keep the realtime subscriptions after a reconnect`).
+- You are responsible for the code you submit, whatever tools you used to write it: make sure you understand it and that it's tested.
+
+By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE.md) of the project.

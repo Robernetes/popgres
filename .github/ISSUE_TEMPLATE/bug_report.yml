@@ -1,0 +1,80 @@
+name: Bug report
+description: Something doesn't work as expected in popgres.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! For a security problem, don't open an issue: use the [private vulnerability report](https://github.com/Robernetes/popgres/security/advisories/new) instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The requests, collection settings, hooks or SQL needed to reproduce the problem.
+      placeholder: |
+        1. Create a collection with ...
+        2. Send ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and errors
+      description: The relevant server logs, error responses or stack traces. Remove the secrets.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: popgres version
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: postgres
+    attributes:
+      label: PostgreSQL version and provider
+      placeholder: "18.1, self hosted / embedded dev mode / managed (eg. RDS)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: setup
+    attributes:
+      label: Setup
+      multiple: true
+      options:
+        - Single instance
+        - Cluster (POPGRES_CLUSTER)
+        - Realtime from the replication (POPGRES_REALTIME_SOURCE=replication)
+        - RLS strict mode (POPGRES_RLS_STRICT)
+        - Embedded Postgres (serve --dev)
+        - Used as a Go framework
+        - JS hooks (pb_hooks)
+        - Imported from PocketBase (popgres-import)
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Linux amd64, Docker image, Windows, macOS"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and the [compatibility notes](https://github.com/Robernetes/popgres/blob/main/docs/COMPATIBILITY.md).
+          required: true
