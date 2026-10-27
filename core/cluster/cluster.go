@@ -580,9 +580,19 @@ func (c *Cluster) requestResync() {
 	}()
 }
 
-// warnLimited logs a warning at most once per warnInterval for the same kind
-// (eg. so that a flood of invalid messages doesn't flood the logs).
+// warnLimited logs a warning with the messages counters (see [Cluster.WarnLimited]).
 func (c *Cluster) warnLimited(kind string, message string) {
+	c.WarnLimited(
+		kind,
+		message,
+		slog.Int64("droppedMessages", c.DroppedMessages()),
+		slog.Int64("invalidMessages", c.InvalidMessages()),
+	)
+}
+
+// WarnLimited logs a warning at most once per 10 seconds for the same kind
+// (eg. so that a flood of invalid messages doesn't flood the logs).
+func (c *Cluster) WarnLimited(kind string, message string, args ...any) {
 	c.warnMu.Lock()
 	last := c.lastWarns[kind]
 	now := time.Now()
@@ -593,11 +603,7 @@ func (c *Cluster) warnLimited(kind string, message string) {
 	c.lastWarns[kind] = now
 	c.warnMu.Unlock()
 
-	c.logger().Warn(
-		message,
-		slog.Int64("droppedMessages", c.DroppedMessages()),
-		slog.Int64("invalidMessages", c.InvalidMessages()),
-	)
+	c.logger().Warn(message, args...)
 }
 
 // DroppedMessages returns the number of the received messages that were

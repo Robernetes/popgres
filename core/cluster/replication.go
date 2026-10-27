@@ -64,16 +64,26 @@ const (
 
 	maxSlotNameLength = 63
 
-	leaderRetryInterval    = 2 * time.Second
-	standbyStatusInterval  = 10 * time.Second
-	leaderIdleTimeout      = 60 * time.Second
-	maxEventIdsPerNotify   = 150
-	slotMetricsLogInterval = time.Minute
+	// slotParamKey is the _params key that marks that the realtime slot of
+	// the database was created (to warn if it is missing later).
+	slotParamKey = "popgresRealtimeSlot"
 
-	// the decoded events of consecutive transactions are stored and published
-	// together (up to maxPendingEvents or when no new message arrives within flushDelay)
+	leaderRetryInterval = 2 * time.Second
+
+	replicationSupportRetryInterval = time.Minute
+	standbyStatusInterval           = 10 * time.Second
+	leaderIdleTimeout               = 60 * time.Second
+	maxEventIdsPerNotify            = 150
+	slotMetricsLogInterval          = time.Minute
+
+	// the decoded events are stored and published in batches
+	// (up to maxPendingEvents or flushDelay after the first pending event)
 	maxPendingEvents = 500
 	flushDelay       = 5 * time.Millisecond
+
+	// MaxTransactionEvents is the max number of realtime events of a single transaction
+	// (the changes above it don't send events, eg. a bulk delete of a million rows).
+	MaxTransactionEvents = 10000
 
 	// RetainedWALWarningSize is the retained WAL size (in bytes) of the
 	// realtime slot above which a warning is logged.
@@ -216,10 +226,32 @@ func (c *Cluster) StopReplication() {
 func (c *Cluster) runReplication(ctx context.Context, config ReplicationConfig) {
 	delay := minReconnectDelay
 
+	// the slot is checked by the other nodes too (eg. if the leader lock
+	// is held by a dead session nobody consumes the slot)
+	var nextSlotCheck time.Time
+	var inactiveChecks int
+
 	for ctx.Err() == nil {
+		// the node falls back to the hooks source if the replication is not available
+		// (eg. a temporary database error on start) and it is checked again periodically
+		if c.RealtimeSource() != RealtimeSourceReplication {
+			if err := c.CheckReplicationSupport(ctx); err != nil {
+				sleepCtx(ctx, replicationSupportRetryInterval)
+				continue
+			}
+
+			c.SetRealtimeSource(RealtimeSourceReplication)
+			c.logger().Info("The replication realtime source is available, switching to it")
+		}
+
 		isLeader, err := c.safeLeadReplication(ctx, config)
 		if ctx.Err() != nil {
 			return
+		}
+
+		if !isLeader && time.Now().After(nextSlotCheck) {
+			nextSlotCheck = time.Now().Add(slotMetricsLogInterval)
+			inactiveChecks = c.checkFollowerSlot(ctx, inactiveChecks)
 		}
 
 		if err != nil {
@@ -339,6 +371,7 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 	decoder := &replicationDecoder{
 		relations:         map[uint32]*pglogrepl.RelationMessage{},
 		resolveCollection: config.ResolveCollection,
+		maxEvents:         MaxTransactionEvents,
 	}
 
 	var confirmed pglogrepl.LSN
@@ -353,27 +386,41 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		return pglogrepl.SendStandbyStatusUpdate(ctx, conn, pglogrepl.StandbyStatusUpdate{WALWritePosition: confirmed})
 	}
 
-	// the decoded but not stored events (and the end LSN of their last transaction)
+	// the decoded but not stored events (and the time of the first one)
 	var pending []*RealtimeEvent
-	var pendingLSN pglogrepl.LSN
+	var pendingSince time.Time
 
-	// flush stores and publishes the pending events and then confirms their LSN
+	// the end LSN of the last decoded transaction commit
+	// (all its events are pending or already stored)
+	var committedLSN pglogrepl.LSN
+
+	// flush stores and publishes the pending events and then confirms the LSN of the
+	// decoded transactions (the events of a transaction that is not fully decoded yet
+	// are stored again with the same ids if it is decoded again, eg. after a leader change)
 	flush := func() error {
-		if len(pending) == 0 {
-			return nil
+		if len(pending) > 0 {
+			if err := c.storeAndPublishEvents(ctx, db, pending); err != nil {
+				return err
+			}
+			pending = nil
 		}
 
-		if err := c.storeAndPublishEvents(ctx, db, pending); err != nil {
-			return err
+		if committedLSN > confirmed {
+			confirmed = committedLSN
+			return sendStatus()
 		}
 
-		pending = nil
-		confirmed = pendingLSN
-
-		return sendStatus()
+		return nil
 	}
 
 	for {
+		// the pending events wait at most flushDelay (even if new messages keep arriving)
+		if len(pending) > 0 && time.Since(pendingSince) >= flushDelay {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+
 		if time.Now().After(nextStatus) {
 			if err := sendStatus(); err != nil {
 				return err
@@ -391,8 +438,10 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		}
 
 		deadline := nextStatus
-		if flushAt := time.Now().Add(flushDelay); len(pending) > 0 && flushAt.Before(deadline) {
-			deadline = flushAt
+		if len(pending) > 0 {
+			if flushAt := pendingSince.Add(flushDelay); flushAt.Before(deadline) {
+				deadline = flushAt
+			}
 		}
 
 		receiveCtx, cancel := context.WithDeadline(ctx, deadline)
@@ -447,14 +496,28 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 				return err
 			}
 
-			if committed != nil {
-				pending = append(pending, committed...)
-				pendingLSN = endLSN
+			if events := decoder.take(); len(events) > 0 {
+				if len(pending) == 0 {
+					pendingSince = time.Now()
+				}
+				pending = append(pending, events...)
+			}
 
-				if len(pending) >= maxPendingEvents {
-					if err := flush(); err != nil {
-						return err
-					}
+			if committed {
+				committedLSN = endLSN
+
+				if decoder.skipped > 0 {
+					c.logger().Warn(
+						"A transaction exceeded the max realtime events per transaction, the rest of its events are not sent",
+						slog.Int("maxEvents", decoder.maxEvents),
+						slog.Int("skippedEvents", decoder.skipped),
+					)
+				}
+			}
+
+			if len(pending) >= maxPendingEvents {
+				if err := flush(); err != nil {
+					return err
 				}
 			}
 		}
@@ -469,16 +532,38 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 // and the concurrent slot creations (eg. of other databases on the same server)
 // would wait for each other's transaction to reach a consistent point.
 func (c *Cluster) ensureSlot(ctx context.Context, db *dbx.DB, replConn *pgconn.PgConn, slot string) error {
-	var walStatus string
+	state := struct {
+		WALStatus string `db:"wal_status"`
+		Failover  bool   `db:"failover"`
+	}{}
 
-	err := db.NewQuery("SELECT COALESCE([[wal_status]], '') FROM pg_replication_slots WHERE [[slot_name]] = {:slot}").
+	err := db.NewQuery("SELECT COALESCE([[wal_status]], '') AS [[wal_status]], [[failover]] FROM pg_replication_slots WHERE [[slot_name]] = {:slot}").
 		WithContext(ctx).
 		Bind(dbx.Params{"slot": slot}).
-		Row(&walStatus)
+		One(&state)
 
 	exists := err == nil
 	if err != nil && !isNoRows(err) {
 		return err
+	}
+	walStatus := state.WALStatus
+
+	// whether the slot was created before by a node of this database
+	var created bool
+	err = db.NewQuery("SELECT EXISTS (SELECT 1 FROM {{_params}} WHERE [[id]] = {:id})").
+		WithContext(ctx).
+		Bind(dbx.Params{"id": slotParamKey}).
+		Row(&created)
+	if err != nil {
+		return err
+	}
+
+	if !exists && created {
+		c.logger().Warn(
+			"The realtime replication slot is missing (eg. it was dropped or the server failed over to a standby without the slot), "+
+				"recreating it (the realtime events of the changes since then are lost)",
+			slog.String("slot", slot),
+		)
 	}
 
 	if exists && walStatus == "lost" {
@@ -498,13 +583,29 @@ func (c *Cluster) ensureSlot(ctx context.Context, db *dbx.DB, replConn *pgconn.P
 		exists = false
 	}
 
+	// note: the failover slots (PG17+) can be synchronized to the standbys
+	// (with sync_replication_slots on the standby), so that the realtime events
+	// continue after a failover; the slot name contains only [a-z0-9_]
 	if !exists {
-		_, err := pglogrepl.CreateReplicationSlot(ctx, replConn, slot, "pgoutput", pglogrepl.CreateReplicationSlotOptions{
-			Mode:           pglogrepl.LogicalReplication,
-			SnapshotAction: "NOEXPORT_SNAPSHOT",
-		})
+		_, err := replConn.Exec(ctx, "CREATE_REPLICATION_SLOT "+slot+" LOGICAL pgoutput (SNAPSHOT 'nothing', FAILOVER true)").ReadAll()
 		if err != nil {
 			return fmt.Errorf("failed to create the replication slot %s: %w", slot, err)
+		}
+	} else if !state.Failover {
+		// eg. a slot created by popgres v1.0
+		_, err := replConn.Exec(ctx, "ALTER_REPLICATION_SLOT "+slot+" (FAILOVER true)").ReadAll()
+		if err != nil {
+			c.logger().Debug("Failed to enable the failover option of the replication slot", slog.String("slot", slot), slog.String("error", err.Error()))
+		}
+	}
+
+	if !created {
+		_, err := db.NewQuery("INSERT INTO {{_params}} ([[id]], [[value]]) VALUES ({:id}, {:value}) ON CONFLICT ([[id]]) DO NOTHING").
+			WithContext(ctx).
+			Bind(dbx.Params{"id": slotParamKey, "value": slot}).
+			Execute()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -557,6 +658,27 @@ func (c *Cluster) SlotMetrics(ctx context.Context) (*SlotMetrics, error) {
 	}
 
 	return metrics, nil
+}
+
+// checkFollowerSlot warns if the realtime slot is not consumed by any node in
+// consecutive checks and returns the new number of consecutive inactive checks.
+func (c *Cluster) checkFollowerSlot(ctx context.Context, inactiveChecks int) int {
+	metrics, err := c.SlotMetrics(ctx)
+	if err != nil || metrics == nil || metrics.Active {
+		return 0
+	}
+
+	inactiveChecks++
+
+	if inactiveChecks >= 2 {
+		c.logger().Warn(
+			"No node consumes the realtime replication slot (the realtime events are delayed and the slot retains WAL)",
+			slog.String("slot", metrics.Slot),
+			slog.Int64("retainedBytes", metrics.RetainedBytes),
+		)
+	}
+
+	return inactiveChecks
 }
 
 func (c *Cluster) checkSlotMetrics(ctx context.Context, slot string) {
@@ -653,22 +775,38 @@ func (c *Cluster) FindRealtimeEvents(ids []string) ([]*RealtimeEvent, error) {
 // -------------------------------------------------------------------
 
 // replicationDecoder converts the pgoutput messages into realtime events.
+//
+// pgoutput sends a transaction only after its commit, so the events of a
+// transaction can be stored and published before its commit message is decoded
+// (eg. the events of a large transaction are stored in batches).
 type replicationDecoder struct {
 	relations         map[uint32]*pglogrepl.RelationMessage
 	resolveCollection func(table string) string
 
+	// maxEvents is the max number of events of a single transaction (0 for no limit),
+	// so that a bulk change (eg. a delete of a million rows) doesn't flood the nodes
+	maxEvents int
+
 	inTransaction bool
 	finalLSN      pglogrepl.LSN
 	index         int
-	events        []*RealtimeEvent
+
+	// the total and the skipped (above maxEvents) events of the current transaction
+	total   int
+	skipped int
+
+	// the decoded events that are not taken yet
+	events []*RealtimeEvent
 }
 
-// decode handles a single pgoutput message and returns the events
-// of the transaction and its end LSN when the message is a commit.
-func (d *replicationDecoder) decode(data []byte) ([]*RealtimeEvent, pglogrepl.LSN, error) {
+// decode handles a single pgoutput message and reports whether it is a
+// transaction commit (with the transaction end LSN).
+//
+// The decoded events are returned by [replicationDecoder.take].
+func (d *replicationDecoder) decode(data []byte) (committed bool, endLSN pglogrepl.LSN, err error) {
 	msg, err := pglogrepl.Parse(data)
 	if err != nil {
-		return nil, 0, err
+		return false, 0, err
 	}
 
 	switch m := msg.(type) {
@@ -678,7 +816,8 @@ func (d *replicationDecoder) decode(data []byte) ([]*RealtimeEvent, pglogrepl.LS
 		d.inTransaction = true
 		d.finalLSN = m.FinalLSN
 		d.index = 0
-		d.events = nil
+		d.total = 0
+		d.skipped = 0
 	case *pglogrepl.InsertMessage:
 		d.add("create", m.RelationID, m.Tuple, false)
 	case *pglogrepl.UpdateMessage:
@@ -686,16 +825,18 @@ func (d *replicationDecoder) decode(data []byte) ([]*RealtimeEvent, pglogrepl.LS
 	case *pglogrepl.DeleteMessage:
 		d.add("delete", m.RelationID, m.OldTuple, true)
 	case *pglogrepl.CommitMessage:
-		events := d.events
-		if events == nil {
-			events = []*RealtimeEvent{}
-		}
 		d.inTransaction = false
-		d.events = nil
-		return events, m.TransactionEndLSN, nil
+		return true, m.TransactionEndLSN, nil
 	}
 
-	return nil, 0, nil
+	return false, 0, nil
+}
+
+// take returns the events decoded since the previous call.
+func (d *replicationDecoder) take() []*RealtimeEvent {
+	events := d.events
+	d.events = nil
+	return events
 }
 
 func (d *replicationDecoder) add(op string, relationId uint32, tuple *pglogrepl.TupleData, withSnapshot bool) {
@@ -707,6 +848,11 @@ func (d *replicationDecoder) add(op string, relationId uint32, tuple *pglogrepl.
 	// note: the index is incremented for every change so that the ids are stable
 	d.index++
 	eventId := fmt.Sprintf("%016X_%06d", uint64(d.finalLSN), d.index)
+
+	if d.maxEvents > 0 && d.total >= d.maxEvents {
+		d.skipped++
+		return
+	}
 
 	var recordId string
 	var snapshot jsontext.Value
@@ -730,6 +876,7 @@ func (d *replicationDecoder) add(op string, relationId uint32, tuple *pglogrepl.
 		collectionId = d.resolveCollection(rel.RelationName)
 	}
 
+	d.total++
 	d.events = append(d.events, &RealtimeEvent{
 		Id:           eventId,
 		Source:       RealtimeSourceReplication,

@@ -17,19 +17,23 @@ const RealtimeSourceEnv = "POPGRES_REALTIME_SOURCE"
 // and starts the replication (if enabled).
 //
 // The "replication" source falls back to "hooks" (with a warning) if the
-// Postgres logical replication is not available.
+// Postgres logical replication is not available. The replication is checked
+// again periodically and the node switches to it once it is available.
 func (app *BaseApp) initRealtimeSource() {
 	source := strings.ToLower(strings.TrimSpace(app.config.RealtimeSource))
+	replication := false
 
 	switch source {
 	case cluster.RealtimeSourceReplication:
+		replication = true
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		err := app.cluster.CheckReplicationSupport(ctx)
 		cancel()
 
 		if err != nil {
 			app.Logger().Warn(
-				"The replication realtime source is not available, the hooks source is used instead",
+				"The replication realtime source is not available, the hooks source is used instead (checked again every minute)",
 				slog.String("error", err.Error()),
 			)
 			source = cluster.RealtimeSourceHooks
@@ -46,7 +50,7 @@ func (app *BaseApp) initRealtimeSource() {
 
 	app.cluster.SetRealtimeSource(source)
 
-	if source == cluster.RealtimeSourceReplication {
+	if replication {
 		app.cluster.StartReplication(cluster.ReplicationConfig{
 			PrepareTables:     app.prepareRealtimePublication,
 			ResolveCollection: app.resolveRealtimeCollection,

@@ -5,6 +5,9 @@
 - The realtime events are dispatched separately from the collections and settings changes.
 - The replication leader lock connection has an `idle_session_timeout`, so the leadership is released about a minute after the leader host dies (instead of the server TCP keepalive timeout).
 - The backup restore creates the RLS roles if they are missing (eg. on a new server) and the next app start reinstalls the RLS privileges and policies (the dumps don't include the privileges). The backups don't include the data of the temporary `UNLOGGED` cluster tables.
+- The replication leader stores and publishes the events in batches while it decodes a transaction (a large transaction doesn't need to fit in memory) and a single transaction sends at most 10 000 events. The batches are flushed at most 5ms after their first event (instead of after 5ms without new changes, which delayed the events under a steady load).
+- The realtime replication slot is created with the `FAILOVER` option (and the existing slot is altered), and a warning is logged if the slot is missing (eg. after a failover to a standby without it). The other instances warn if no instance consumes the slot.
+- An instance that falls back to the `hooks` realtime source checks the replication again every minute, and the instances warn if they use different realtime sources.
 - Fixed the parsing of the embedded Postgres port (dev mode).
 
 ## popgres v1.0.0

@@ -208,6 +208,51 @@ func TestReplicationDirectChanges(t *testing.T) {
 	if len(events) != 1 || events[0] != fmt.Sprintf("create:%v", record["id"]) {
 		t.Fatalf("Expected a single create event, got %v", events)
 	}
+
+	// a single transaction with more changes than a batch of the leader
+	const total = 1200
+
+	var ids []string
+	err = db.NewQuery("INSERT INTO {{demo2}} ([[title]]) SELECT 'bulk_' || i FROM generate_series(1, {:total}) i RETURNING [[id]]").
+		Bind(dbx.Params{"total": total}).
+		Column(&ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != total {
+		t.Fatalf("Expected %d inserted records, got %d", total, len(ids))
+	}
+
+	events = recordEvents(t, allowed, total, 60*time.Second)
+	events = append(events, recordEvents(t, allowed, 1, time.Second)...) // eventual duplicates
+
+	counts := map[string]int{}
+	for _, e := range events {
+		counts[e]++
+	}
+	for _, id := range ids {
+		if counts["create:"+id] != 1 {
+			t.Fatalf("Expected each change exactly once, got %d events (record %s: %d)", len(events), id, counts["create:"+id])
+		}
+	}
+
+	// the slot can be synchronized to the standbys and its creation is recorded
+	var failover bool
+	err = db.NewQuery("SELECT [[failover]] FROM pg_replication_slots WHERE [[database]] = current_database()").Row(&failover)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !failover {
+		t.Fatal("Expected the failover option of the realtime slot")
+	}
+
+	var recorded int
+	if err := db.Select("count(*)").From("_params").Where(dbx.HashExp{"id": "popgresRealtimeSlot"}).Row(&recorded); err != nil {
+		t.Fatal(err)
+	}
+	if recorded != 1 {
+		t.Fatal("Expected the realtime slot creation to be recorded")
+	}
 }
 
 func TestReplicationLeaderFailover(t *testing.T) {

@@ -54,6 +54,12 @@ func bindRealtimeClusterEvents(app core.App) {
 			return // already broadcasted locally
 		}
 
+		// the changes of the hooks node come also from the replication
+		if realtimeFromReplication(app) {
+			warnMixedRealtimeSources(app)
+			return
+		}
+
 		if err := realtimeHandleClusterRecordMessage(app, msg.Payload); err != nil {
 			app.Logger().Debug(
 				"Failed to broadcast the realtime record event of another node",
@@ -83,6 +89,11 @@ func bindRealtimeClusterEvents(app core.App) {
 	dedup := cluster.NewEventsDeduplicator(10000)
 	app.Cluster().SubscribeData(cluster.TopicRealtimeEvents, func(msg cluster.Message) {
 		if !realtimeFromReplication(app) {
+			// note: a node with the replication source publishes the events also when
+			// it is not in cluster mode, but then the hooks nodes don't publish theirs
+			if app.Cluster().Enabled() {
+				warnMixedRealtimeSources(app)
+			}
 			return
 		}
 
@@ -472,6 +483,17 @@ func realtimeSnapshotMatches(
 	err = query.Limit(1).Row(&exists)
 
 	return err == nil && exists > 0
+}
+
+// warnMixedRealtimeSources warns that the nodes use different realtime sources:
+// the clients of the hooks nodes don't receive the changes made through the
+// replication nodes (and the changes made outside of the app).
+func warnMixedRealtimeSources(app core.App) {
+	app.Cluster().WarnLimited(
+		"mixedRealtimeSources",
+		"The nodes use different realtime sources (POPGRES_REALTIME_SOURCE), some realtime events are not delivered",
+		slog.String("source", app.Cluster().RealtimeSource()),
+	)
 }
 
 // realtimeFromReplication reports whether the realtime record events of the
