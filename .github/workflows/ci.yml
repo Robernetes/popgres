@@ -15,7 +15,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -30,9 +30,9 @@ jobs:
   ui:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '>=25.2.1'
 
@@ -42,7 +42,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -75,7 +75,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -90,7 +90,7 @@ jobs:
   release-snapshot:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -121,13 +121,13 @@ jobs:
       PGPASSWORD: ci-superuser
       APP_PASSWORD: ci-popgres-app
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '>=25.2.1'
 
@@ -161,7 +161,7 @@ jobs:
       PGPASSWORD: ci-superuser
       APP_PASSWORD: ci-popgres-app
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -222,7 +222,7 @@ jobs:
 
       - name: Upload the test output
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-output-pg${{ matrix.postgres }}
           path: test-output.jsonl
