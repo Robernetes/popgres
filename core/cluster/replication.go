@@ -66,6 +66,7 @@ const (
 
 	leaderRetryInterval    = 2 * time.Second
 	standbyStatusInterval  = 10 * time.Second
+	leaderIdleTimeout      = 60 * time.Second
 	maxEventIdsPerNotify   = 150
 	slotMetricsLogInterval = time.Minute
 
@@ -216,7 +217,7 @@ func (c *Cluster) runReplication(ctx context.Context, config ReplicationConfig) 
 	delay := minReconnectDelay
 
 	for ctx.Err() == nil {
-		isLeader, err := c.leadReplication(ctx, config)
+		isLeader, err := c.safeLeadReplication(ctx, config)
 		if ctx.Err() != nil {
 			return
 		}
@@ -239,6 +240,17 @@ func (c *Cluster) runReplication(ctx context.Context, config ReplicationConfig) 
 	}
 }
 
+// safeLeadReplication calls leadReplication and returns a panic (if any) as an error.
+func (c *Cluster) safeLeadReplication(ctx context.Context, config ReplicationConfig) (isLeader bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("realtime replication panic: %v", r)
+		}
+	}()
+
+	return c.leadReplication(ctx, config)
+}
+
 // leadReplication tries to become the replication leader and consumes the slot
 // until an error or the context cancellation.
 func (c *Cluster) leadReplication(ctx context.Context, config ReplicationConfig) (bool, error) {
@@ -251,6 +263,15 @@ func (c *Cluster) leadReplication(ctx context.Context, config ReplicationConfig)
 		return false, err
 	}
 	defer closePgx(lockConn)
+
+	// the server closes the leader lock connection (releasing the lock) if it is
+	// idle for longer than leaderIdleTimeout (it is pinged every standbyStatusInterval),
+	// so that the leadership is not held for hours by a node whose host died
+	// (without a TCP reset the server detects the dead client only with the keepalive)
+	_, err = lockConn.Exec(ctx, fmt.Sprintf("SET idle_session_timeout = %d", leaderIdleTimeout.Milliseconds()))
+	if err != nil {
+		return false, err
+	}
 
 	var locked bool
 	if err := lockConn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", LockKey(replicationLeaderLock)).Scan(&locked); err != nil {

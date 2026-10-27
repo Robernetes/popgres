@@ -34,6 +34,8 @@ CREATE ROLE reporting LOGIN PASSWORD '...';
 GRANT popgres_authenticated TO reporting;
 ```
 
+Limit the connections and the timeouts of the external login roles (see [Untrusted database roles](CLUSTER.md#untrusted-database-roles)).
+
 Then, in the client session, set the popgres auth token of the record (eg. obtained with `authWithPassword`):
 
 ```sql

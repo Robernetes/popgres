@@ -11,7 +11,7 @@ With `replication` the source falls back to `hooks` (with a warning in the logs)
 
 ## How the replication source works
 
-- One app instance (the leader, elected with a Postgres advisory lock) consumes the logical replication slot `popgres_rt_<database>` with the `pgoutput` plugin and the publication `popgres_rt_pub`. If the leader stops, another instance takes over and continues from the same slot.
+- One app instance (the leader, elected with a Postgres advisory lock) consumes the logical replication slot `popgres_rt_<database>` with the `pgoutput` plugin and the publication `popgres_rt_pub`. If the leader stops, another instance takes over and continues from the same slot. If the leader host dies without closing its connections, the server releases the lock after about a minute (the lock connection has an `idle_session_timeout`).
 - The publication contains all collection tables (it is kept in sync when collections are created). The collection tables use `REPLICA IDENTITY FULL` so that the deleted records events have all fields.
 - For each committed change the leader stores an event in the `_realtime_events` table and notifies all instances, which broadcast it to their own clients with the same API rules checks. The deleted records are checked against their last state (see the limitations below).
 - The delivery is "at least once" internally and the instances discard the duplicated events, so a client receives each change once.

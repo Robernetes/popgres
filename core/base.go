@@ -133,7 +133,8 @@ type BaseApp struct {
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
 	cluster             *cluster.Cluster
-	dataDB              dbx.Builder // the main data pool (it is not replaced in the transaction app clones)
+	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
+	clusterFingerprints *clusterFingerprints // shared with the transaction app clones
 	logger              *slog.Logger
 	concurrentDB        dbx.Builder
 	nonconcurrentDB     dbx.Builder
@@ -270,11 +271,13 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		cron:                cron.New(),
 		subscriptionsBroker: subscriptions.NewBroker(),
 		config:              &config,
+		clusterFingerprints: &clusterFingerprints{},
 	}
 
 	app.cluster = cluster.New(cluster.Config{
 		DSN:     func() string { return app.config.DatabaseURL },
 		DB:      func() dbx.Builder { return app.dataDB },
+		Secret:  app.loadClusterSecret,
 		Logger:  app.Logger,
 		Enabled: func() bool { return app.config.ClusterMode },
 	})
@@ -520,6 +523,8 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		fingerprints := app.clusterStateFingerprints()
+
 		if err := app.ReloadCachedCollections(); err != nil {
 			return err
 		}
@@ -527,6 +532,8 @@ func (app *BaseApp) Bootstrap() error {
 		if err := app.ReloadSettings(); err != nil {
 			return err
 		}
+
+		app.initClusterFingerprints(fingerprints)
 
 		app.initRealtimeSource()
 
@@ -569,6 +576,7 @@ func (app *BaseApp) ClearBootstrap() error {
 
 		app.cluster.StopReplication()
 		app.cluster.Stop()
+		app.clusterFingerprints.reset()
 		app.dataDB = nil
 
 		var errs []error

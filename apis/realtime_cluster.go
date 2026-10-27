@@ -49,7 +49,7 @@ func bindRealtimeClusterEvents(app core.App) {
 	// receive
 	// ---------------------------------------------------------------
 
-	app.Cluster().Subscribe(clusterTopicRealtimeRecord, func(msg cluster.Message) {
+	app.Cluster().SubscribeData(clusterTopicRealtimeRecord, func(msg cluster.Message) {
 		if msg.NodeId == app.Cluster().NodeId() {
 			return // already broadcasted locally
 		}
@@ -81,7 +81,7 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	// the replication events (published by the replication leader, eg. the current node)
 	dedup := cluster.NewEventsDeduplicator(10000)
-	app.Cluster().Subscribe(cluster.TopicRealtimeEvents, func(msg cluster.Message) {
+	app.Cluster().SubscribeData(cluster.TopicRealtimeEvents, func(msg cluster.Message) {
 		if !realtimeFromReplication(app) {
 			return
 		}

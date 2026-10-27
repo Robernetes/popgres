@@ -263,3 +263,59 @@ func TestFindCachedCollectionClusterFallback(t *testing.T) {
 		t.Fatal("Expected the collection to be missing from the stale cache without cluster mode")
 	}
 }
+
+// popgres: a change without a cluster message (eg. a lost message)
+// is loaded by the resync of the other nodes.
+func TestNotifyWatcher_ResyncLostChange(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	db, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(db.Name)
+
+	app1 := core.NewBaseApp(core.BaseAppConfig{DataDir: tmpDir, DatabaseURL: db.URL})
+	if err := app1.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	defer app1.ClearBootstrap()
+
+	app2 := core.NewBaseApp(core.BaseAppConfig{DataDir: tmpDir, DatabaseURL: db.URL})
+	if err := app2.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	defer app2.ClearBootstrap()
+
+	select {
+	case <-app2.Cluster().Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("app2 cluster LISTEN timeout")
+	}
+
+	_, err = app1.DB().NewQuery("UPDATE {{_collections}} SET [[listRule]] = {:rule} WHERE [[name]] = 'users'").
+		Bind(dbx.Params{"rule": "id = 'resync'"}).
+		Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	app2.Cluster().Resync()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		users, err := app2.FindCachedCollectionByNameOrId("users")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if users.ListRule != nil && *users.ListRule == "id = 'resync'" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Expected the resynced list rule, got %v", users.ListRule)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
