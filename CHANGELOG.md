@@ -8,6 +8,9 @@
 - The replication leader stores and publishes the events in batches while it decodes a transaction (a large transaction doesn't need to fit in memory) and a single transaction sends at most 10 000 events. The batches are flushed at most 5ms after their first event (instead of after 5ms without new changes, which delayed the events under a steady load).
 - The realtime replication slot is created with the `FAILOVER` option (and the existing slot is altered), and a warning is logged if the slot is missing (eg. after a failover to a standby without it). The other instances warn if no instance consumes the slot.
 - An instance that falls back to the `hooks` realtime source checks the replication again every minute, and the instances warn if they use different realtime sources.
+- **Breaking (direct SQL clients):** `popgres_rls.set_claims` accepts only the new short-lived RLS tokens (`POST /api/rls/token`, 15 minutes by default) instead of the API auth tokens. The RLS tokens are rejected by the API, so a token that leaks from a database session can't be used against the API. The token expiration is checked with the clock time (also inside a long transaction).
+- **Breaking (direct SQL clients):** the external roles read only the records allowed by the list rule (before: the list or the view rule). The view rule policy applies only to the strict mode API role, so a `SELECT` can't read all the records of a "view only by id" collection.
+- The `hmac` call of `popgres_rls.auth()` and the `popgres_strftime` SQL functions are schema qualified (they don't depend on the search_path of the caller).
 - Fixed the parsing of the embedded Postgres port (dev mode).
 
 ## popgres v1.0.0

@@ -524,6 +524,13 @@ func (app *BaseApp) FindAuthRecordByToken(token string, validTypes ...string) (*
 		baseTokenKey = record.Collection().PasswordResetToken.Secret
 	case TokenTypeEmailChange:
 		baseTokenKey = record.Collection().EmailChangeToken.Secret
+	case TokenTypeRLS:
+		// popgres: the RLS tokens are signed with the auth token secret but they
+		// are accepted only if explicitly allowed (they are not API auth tokens)
+		if !list.ExistInSlice(TokenTypeRLS, validTypes) {
+			return nil, errors.New("the RLS tokens must be explicitly allowed")
+		}
+		baseTokenKey = record.Collection().AuthToken.Secret
 	default:
 		return nil, errors.New("unknown token type " + tokenType)
 	}

@@ -153,11 +153,13 @@ func InstallRLS(txApp App) error {
 				RETURN NULL;
 			END IF;
 
-			IF header ->> 'alg' IS DISTINCT FROM 'HS256' OR payload ->> 'type' IS DISTINCT FROM 'auth' THEN
+			-- only the RLS tokens (not the API auth tokens, see Record.NewRLSToken)
+			IF header ->> 'alg' IS DISTINCT FROM 'HS256' OR payload ->> 'type' IS DISTINCT FROM '` + TokenTypeRLS + `' THEN
 				RETURN NULL;
 			END IF;
 
-			IF jsonb_typeof(payload -> 'exp') IS DISTINCT FROM 'number' OR (payload ->> 'exp')::numeric <= extract(epoch FROM now()) THEN
+			-- clock_timestamp (not now) so that the token expires also inside a long transaction
+			IF jsonb_typeof(payload -> 'exp') IS DISTINCT FROM 'number' OR (payload ->> 'exp')::numeric <= extract(epoch FROM clock_timestamp()) THEN
 				RETURN NULL;
 			END IF;
 
@@ -178,7 +180,9 @@ func InstallRLS(txApp App) error {
 				RETURN NULL;
 			END IF;
 
-			IF ` + RLSSchema + `.base64url_encode(hmac(
+			-- note: hmac is schema qualified because the app schema is before
+			-- the pgcrypto schema in the search_path
+			IF ` + RLSSchema + `.base64url_encode(` + cryptoSchema + `.hmac(
 				convert_to(parts[1] || '.' || parts[2], 'UTF8'),
 				convert_to(token_key || secret, 'UTF8'),
 				'sha256'
@@ -194,7 +198,7 @@ func InstallRLS(txApp App) error {
 		END
 		$popgres$;
 
-		-- set_claims verifies the provided auth token and stores it in the
+		-- set_claims verifies the provided RLS token and stores it in the
 		-- popgres.token setting (of the session or, with is_local, of the transaction).
 		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.set_claims(token text, is_local boolean DEFAULT false) RETURNS jsonb
 		LANGUAGE plpgsql VOLATILE
@@ -211,7 +215,7 @@ func InstallRLS(txApp App) error {
 			claims := ` + RLSSchema + `.auth();
 			IF claims IS NULL THEN
 				PERFORM set_config('` + RLSTokenSetting + `', '', is_local);
-				RAISE EXCEPTION 'invalid or expired popgres auth token' USING ERRCODE = '28000';
+				RAISE EXCEPTION 'invalid or expired popgres RLS token' USING ERRCODE = '28000';
 			END IF;
 
 			RETURN claims;

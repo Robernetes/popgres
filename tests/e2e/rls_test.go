@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
@@ -53,11 +54,11 @@ func newRLSFixture(t testing.TB) *rlsFixture {
 		t.Fatal(err)
 	}
 
-	f.token1, err = f.user1.NewAuthToken()
+	f.token1, err = f.user1.NewRLSToken(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.token2, err = f.user2.NewAuthToken()
+	f.token2, err = f.user2.NewRLSToken(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,6 +212,58 @@ func TestRLSOwnerRule(t *testing.T) {
 	}
 }
 
+// The external roles read only the records allowed by the list rule
+// (eg. the records with a public view rule are visible only by their id in the API).
+func TestRLSViewRuleNotExternal(t *testing.T) {
+	f := newRLSFixture(t)
+
+	public := ""
+	links := core.NewBaseCollection("rls_links")
+	links.Fields.Add(&core.TextField{Name: "title"})
+	links.ViewRule = &public
+	if err := f.app.Save(links); err != nil {
+		t.Fatal(err)
+	}
+
+	link := core.NewRecord(links)
+	link.Set("title", "shared")
+	if err := f.app.Save(link); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, role := range []string{core.RLSAnonRole, core.RLSAuthenticatedRole} {
+		token := ""
+		if role == core.RLSAuthenticatedRole {
+			token = f.token1
+		}
+
+		err := tests.RunWithRLSRole(f.app, role, token, func(txApp core.App) error {
+			var total int
+			return txApp.DB().Select("count(*)").From("rls_links").Where(dbx.HashExp{"id": link.Id}).Row(&total)
+		})
+		if err == nil || !strings.Contains(err.Error(), "permission denied") {
+			t.Fatalf("[%s] Expected permission denied for the collection without list rule, got %v", role, err)
+		}
+	}
+
+	// the list rule allows the SELECT (and the view rule doesn't widen it)
+	listRule := "title = 'listed'"
+	links.ListRule = &listRule
+	if err := f.app.Save(links); err != nil {
+		t.Fatal(err)
+	}
+
+	err := tests.RunWithRLSRole(f.app, core.RLSAnonRole, "", func(txApp core.App) error {
+		if total := countRows(t, txApp, "rls_links"); total != 0 {
+			t.Fatalf("Expected only the records allowed by the list rule, got %d", total)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRLSRejectedTokens(t *testing.T) {
 	f := newRLSFixture(t)
 
@@ -234,6 +287,35 @@ func TestRLSRejectedTokens(t *testing.T) {
 	err = tests.RunWithRLSRole(f.app, core.RLSAuthenticatedRole, f.token1, func(txApp core.App) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), "invalid or expired") {
 		t.Fatalf("Expected the token with an old tokenKey to be rejected, got %v", err)
+	}
+
+	// the API auth tokens are not accepted (only the RLS tokens)
+	apiToken, err := f.user2.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tests.RunWithRLSRole(f.app, core.RLSAuthenticatedRole, apiToken, func(txApp core.App) error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "invalid or expired") {
+		t.Fatalf("Expected the API auth token to be rejected, got %v", err)
+	}
+
+	// an expired token (checked with the clock time, also inside a transaction)
+	shortToken, err := f.user2.NewRLSToken(time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tests.RunWithRLSRole(f.app, core.RLSAuthenticatedRole, shortToken, func(txApp core.App) error {
+		if total := countRows(t, txApp, "rls_posts"); total != 1 {
+			t.Fatalf("Expected 1 visible post before the token expiration, got %d", total)
+		}
+		time.Sleep(1500 * time.Millisecond)
+		if total := countRows(t, txApp, "rls_posts"); total != 0 {
+			t.Fatalf("Expected no visible posts after the token expiration, got %d", total)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// a forged setting without set_claims is ignored

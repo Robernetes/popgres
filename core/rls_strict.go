@@ -7,7 +7,7 @@ import (
 	"github.com/pocketbase/dbx"
 )
 
-// rlsStrictTokenDuration is the duration of the auth tokens generated for the strict mode queries.
+// rlsStrictTokenDuration is the duration of the RLS tokens generated for the strict mode queries.
 const rlsStrictTokenDuration = time.Minute
 
 // IsRLSStrict reports whether the RLS strict mode is enabled
@@ -31,7 +31,7 @@ func RunAsRLSRole(app App, auth *Record, rule string, fn func(txApp App) error) 
 		}
 
 		var err error
-		token, err = auth.NewStaticAuthToken(rlsStrictTokenDuration)
+		token, err = auth.NewRLSToken(rlsStrictTokenDuration)
 		if err != nil {
 			return err
 		}

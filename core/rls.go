@@ -21,10 +21,13 @@ import (
 // eg. a BI tool or another service connected directly to the database.
 // The app connection role is the tables owner (or a superuser) and bypasses them.
 //
-// The auth record is identified with a popgres auth token stored in the
-// "popgres.token" setting (see popgres_rls.set_claims()). The policies never trust
-// the setting value directly because any role can change it: popgres_rls.auth()
-// verifies the token signature on every query.
+// The auth record is identified with a popgres RLS token (see Record.NewRLSToken)
+// stored in the "popgres.token" setting (see popgres_rls.set_claims()). The policies
+// never trust the setting value directly because any role can change it:
+// popgres_rls.auth() verifies the token signature on every query.
+//
+// The external roles read only the records allowed by the list rule; the view
+// rule policy applies only to the strict mode API role (RLSAPIRole).
 
 const (
 	// RLSAnonRole is the external role of the guests.
@@ -34,8 +37,9 @@ const (
 	RLSAuthenticatedRole = "popgres_authenticated"
 
 	// RLSAPIRole is the role of the strict mode API queries. It has the same
-	// policies as the external roles but it can read all columns (the API hides
-	// the non-public fields itself). Only the app connection role can use it.
+	// policies as the external roles (plus the view rule policy) but it can read
+	// all columns (the API hides the non-public fields itself). Only the app
+	// connection role can use it.
 	RLSAPIRole = "popgres_api"
 
 	// RLSSchema is the schema of the popgres RLS functions.
@@ -366,7 +370,8 @@ func (c *rlsCompiler) grants(collection *Collection) string {
 		visibleCols = append(visibleCols, quoteRLSIdent(f.GetName()))
 	}
 
-	if len(visibleCols) > 0 && (collection.ListRule != nil || collection.ViewRule != nil) {
+	// the external roles read only the records allowed by the list rule (see compilePolicy)
+	if len(visibleCols) > 0 && collection.ListRule != nil {
 		b.WriteString("GRANT SELECT (" + strings.Join(visibleCols, ", ") + ") ON TABLE " + table + " TO " + roles + ";\n")
 	}
 
@@ -454,9 +459,12 @@ func (c *rlsCompiler) compilePolicy(collection *Collection, ruleName string, rul
 			name, table, roles, RLSRuleSetting, RLSRuleView, expr,
 		)
 	case RLSRuleView:
+		// the view rule allows a single record by its id, so it applies only to
+		// the API strict mode (with a SELECT the external roles could read all records
+		// allowed by the view rule, eg. "the record link is a secret" setups)
 		policySQL = fmt.Sprintf(
 			"CREATE POLICY %s ON %s AS PERMISSIVE FOR SELECT TO %s USING (COALESCE(current_setting('%s', true), '') <> '%s' AND (%s));\n",
-			name, table, roles, RLSRuleSetting, RLSRuleList, expr,
+			name, table, RLSAPIRole, RLSRuleSetting, RLSRuleList, expr,
 		)
 	case RLSRuleCreate:
 		policySQL = fmt.Sprintf("CREATE POLICY %s ON %s AS PERMISSIVE FOR INSERT TO %s WITH CHECK (%s);\n", name, table, roles, expr)

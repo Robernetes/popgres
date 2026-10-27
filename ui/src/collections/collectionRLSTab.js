@@ -65,8 +65,10 @@ export function collectionRLSTab(upsertData) {
             " and ",
             t.code(null, "popgres_authenticated"),
             " (eg. direct SQL connections). The auth record is set with ",
-            t.code(null, "SELECT popgres_rls.set_claims('<token>')"),
-            ".",
+            t.code(null, "SELECT popgres_rls.set_claims('<RLS token>')"),
+            " (the token is returned by ",
+            t.code(null, "POST /api/rls/token"),
+            "). The external roles read only the records allowed by the list rule.",
         ),
         () => {
             if (upsertData.isNew) {

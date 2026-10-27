@@ -15,6 +15,15 @@ const (
 	TokenTypeVerification  = "verification"
 	TokenTypePasswordReset = "passwordReset"
 	TokenTypeEmailChange   = "emailChange"
+
+	// popgres: the token of the direct SQL clients (see [Record.NewRLSToken])
+	TokenTypeRLS = "rls"
+)
+
+// popgres: the default and max durations of the RLS tokens (see [Record.NewRLSToken]).
+const (
+	DefaultRLSTokenDuration = 15 * time.Minute
+	MaxRLSTokenDuration     = 24 * time.Hour
 )
 
 // List with commonly used record token claims
@@ -139,6 +148,41 @@ func (m *Record) NewEmailChangeToken(newEmail string) (string, error) {
 		},
 		key,
 		m.Collection().EmailChangeToken.DurationTime(),
+	)
+}
+
+// NewRLSToken generates and returns a new token of the auth record for the direct SQL
+// clients (popgres_rls.set_claims, see docs/RLS.md).
+//
+// It is signed with the same key as the auth token (so it is invalidated by the same
+// changes, eg. a password change) but it is not accepted by the API, so a token that
+// leaks from a database session (eg. pg_stat_activity) can't be used as an auth token.
+//
+// Zero or negative duration fallbacks to [DefaultRLSTokenDuration] and the
+// duration is limited to [MaxRLSTokenDuration].
+func (m *Record) NewRLSToken(duration time.Duration) (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().AuthToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	if duration <= 0 {
+		duration = DefaultRLSTokenDuration
+	}
+	duration = min(duration, MaxRLSTokenDuration)
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypeRLS,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+		},
+		key,
+		duration,
 	)
 }
 

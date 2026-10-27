@@ -423,8 +423,7 @@ func (c *Cluster) run(ctx context.Context, done chan struct{}, ready chan struct
 		}
 
 		if errors.Is(err, ErrNotReady) {
-			// eg. a new database before the system migrations
-			c.logger().Debug("Cluster secret is not available yet, retrying...")
+			// eg. a new database before the system migrations (retried without logging)
 			delay = minReconnectDelay
 		} else if err != nil {
 			c.logger().Warn(
