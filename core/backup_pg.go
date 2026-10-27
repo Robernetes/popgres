@@ -125,11 +125,18 @@ func runPgTool(ctx context.Context, name string, env string, dsn string, args ..
 }
 
 // dumpDatabase writes a custom format pg_dump of the specified database to outPath.
+//
+// The privileges are not included because they depend on the roles of the
+// server (the RLS privileges are reinstalled after the restore, see [BaseApp.repairRLS]).
+//
+// The data of the UNLOGGED tables is not included because it is temporary
+// (eg. the forwarded requests of the cluster, with their auth headers).
 func dumpDatabase(ctx context.Context, dsn string, outPath string) error {
 	return runPgTool(ctx, "pg_dump", PgDumpEnv, dsn,
 		"--format=custom",
 		"--no-owner",
 		"--no-privileges",
+		"--no-unlogged-table-data",
 		"--file", outPath,
 	)
 }
@@ -165,6 +172,14 @@ func restoreDatabaseDump(ctx context.Context, dsn string, dumpPath string) error
 		return err
 	}
 
+	// the RLS policies of the dump reference the external roles
+	// (eg. a restore on a new server)
+	if hasPolicyEntries(list) {
+		if err := ensureRLSRoles(ctx, dsn); err != nil {
+			return err
+		}
+	}
+
 	return runPgTool(ctx, "pg_restore", PgRestoreEnv, dsn,
 		"--clean",
 		"--if-exists",
@@ -183,7 +198,44 @@ var (
 
 	// eg. "4296; 0 0 COMMENT - EXTENSION vector "
 	tocExtensionCommentRegex = regexp.MustCompile(`^\s*\d+;\s+\d+\s+\d+\s+COMMENT\s+\S+\s+EXTENSION\s+`)
+
+	// eg. "5012; 3256 17201 POLICY public posts rls_list app"
+	tocPolicyRegex = regexp.MustCompile(`(?m)^\s*\d+;\s+\d+\s+\d+\s+POLICY\s+`)
 )
+
+// hasPolicyEntries reports whether the pg_restore list has row level security policies.
+func hasPolicyEntries(list string) bool {
+	return tocPolicyRegex.MatchString(list)
+}
+
+// ensureRLSRoles creates the external RLS roles if they don't exist.
+func ensureRLSRoles(ctx context.Context, dsn string) error {
+	db, err := dbx.Open("pgx", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	if _, err := db.NewQuery(rlsRolesSQL).WithContext(ctx).Execute(); err != nil {
+		return rlsRolesError(err)
+	}
+
+	return nil
+}
+
+// resetRLSState removes the RLS state of the restored database, so that the RLS
+// privileges (not part of the dump) are reinstalled on the next app start.
+func resetRLSState(ctx context.Context, dsn string) error {
+	db, err := dbx.Open("pgx", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Delete(paramsTable, dbx.HashExp{"id": rlsStateParamKey}).WithContext(ctx).Execute()
+
+	return err
+}
 
 // withoutExtensionEntries returns the pg_restore list without the
 // extension entries and the names of the removed extensions.
@@ -263,6 +315,9 @@ func RestoreBackupArchive(ctx context.Context, zipPath string, databaseURL strin
 
 	if err := restoreDatabaseDump(ctx, databaseURL, dataDump); err != nil {
 		return err
+	}
+	if err := resetRLSState(ctx, databaseURL); err != nil {
+		return fmt.Errorf("failed to reset the RLS state of the restored database: %w", err)
 	}
 	if err := os.Remove(dataDump); err != nil {
 		return err

@@ -523,6 +523,10 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		if err := app.repairRLS(); err != nil {
+			return err
+		}
+
 		fingerprints := app.clusterStateFingerprints()
 
 		if err := app.ReloadCachedCollections(); err != nil {

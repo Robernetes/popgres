@@ -1,3 +1,12 @@
+## popgres v1.1.0 (unreleased)
+
+- The cluster messages (LISTEN/NOTIFY) use a channel derived from a random secret stored in `_params` and they are signed with it, so the other roles of the database (eg. the direct SQL clients) can't read or forge them. **Upgrade note:** stop all the nodes before starting v1.1 (the v1.0 and v1.1 nodes can't exchange messages).
+- The nodes compare their cached collections and settings with the database after each LISTEN (re)connection, after a dropped message and every minute, so a lost change message can't leave a node with stale API rules.
+- The realtime events are dispatched separately from the collections and settings changes.
+- The replication leader lock connection has an `idle_session_timeout`, so the leadership is released about a minute after the leader host dies (instead of the server TCP keepalive timeout).
+- The backup restore creates the RLS roles if they are missing (eg. on a new server) and the next app start reinstalls the RLS privileges and policies (the dumps don't include the privileges). The backups don't include the data of the temporary `UNLOGGED` cluster tables.
+- Fixed the parsing of the embedded Postgres port (dev mode).
+
 ## popgres v1.0.0
 
 The first popgres release, a fork of PocketBase v0.40.6 that runs on PostgreSQL 17+. See the [release notes](docs/releases/v1.0.0.md) and [COMPATIBILITY.md](docs/COMPATIBILITY.md).

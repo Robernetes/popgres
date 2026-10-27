@@ -10,6 +10,7 @@ import (
 
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tests"
+	"github.com/pocketbase/dbx"
 )
 
 func requirePgTools(t *testing.T) {
@@ -65,6 +66,42 @@ func collectionsSnapshot(t *testing.T, app core.App) (map[string]int, map[string
 	return totals, records
 }
 
+type rlsPrivilegesState struct {
+	Grants      int  `db:"grants"`
+	Policies    int  `db:"policies"`
+	SchemaUsage bool `db:"schema_usage"`
+	// whether a helper function (revoked from PUBLIC) is executable by the API role
+	HelperExecutable bool `db:"helper_executable"`
+	State            bool `db:"state"`
+}
+
+// rlsPrivileges returns the RLS privileges and policies of the app database.
+func rlsPrivileges(t *testing.T, app core.App) rlsPrivilegesState {
+	t.Helper()
+
+	state := rlsPrivilegesState{}
+
+	err := app.DB().NewQuery(`
+		WITH roles AS (
+			SELECT oid FROM pg_roles WHERE rolname IN ('popgres_anon', 'popgres_authenticated', 'popgres_api')
+		)
+		SELECT
+			(SELECT count(*) FROM pg_class c, aclexplode(c.relacl) a
+				WHERE c.relnamespace = current_schema()::regnamespace AND a.grantee IN (SELECT oid FROM roles))
+			+ (SELECT count(*) FROM pg_attribute at JOIN pg_class c ON c.oid = at.attrelid, aclexplode(at.attacl) a
+				WHERE c.relnamespace = current_schema()::regnamespace AND a.grantee IN (SELECT oid FROM roles)) AS grants,
+			(SELECT count(*) FROM pg_policies WHERE schemaname = current_schema()) AS policies,
+			has_schema_privilege('popgres_anon', 'popgres_rls', 'USAGE') AS schema_usage,
+			has_function_privilege('popgres_api', 'popgres_rls.base64url_decode(text)', 'EXECUTE') AS helper_executable,
+			EXISTS (SELECT 1 FROM _params WHERE id = 'popgresRLS') AS state
+	`).One(&state)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return state
+}
+
 func TestBackupAndRestore(t *testing.T) {
 	requirePgTools(t)
 
@@ -75,6 +112,11 @@ func TestBackupAndRestore(t *testing.T) {
 	defer app.Cleanup()
 
 	expectedTotals, expectedRecords := collectionsSnapshot(t, app)
+
+	expectedRLS := rlsPrivileges(t, app)
+	if expectedRLS.Grants == 0 || expectedRLS.Policies == 0 || !expectedRLS.SchemaUsage || expectedRLS.HelperExecutable || !expectedRLS.State {
+		t.Fatalf("Unexpected RLS state of the test app: %+v", expectedRLS)
+	}
 
 	if err := app.CreateBackup(context.Background(), "e2e_backup.zip"); err != nil {
 		t.Fatalf("Failed to create the backup: %v", err)
@@ -98,6 +140,26 @@ func TestBackupAndRestore(t *testing.T) {
 		t.Fatalf("Failed to restore the backup: %v", err)
 	}
 
+	// the dump has no privileges (they depend on the server roles),
+	// so the external roles have no access until the app reinstalls them
+	restoredDB, err := dbx.Open("pgx", db.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restoredGrants int
+	err = restoredDB.NewQuery(`
+		SELECT count(*) FROM pg_attribute at JOIN pg_class c ON c.oid = at.attrelid, aclexplode(at.attacl) a
+		WHERE c.relnamespace = current_schema()::regnamespace
+		AND a.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('popgres_anon', 'popgres_authenticated', 'popgres_api'))
+	`).Row(&restoredGrants)
+	restoredDB.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restoredGrants != 0 {
+		t.Fatalf("Expected no RLS grants before the app start, got %d", restoredGrants)
+	}
+
 	restored := core.NewBaseApp(core.BaseAppConfig{
 		DataDir:          dataDir,
 		DatabaseURL:      db.URL,
@@ -111,6 +173,11 @@ func TestBackupAndRestore(t *testing.T) {
 	defer restored.ClearBootstrap()
 
 	totals, records := collectionsSnapshot(t, restored)
+
+	// the RLS privileges are reinstalled on the app start
+	if rls := rlsPrivileges(t, restored); rls != expectedRLS {
+		t.Fatalf("Expected the restored RLS state %+v, got %+v", expectedRLS, rls)
+	}
 
 	if len(totals) != len(expectedTotals) {
 		t.Fatalf("Expected %d collections, got %d", len(expectedTotals), len(totals))

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Robernetes/popgres/core/cluster"
 	"github.com/Robernetes/popgres/tools/security"
 	"github.com/pocketbase/dbx"
 )
@@ -29,45 +30,54 @@ CREATE ROLE popgres_authenticated NOLOGIN NOINHERIT;
 CREATE ROLE popgres_api NOLOGIN NOINHERIT;
 GRANT popgres_anon, popgres_authenticated, popgres_api TO <app role> WITH INHERIT FALSE, SET TRUE;`
 
+// rlsRolesSQL creates the external RLS roles (if missing) and grants them to the current role.
+const rlsRolesSQL = `
+	DO $popgres$
+	DECLARE
+		r text;
+	BEGIN
+		FOREACH r IN ARRAY ARRAY['` + RLSAnonRole + `', '` + RLSAuthenticatedRole + `', '` + RLSAPIRole + `'] LOOP
+			-- the roles are global to the server and could be created by another popgres database
+			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+				BEGIN
+					EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT', r);
+				EXCEPTION WHEN duplicate_object OR unique_violation THEN
+					NULL;
+				END;
+			END IF;
+
+			-- the non-superuser app role needs the SET option to switch to the
+			-- external roles (eg. in the strict mode); since PG16 it is not
+			-- implicitly granted to the role creator
+			IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AND NOT pg_has_role(current_user, r, 'SET') THEN
+				BEGIN
+					EXECUTE format('GRANT %I TO %I WITH INHERIT FALSE, SET TRUE', r, current_user);
+				EXCEPTION WHEN unique_violation THEN
+					NULL;
+				END;
+			END IF;
+		END LOOP;
+	END
+	$popgres$;
+`
+
+// rlsRolesError wraps the error of rlsRolesSQL with the SQL that an administrator must execute.
+func rlsRolesError(err error) error {
+	return fmt.Errorf(
+		"%w (%v).\nAsk a database administrator to execute:\n%s",
+		ErrRLSRolesPermission, err, rlsRolesAdminSQL,
+	)
+}
+
 // InstallRLS creates the external RLS roles (if missing), the popgres_rls schema
 // with the auth functions and the policies of all collections.
 //
-// It is executed by the popgres RLS system migration.
+// It is executed by the popgres RLS system migration (and again after a backup
+// restore, see [BaseApp.repairRLS]). It is idempotent.
 func InstallRLS(txApp App) error {
-	_, err := txApp.DB().NewQuery(`
-		DO $popgres$
-		DECLARE
-			r text;
-		BEGIN
-			FOREACH r IN ARRAY ARRAY['` + RLSAnonRole + `', '` + RLSAuthenticatedRole + `', '` + RLSAPIRole + `'] LOOP
-				-- the roles are global to the server and could be created by another popgres database
-				IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
-					BEGIN
-						EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT', r);
-					EXCEPTION WHEN duplicate_object OR unique_violation THEN
-						NULL;
-					END;
-				END IF;
-
-				-- the non-superuser app role needs the SET option to switch to the
-				-- external roles (eg. in the strict mode); since PG16 it is not
-				-- implicitly granted to the role creator
-				IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AND NOT pg_has_role(current_user, r, 'SET') THEN
-					BEGIN
-						EXECUTE format('GRANT %I TO %I WITH INHERIT FALSE, SET TRUE', r, current_user);
-					EXCEPTION WHEN unique_violation THEN
-						NULL;
-					END;
-				END IF;
-			END LOOP;
-		END
-		$popgres$;
-	`).Execute()
+	_, err := txApp.DB().NewQuery(rlsRolesSQL).Execute()
 	if err != nil {
-		return fmt.Errorf(
-			"%w (%v).\nAsk a database administrator to execute:\n%s",
-			ErrRLSRolesPermission, err, rlsRolesAdminSQL,
-		)
+		return rlsRolesError(err)
 	}
 
 	schema, err := currentSchema(txApp)
@@ -216,6 +226,50 @@ func InstallRLS(txApp App) error {
 	}
 
 	return syncRLSPolicies(txApp, true)
+}
+
+// repairRLS reinstalls the RLS functions, privileges and policies if RLS is
+// installed but its state is missing.
+//
+// The backup dumps don't include the privileges (they depend on the server roles),
+// so the restore removes the RLS state and the next app start reinstalls them.
+func (app *BaseApp) repairRLS() error {
+	needsRepair := func(db dbx.Builder) (bool, error) {
+		var needed bool
+
+		// note: the catalogs are used instead of to_regprocedure because it fails
+		// for a role without the schema USAGE privilege
+		err := db.NewQuery(`
+			SELECT EXISTS (
+				SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+				WHERE n.nspname = {:schema} AND p.proname = 'auth'
+			)
+			AND NOT EXISTS (SELECT 1 FROM {{_params}} WHERE [[id]] = {:id})
+		`).Bind(dbx.Params{"schema": RLSSchema, "id": rlsStateParamKey}).Row(&needed)
+
+		return needed, err
+	}
+
+	needed, err := needsRepair(app.DB())
+	if err != nil || !needed {
+		return err
+	}
+
+	return app.RunInTransaction(func(txApp App) error {
+		// serialize the nodes started at the same time
+		if err := cluster.XactLock(txApp.DB(), "rls_repair"); err != nil {
+			return err
+		}
+
+		needed, err := needsRepair(txApp.DB())
+		if err != nil || !needed {
+			return err
+		}
+
+		txApp.Logger().Info("Reinstalling the RLS policies and privileges (missing RLS state, eg. after a backup restore)")
+
+		return InstallRLS(txApp)
+	})
 }
 
 // UninstallRLS drops the policies, the popgres_rls schema and the external roles privileges

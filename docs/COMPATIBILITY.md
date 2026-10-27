@@ -102,6 +102,7 @@ The result columns are described by Postgres:
 - A backup contains a `pg_dump` of the database (so the backup sizes differ from the PocketBase ones) (`data.dump`, plus `auxiliary.dump` when the logs are in a separate database) and the local files of `pb_data`.
 - The backups require `pg_dump` (and `pg_restore` to restore) in the `PATH`, with the same or a newer major version than the server. The paths can be changed with `POPGRES_PG_DUMP` and `POPGRES_PG_RESTORE`.
 - A backup can be restored only from the command line with `popgres restore <backup> --yes` (stop all the app instances first). The restore API (`POST /api/backups/{key}/restore`) and the dashboard button return an error.
+- The dumps don't include the database privileges (they depend on the roles of the server) and the data of the temporary `UNLOGGED` cluster tables. The restore creates the RLS roles if they are missing (eg. on a new server) and the next app start reinstalls the RLS privileges and policies.
 
 ## Realtime
 
