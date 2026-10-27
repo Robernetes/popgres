@@ -94,9 +94,27 @@ var slotNameInvalidChars = regexp.MustCompile(`[^a-z0-9_]+`)
 
 // SlotName returns the name of the realtime logical replication slot of the database.
 //
-// The name is "popgres_rt_<database>" (with the invalid characters replaced) and it is
-// truncated with a hash suffix if it is longer than 63 characters.
+// The name is "popgres_rt_<database>". If the database name has characters other
+// than [a-z0-9_] (they are replaced with "_") or if the name is longer than 63
+// characters (it is truncated), a hash of the database name is appended,
+// so that eg. the "my-db" and "my_db" databases have different slots.
 func SlotName(database string) string {
+	sanitized := slotNameInvalidChars.ReplaceAllString(strings.ToLower(database), "_")
+	name := slotNamePrefix + sanitized
+
+	if sanitized == database && len(name) <= maxSlotNameLength {
+		return name
+	}
+
+	sum := sha256.Sum256([]byte(database))
+	suffix := "_" + hex.EncodeToString(sum[:])[:8]
+
+	return name[:min(len(name), maxSlotNameLength-len(suffix))] + suffix
+}
+
+// legacySlotName returns the slot name of the database used by popgres v1.0
+// (the replaced characters could map different databases to the same name).
+func legacySlotName(database string) string {
 	name := slotNamePrefix + slotNameInvalidChars.ReplaceAllString(strings.ToLower(database), "_")
 
 	if len(name) <= maxSlotNameLength {
@@ -107,6 +125,32 @@ func SlotName(database string) string {
 	suffix := "_" + hex.EncodeToString(sum[:])[:8]
 
 	return name[:maxSlotNameLength-len(suffix)] + suffix
+}
+
+// resolveSlotName returns the realtime slot name of the current database
+// (the v1.0 slot name if the database already has a slot with it).
+func resolveSlotName(ctx context.Context, db dbx.Builder, database string) (string, error) {
+	slot := SlotName(database)
+
+	legacy := legacySlotName(database)
+	if legacy == slot {
+		return slot, nil
+	}
+
+	var exists bool
+	err := db.NewQuery("SELECT EXISTS (SELECT 1 FROM pg_replication_slots WHERE [[slot_name]] = {:slot} AND [[database]] = current_database())").
+		WithContext(ctx).
+		Bind(dbx.Params{"slot": legacy}).
+		Row(&exists)
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return legacy, nil
+	}
+
+	return slot, nil
 }
 
 // ReplicationConfig defines the callbacks used by the replication leader.
@@ -337,7 +381,10 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 	if err := db.NewQuery("SELECT current_database()").WithContext(ctx).Row(&database); err != nil {
 		return err
 	}
-	slot := SlotName(database)
+	slot, err := resolveSlotName(ctx, db, database)
+	if err != nil {
+		return err
+	}
 
 	replDSN, err := replicationDSN(c.dsn())
 	if err != nil {

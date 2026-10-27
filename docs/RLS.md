@@ -57,6 +57,7 @@ SELECT id, title FROM posts;             -- only the records allowed by the list
 - The RLS token is accepted only by `popgres_rls.set_claims` and the API auth tokens are rejected there. The API rejects the RLS tokens, so a token that leaks from a database session (eg. `pg_stat_activity` or the server logs) can't be used against the API.
 - `popgres_rls.set_claims` raises an error for an invalid or expired token. The token is stored in the `popgres.token` setting and it is verified again on every query by `popgres_rls.auth()` (HS256 signature with the record token key and the collection secret, token type and expiration with the clock time, so it expires also inside a long transaction). Changing the setting directly with `SET` doesn't bypass the verification. A token is rejected after its record token key changes (eg. after a password change), the same as in the API.
 - With a pooler in transaction mode (eg. PgBouncer), set the token for each transaction (`set_claims($1, true)`): a session setting could be used by the next client of the server connection.
+- The roles are shared by all popgres databases of the server: revoke the `CONNECT` privilege of the other databases from the client login roles (see [Multiple popgres databases on one server](OPERATIONS.md#multiple-popgres-databases-on-one-server)).
 
 ## Rules to policies
 

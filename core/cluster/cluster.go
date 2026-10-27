@@ -95,6 +95,7 @@ type Cluster struct {
 	droppedMessages  atomic.Int64
 	invalidMessages  atomic.Int64
 	realtimeFailures atomic.Int64
+	connected        atomic.Bool
 
 	nodeId         string
 	dsn            func() string
@@ -496,6 +497,9 @@ func (c *Cluster) listen(
 
 	onConnected()
 
+	c.connected.Store(true)
+	defer c.connected.Store(false)
+
 	select {
 	case <-ready:
 	default:
@@ -603,6 +607,12 @@ func (c *Cluster) WarnLimited(kind string, message string, args ...any) {
 	c.warnMu.Unlock()
 
 	c.logger().Warn(message, args...)
+}
+
+// Connected reports whether the LISTEN connection of the node is connected
+// (the node doesn't receive the cluster messages while it is disconnected).
+func (c *Cluster) Connected() bool {
+	return c.connected.Load()
 }
 
 // DroppedMessages returns the number of the received messages that were

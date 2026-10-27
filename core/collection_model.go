@@ -713,7 +713,8 @@ func onCollectionDeleteExecute(e *CollectionEvent) error {
 
 	originalApp := e.App
 
-	txErr := e.App.RunInTransaction(func(txApp App) error {
+	// popgres: the table locks are waited at most CollectionDDLLockTimeout
+	txErr := e.App.RunInTransaction(withDDLLockTimeout(func(txApp App) error {
 		e.App = txApp
 
 		// delete the related view or records table
@@ -741,7 +742,7 @@ func onCollectionDeleteExecute(e *CollectionEvent) error {
 
 		// popgres: the rules of the other collections could depend on the deleted one
 		return SyncRLSPolicies(txApp)
-	})
+	}))
 
 	e.App = originalApp
 
@@ -872,7 +873,8 @@ func onCollectionSaveExecute(e *CollectionEvent) error {
 	}
 
 	originalApp := e.App
-	txErr := e.App.RunInTransaction(func(txApp App) error {
+	// popgres: the table locks are waited at most CollectionDDLLockTimeout
+	txErr := e.App.RunInTransaction(withDDLLockTimeout(func(txApp App) error {
 		e.App = txApp
 
 		isView := e.Collection.IsView()
@@ -924,7 +926,7 @@ func onCollectionSaveExecute(e *CollectionEvent) error {
 
 		// popgres: the rules of all collections could depend on the changed one
 		return SyncRLSPolicies(e.App)
-	})
+	}))
 	e.App = originalApp
 
 	if txErr != nil {

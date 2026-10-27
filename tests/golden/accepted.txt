@@ -25,7 +25,10 @@ apis/TestSQLRun/superuser.json body.columns
 apis/TestSQLRun/superuser.json body.execTime
 
 # the superuser health data includes the realtime source and slot metrics (see "Realtime")
+# and the cluster node state and database pool stats (see "Health")
 apis/TestHealthAPI/GET_health_status__superuser.json body.data.realtime
+apis/TestHealthAPI/GET_health_status__superuser.json body.data.cluster
+apis/TestHealthAPI/GET_health_status__superuser.json body.data.dbPool
 
 # the settings have the popgres MCP server options (see "MCP server")
 apis/TestSettingsList/authorized_as_superuser.json body.mcp

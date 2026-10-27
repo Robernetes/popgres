@@ -18,6 +18,7 @@ It keeps the PocketBase experience (a single binary with the REST API, realtime,
 - **Vector search** with a pgvector `vector` field and a similarity search endpoint ([VECTOR.md](docs/VECTOR.md)).
 - **MCP server** for AI agents, with tools generated from the collections and the same API rules ([MCP.md](docs/MCP.md)).
 - **Embedded Postgres for development**: `popgres serve --dev` without a database starts a local Postgres ([DEV.md](docs/DEV.md)).
+- **Operations**: readiness checks, connection pools, poolers and multiple databases on one server ([OPERATIONS.md](docs/OPERATIONS.md)).
 
 The differences with PocketBase are listed in [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 

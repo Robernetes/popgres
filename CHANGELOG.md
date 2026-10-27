@@ -11,6 +11,11 @@
 - **Breaking (direct SQL clients):** `popgres_rls.set_claims` accepts only the new short-lived RLS tokens (`POST /api/rls/token`, 15 minutes by default) instead of the API auth tokens. The RLS tokens are rejected by the API, so a token that leaks from a database session can't be used against the API. The token expiration is checked with the clock time (also inside a long transaction).
 - **Breaking (direct SQL clients):** the external roles read only the records allowed by the list rule (before: the list or the view rule). The view rule policy applies only to the strict mode API role, so a `SELECT` can't read all the records of a "view only by id" collection.
 - The `hmac` call of `popgres_rls.auth()` and the `popgres_strftime` SQL functions are schema qualified (they don't depend on the search_path of the caller).
+- Added the readiness check `GET /api/health?ready` (`503` if the database or the cluster LISTEN connection is not available) and the cluster counters and the database pool stats to the superusers health data.
+- The main pool size can be set with `POPGRES_DB_MAX_CONNS` and the connections are closed after 30 minutes (`POPGRES_DB_CONN_MAX_LIFETIME`).
+- The collection changes wait at most 5 seconds for the table locks (eg. a table used by a long running direct SQL transaction), instead of blocking all the queries of the table while they wait.
+- The realtime slot name of a database whose name has characters other than `[a-z0-9_]` has a hash suffix (eg. the `my-db` and `my_db` databases had the same slot). The existing slots keep their name.
+- New [OPERATIONS.md](docs/OPERATIONS.md) guide: health checks, database connections, poolers and multiple databases on one server.
 - Fixed the parsing of the embedded Postgres port (dev mode).
 
 ## popgres v1.0.0

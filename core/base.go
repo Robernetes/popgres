@@ -46,6 +46,11 @@ const (
 	DefaultAuxMaxIdleConns  int           = DefaultAuxMaxOpenConns
 	DefaultQueryTimeout     time.Duration = 30 * time.Second
 
+	// DefaultConnMaxLifetime is the max lifetime of the pools connections
+	// (so that the connections are rebalanced, eg. after a database failover,
+	// and the long lived server processes don't keep growing their caches).
+	DefaultConnMaxLifetime time.Duration = 30 * time.Minute
+
 	LocalStorageDirName       string = "storage"
 	LocalBackupsDirName       string = "backups"
 	LocalAutocertCacheDirName string = ".autocert_cache"
@@ -65,6 +70,11 @@ const (
 
 	// ClusterModeEnv is the env variable used as fallback for BaseAppConfig.ClusterMode.
 	ClusterModeEnv string = "POPGRES_CLUSTER"
+
+	// DBMaxConnsEnv and DBConnMaxLifetimeEnv are the env variables used as fallback
+	// for [BaseAppConfig.DataMaxOpenConns] and [BaseAppConfig.ConnMaxLifetime].
+	DBMaxConnsEnv        string = "POPGRES_DB_MAX_CONNS"
+	DBConnMaxLifetimeEnv string = "POPGRES_DB_CONN_MAX_LIFETIME"
 )
 
 // FilesManager defines an interface with common methods that files manager models should implement.
@@ -107,9 +117,18 @@ type BaseAppConfig struct {
 	// If not set, it fallbacks to the POPGRES_RLS_STRICT env variable.
 	RLSStrict bool
 
-	DataDir          string
-	EncryptionEnv    string
-	QueryTimeout     time.Duration
+	// ConnMaxLifetime is the max lifetime of the database pools connections
+	// (default to [DefaultConnMaxLifetime], a negative value disables it).
+	// If not set, it fallbacks to the POPGRES_DB_CONN_MAX_LIFETIME env variable.
+	ConnMaxLifetime time.Duration
+
+	DataDir       string
+	EncryptionEnv string
+	QueryTimeout  time.Duration
+
+	// DataMaxOpenConns is the max number of open connections of the main pool.
+	// If not set, it fallbacks to the POPGRES_DB_MAX_CONNS env variable
+	// and then to [DefaultDataMaxOpenConns].
 	DataMaxOpenConns int
 	DataMaxIdleConns int
 	AuxMaxOpenConns  int
@@ -305,6 +324,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		app.config.RLSStrict, _ = strconv.ParseBool(os.Getenv(RLSStrictEnv))
 	}
 	if app.config.DataMaxOpenConns <= 0 {
+		app.config.DataMaxOpenConns, _ = strconv.Atoi(os.Getenv(DBMaxConnsEnv))
+	}
+	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
 	}
 	if app.config.DataMaxIdleConns <= 0 {
@@ -318,6 +340,12 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	}
 	if app.config.QueryTimeout <= 0 {
 		app.config.QueryTimeout = DefaultQueryTimeout
+	}
+	if app.config.ConnMaxLifetime == 0 {
+		app.config.ConnMaxLifetime = DefaultConnMaxLifetime
+		if v, err := time.ParseDuration(os.Getenv(DBConnMaxLifetimeEnv)); err == nil {
+			app.config.ConnMaxLifetime = v
+		}
 	}
 
 	app.initHooks()
@@ -1377,6 +1405,7 @@ func (app *BaseApp) initDataDB() error {
 	db.DB().SetMaxOpenConns(app.config.DataMaxOpenConns)
 	db.DB().SetMaxIdleConns(app.config.DataMaxIdleConns)
 	db.DB().SetConnMaxIdleTime(3 * time.Minute)
+	db.DB().SetConnMaxLifetime(app.config.ConnMaxLifetime) // (<= 0 is no limit)
 
 	if app.IsDev() {
 		db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
@@ -1440,6 +1469,7 @@ func (app *BaseApp) initAuxDB() error {
 	db.DB().SetMaxOpenConns(app.config.AuxMaxOpenConns)
 	db.DB().SetMaxIdleConns(app.config.AuxMaxIdleConns)
 	db.DB().SetConnMaxIdleTime(3 * time.Minute)
+	db.DB().SetConnMaxLifetime(app.config.ConnMaxLifetime) // (<= 0 is no limit)
 
 	app.auxConcurrentDB = db
 	app.auxNonconcurrentDB = db

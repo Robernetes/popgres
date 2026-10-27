@@ -18,6 +18,8 @@ DATABASE_URL=postgres://user:pass@db:5432/app POPGRES_CLUSTER=true popgres serve
 - **TLS at the load balancer.** The HTTPS server with automatic certificates (`--https`) is not supported in cluster mode.
 - **Trusted proxy.** Set the client IP header of the load balancer in Settings > Application > Trusted proxy (eg. `X-Forwarded-For`), so that the rate limits and the realtime client checks use the real client IP.
 - **SSE through the load balancer.** Disable the response buffering and use a long read timeout for `/api/realtime` (see the nginx config).
+- **Readiness check.** Use `GET /api/health?ready` as the load balancer health check, so that an instance without its database or cluster connection doesn't receive traffic (see [OPERATIONS.md](OPERATIONS.md)).
+- **Connections.** All instances share the server `max_connections` (see [Database connections](OPERATIONS.md#database-connections)).
 - The backups are created on the local disk of the node unless the backups S3 storage is enabled.
 
 The `automigrate` (`migratecmd`) and `hooksWatch` (`jsvm`) plugin options are disabled in cluster mode because they write or watch local files of a single node.

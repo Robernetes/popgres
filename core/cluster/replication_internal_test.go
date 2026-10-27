@@ -141,3 +141,43 @@ func TestReplicationDecoder(t *testing.T) {
 		t.Fatalf("Expected the counters to be reset, got %d and %d", d.total, d.skipped)
 	}
 }
+
+func TestSlotName(t *testing.T) {
+	t.Parallel()
+
+	long := "a123456789b123456789c123456789d123456789e123456789f123456789"
+
+	scenarios := []struct {
+		database string
+		expected string
+		legacy   string
+	}{
+		{"popgres", "popgres_rt_popgres", "popgres_rt_popgres"},
+		{"my_db2", "popgres_rt_my_db2", "popgres_rt_my_db2"},
+		{"my-db", "popgres_rt_my_db_b123b9ee", "popgres_rt_my_db"},
+		{"My_db", "popgres_rt_my_db_49291b48", "popgres_rt_my_db"},
+		{long, "popgres_rt_a123456789b123456789c123456789d123456789e12_9a31db59", "popgres_rt_a123456789b123456789c123456789d123456789e12_9a31db59"},
+	}
+
+	names := map[string]string{}
+
+	for _, s := range scenarios {
+		t.Run(s.database, func(t *testing.T) {
+			name := SlotName(s.database)
+			if name != s.expected {
+				t.Fatalf("Expected slot name %q, got %q", s.expected, name)
+			}
+			if len(name) > maxSlotNameLength {
+				t.Fatalf("Expected at most %d characters, got %d", maxSlotNameLength, len(name))
+			}
+			if legacy := legacySlotName(s.database); legacy != s.legacy {
+				t.Fatalf("Expected legacy slot name %q, got %q", s.legacy, legacy)
+			}
+		})
+
+		if other, ok := names[s.expected]; ok {
+			t.Fatalf("The databases %q and %q have the same slot name %q", other, s.database, s.expected)
+		}
+		names[s.expected] = s.database
+	}
+}

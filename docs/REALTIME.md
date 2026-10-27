@@ -13,7 +13,7 @@ All instances should use the same source. An instance logs a warning if it recei
 
 ## How the replication source works
 
-- One app instance (the leader, elected with a Postgres advisory lock) consumes the logical replication slot `popgres_rt_<database>` with the `pgoutput` plugin and the publication `popgres_rt_pub`. If the leader stops, another instance takes over and continues from the same slot. If the leader host dies without closing its connections, the server releases the lock after about a minute (the lock connection has an `idle_session_timeout`).
+- One app instance (the leader, elected with a Postgres advisory lock) consumes the logical replication slot `popgres_rt_<database>` (with a hash suffix if the database name has characters other than lowercase letters, digits and `_`) with the `pgoutput` plugin and the publication `popgres_rt_pub`. If the leader stops, another instance takes over and continues from the same slot. If the leader host dies without closing its connections, the server releases the lock after about a minute (the lock connection has an `idle_session_timeout`).
 - The publication contains all collection tables (it is kept in sync when collections are created). The collection tables use `REPLICA IDENTITY FULL` so that the deleted records events have all fields.
 - For each committed change the leader stores an event in the `_realtime_events` table and notifies all instances, which broadcast it to their own clients with the same API rules checks. The deleted records are checked against their last state (see the limitations below).
 - The delivery is "at least once" internally and the instances discard the duplicated events, so a client receives each change once.
@@ -23,7 +23,7 @@ The events of the changes made through the API also come from the replication, s
 
 ## Monitoring
 
-A replication slot retains the WAL until it is consumed. The superusers health data (`GET /api/health`) and the dashboard (Settings > Application > Realtime) show the slot status, the lag and the retained WAL size, and a warning is logged if the retained WAL exceeds 1 GB.
+A replication slot retains the WAL until it is consumed. The superusers health data (`GET /api/health`, see [OPERATIONS.md](OPERATIONS.md#health-checks)) and the dashboard (Settings > Application > Realtime) show the slot status, the lag and the retained WAL size, and a warning is logged if the retained WAL exceeds 1 GB.
 
 It is recommended to set `max_slot_wal_keep_size` on the server (eg. `1GB`) so that an unconsumed slot can't fill the disk. If the slot is invalidated because of this limit, the leader recreates it with a warning and the events of the changes in between are lost (PocketBase doesn't resend the missed events either). The other instances also log a warning if no instance consumes the slot for more than a minute.
 
@@ -31,10 +31,11 @@ It is recommended to set `max_slot_wal_keep_size` on the server (eg. `1GB`) so t
 
 The slot is created with the `FAILOVER` option, so it can be synchronized to a physical standby and the realtime events continue after a failover. This requires the server configuration of the [logical replication failover](https://www.postgresql.org/docs/current/logicaldecoding-explanation.html#LOGICALDECODING-REPLICATION-SLOTS-SYNCHRONIZATION) (eg. `sync_replication_slots = on` and `hot_standby_feedback = on` on the standby, and the standby slot in `synchronized_standby_slots` on the primary); the managed services have their own settings for it. Without it the new primary has no slot: the leader recreates it with a warning and the events of the changes made around the failover are lost.
 
-The slot is a server-wide object. If the realtime replication is no longer used, drop it:
+The slot is a server-wide object (see [Multiple popgres databases on one server](OPERATIONS.md#multiple-popgres-databases-on-one-server)). If the realtime replication is no longer used, drop it:
 
 ```sql
-SELECT pg_drop_replication_slot('popgres_rt_<database>');
+SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots
+WHERE database = current_database() AND slot_name LIKE 'popgres\_rt\_%';
 ```
 
 ## Limitations

@@ -142,6 +142,10 @@ popgres can run multiple instances with the same database (see [CLUSTER.md](CLUS
 
 In cluster mode (`POPGRES_CLUSTER=true`) the realtime client ids start with the id of their node (`<node>_<random>`, with the same length of 40 characters).
 
+## Health
+
+`GET /api/health` returns the same response as PocketBase, and for the superusers the data has the extra `realtime`, `cluster` and `dbPool` objects. With the `ready` query parameter (`GET /api/health?ready`) it also checks the database and the cluster LISTEN connection, returns `503` if any of them is not available and adds the `ready` object to the data (see [OPERATIONS.md](OPERATIONS.md#health-checks)).
+
 ## Removed features
 
 - The `__pbDBOptimize__` cron job (`PRAGMA optimize`, `VACUUM`). Postgres autovacuum is used instead, so the job is not listed by `GET /api/crons`.
