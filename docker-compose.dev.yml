@@ -5,7 +5,8 @@
 #
 #   docker compose -f docker-compose.dev.yml up -d
 #
-# Exposed on localhost:5433 to not clash with another Postgres on 5432.
+# Exposed only on the host loopback (127.0.0.1:5433) to not clash with another
+# Postgres on 5432 and to not be reachable from the network.
 name: popgres-dev
 
 services:
@@ -28,7 +29,7 @@ services:
       - -c
       - max_slot_wal_keep_size=1GB
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       # PG18 images keep PGDATA under /var/lib/postgresql/18/docker.
       - popgres_pgdata:/var/lib/postgresql

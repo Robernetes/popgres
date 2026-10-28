@@ -35,11 +35,11 @@ docker run -d -p 8090:8090 \
   popgres
 ```
 
-Open `http://localhost:8090/_/` to create the first superuser. The image includes the Postgres client tools for the backups and the `popgres-import` command.
+Open `http://localhost:8090/_/` to create the first superuser. The image includes the Postgres client tools for the backups and the `popgres-import` command. The server runs as the non-root user `popgres` (uid 10001): a bind mounted data directory must be writable by it.
 
 ### Binary
 
-Download the `popgres` archive for your platform from the releases page and run:
+Download the `popgres` archive for your platform from the releases page (see [verifying a release](.github/SECURITY.md#verifying-a-release)) and run:
 
 ```sh
 DATABASE_URL="postgres://user:pass@localhost:5432/popgres" ./popgres serve

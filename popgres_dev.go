@@ -125,6 +125,21 @@ func (p *devPostgres) Start() error {
 		StartTimeout(devPostgresStartTimeout).
 		Logger(log)
 
+	// the binaries of the platforms with a popgres checksum are downloaded and verified
+	// before the start (the library uses the verified archive of the cache directory)
+	if platform := devPostgresPlatform(); platform != "" {
+		cacheDir := devPostgresCacheDir(filepath.Join(p.dir, "cache"))
+		config = config.CachePath(cacheDir)
+
+		if _, err := os.Stat(filepath.Join(binaries, "bin", "pg_ctl"+executableExtension())); err != nil {
+			err := ensureDevPostgresBinaries(devPostgresRepositoryURL, cacheDir, platform, devPostgresJarSHA256[platform])
+			if err != nil {
+				_ = p.log.Close()
+				return err
+			}
+		}
+	}
+
 	// stop a previous server that was not stopped gracefully (eg. the popgres process was killed)
 	stopOrphanDevPostgres(binaries, filepath.Join(p.dir, "data"))
 

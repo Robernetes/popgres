@@ -6,7 +6,7 @@
 popgres serve --dev
 ```
 
-- The server is the official Postgres 18 build of [zonky](https://github.com/zonkyio/embedded-postgres-binaries), used through [embedded-postgres](https://github.com/fergusstrange/embedded-postgres). The first start downloads it (about 30 MB) and caches it in the user directory (`~/.embedded-postgres-go`).
+- The server is the official Postgres 18 build of [zonky](https://github.com/zonkyio/embedded-postgres-binaries), used through [embedded-postgres](https://github.com/fergusstrange/embedded-postgres). The first start downloads it (15 to 35 MB) from Maven Central, verifies it with the SHA-256 checksums built into popgres and caches it in the user cache directory (eg. `~/.cache/popgres/embedded-postgres` on Linux). The platforms without a popgres checksum (eg. Alpine Linux or 32-bit ARM) are downloaded by the library and verified only with the checksum published next to the binaries.
 - The data is stored in `popgres_data/.pg` and the server listens only on `localhost`, on a free port of each start.
 - It has `wal_level=logical`, so the replication realtime source works too.
 - It is configured for development (`fsync=off`): don't use it for production data. With a `DATABASE_URL` nothing embedded is started.

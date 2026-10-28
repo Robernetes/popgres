@@ -80,6 +80,20 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
+# an SPDX SBOM of each archive (requires syft)
+sboms:
+  - artifacts: archive
+
+# a Sigstore bundle of the checksums file (requires cosign and the GitHub OIDC token), verify with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/Robernetes/popgres/\.github/workflows/release\.yaml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: '${artifact}.sigstore.json'
+    args: ['sign-blob', '--bundle=${signature}', '${artifact}', '--yes']
+
 snapshot:
   version_template: '{{ incpatch .Version }}-next'
 

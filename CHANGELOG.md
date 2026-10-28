@@ -16,6 +16,10 @@
 - The collection changes wait at most 5 seconds for the table locks (eg. a table used by a long running direct SQL transaction), instead of blocking all the queries of the table while they wait.
 - The realtime slot name of a database whose name has characters other than `[a-z0-9_]` has a hash suffix (eg. the `my-db` and `my_db` databases had the same slot). The existing slots keep their name.
 - New [OPERATIONS.md](docs/OPERATIONS.md) guide: health checks, database connections, poolers and multiple databases on one server.
+- The release archives have an SPDX SBOM and the checksums file is signed with cosign keyless (see [verifying a release](.github/SECURITY.md#verifying-a-release)). A release is published only for a commit with a successful CI run, and the GitHub Actions are pinned by commit SHA.
+- **Docker:** the image runs as the non-root user `popgres` (uid/gid 10001) and its base images are pinned by digest. **Upgrade note:** the data directory or volume used by a previous image (owned by root) must be made writable by it, eg. `docker run --rm -u 0 -v popgres_data:/app/popgres_data --entrypoint chown popgres -R 10001:10001 /app/popgres_data`.
+- The dev mode verifies the downloaded embedded Postgres binaries with the SHA-256 checksums built into popgres (Linux and macOS on amd64/arm64, Windows on amd64) and caches them in the user cache directory.
+- The development `docker-compose.dev.yml` exposes Postgres only on `127.0.0.1`.
 - Fixed the parsing of the embedded Postgres port (dev mode).
 
 ## popgres v1.0.0

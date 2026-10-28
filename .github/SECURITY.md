@@ -48,3 +48,18 @@ The following are not considered vulnerabilities, the same as in PocketBase:
 - The JS hooks (`pb_hooks`) are not a sandbox: they run with the same permissions as the Go code.
 - Stored XSS through the record values: the clients must escape or sanitize the values they render.
 - The `superuser` accounts and the database credentials have full access by design.
+
+## Verifying a release
+
+Each release (from v1.1.0) has an SPDX SBOM per archive (`*.zip.sbom.json`) and the `checksums.txt` file is signed with [cosign](https://docs.sigstore.dev/) keyless, with the identity of the release workflow of this repository. Verify the signature and then the archive checksum:
+
+```sh
+cosign verify-blob --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/Robernetes/popgres/\.github/workflows/release\.yaml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+sha256sum --ignore-missing -c checksums.txt
+```
+
+A release is published only for a tagged commit with a successful CI run.

@@ -1,5 +1,6 @@
 # The Go and npm dependencies get only the security updates (enabled in the
-# repository settings); the GitHub Actions are kept up to date monthly.
+# repository settings); the GitHub Actions (pinned by commit SHA) and the
+# Dockerfile base images (pinned by digest) are kept up to date monthly.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -12,3 +13,14 @@ updates:
           - '*'
     commit-message:
       prefix: ci
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      docker:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: docker

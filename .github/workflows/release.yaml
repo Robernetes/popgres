@@ -2,7 +2,10 @@ name: release
 
 # Publishes a GitHub release with the popgres and popgres-import archives
 # when a version tag (eg. v1.0.0) is pushed. The tests run in the ci workflow:
-# tag only a commit with a green ci run.
+# the release fails if the tagged commit has no successful ci run.
+#
+# The archives have an SPDX SBOM (syft) and the checksums file is signed
+# with cosign keyless (Sigstore, with the GitHub OIDC identity of this workflow).
 on:
   push:
     tags:
@@ -10,7 +13,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write # the GitHub release
+  id-token: write # the cosign keyless signature
+  actions: read   # the ci runs of the tagged commit
 
 jobs:
   goreleaser:
@@ -20,17 +25,34 @@ jobs:
     steps:
       # a manual run (not a tag) builds a snapshot only
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "flags=--snapshot" >> "$GITHUB_ENV"
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
+      - name: Require a successful ci run of the tagged commit
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq 'length')
+          if [ "$runs" = "0" ]; then
+            echo "::error::the commit $GITHUB_SHA has no successful ci run (wait for it or fix it before tagging)"
+            exit 1
+          fi
+
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27.x'
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
       # the admin UI (ui/dist) is built and committed with the sources
       - name: Build and vet
@@ -40,11 +62,11 @@ jobs:
         run: |
           notes="docs/releases/${GITHUB_REF_NAME}.md"
           if [ -f "$notes" ]; then
-            echo "flags=${flags} --release-notes=$notes" >> $GITHUB_ENV
+            echo "flags=${flags} --release-notes=$notes" >> "$GITHUB_ENV"
           fi
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
           version: 'v2.12.7'
