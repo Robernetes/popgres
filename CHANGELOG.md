@@ -1,4 +1,4 @@
-## popgres v1.1.0 (unreleased)
+## popgres v1.1.0
 
 - The cluster messages (LISTEN/NOTIFY) use a channel derived from a random secret stored in `_params` and they are signed with it, so the other roles of the database (eg. the direct SQL clients) can't read or forge them. **Upgrade note:** stop all the nodes before starting v1.1 (the v1.0 and v1.1 nodes can't exchange messages).
 - The nodes compare their cached collections and settings with the database after each LISTEN (re)connection, after a dropped message and every minute, so a lost change message can't leave a node with stale API rules.
