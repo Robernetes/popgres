@@ -51,7 +51,7 @@ The following are not considered vulnerabilities, the same as in PocketBase:
 
 ## Verifying a release
 
-Each release (from v1.1.0) has an SPDX SBOM per archive (`*.zip.sbom.json`) and the `checksums.txt` file is signed with [cosign](https://docs.sigstore.dev/) keyless, with the identity of the release workflow of this repository. Verify the signature and then the archive checksum:
+Each release (from v1.1.0) has an SPDX SBOM per archive (`*.zip.sbom.json`) and the `checksums.txt` file is signed with [cosign](https://docs.sigstore.dev/) keyless, with the identity of the release workflow of this repository. Verify the signature with cosign v3 or later (the older versions can't read the Sigstore bundle format of the signature) and then the archive checksum:
 
 ```sh
 cosign verify-blob --bundle checksums.txt.sigstore.json \
