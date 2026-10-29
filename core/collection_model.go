@@ -890,7 +890,10 @@ func onCollectionSaveExecute(e *CollectionEvent) error {
 			}
 
 			// delete old renamed view
-			if oldCollection != nil {
+			//
+			// popgres: a view with the same name is replaced by SaveView, that recreates
+			// its dependent views (Postgres drops them together with the deleted view)
+			if oldCollection != nil && oldCollection.Name != e.Collection.Name {
 				if err := e.App.DeleteView(oldCollection.Name); err != nil {
 					return err
 				}

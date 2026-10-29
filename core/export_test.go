@@ -10,3 +10,18 @@ func SetTestDatabaseURLFunc(f func() string) {
 func NormalizeViewQueryId(app App, query string) (string, error) {
 	return normalizeViewQueryId(app, query)
 }
+
+// FindSchemaViewNames returns the names of the findSchemaViews result for the tests.
+func FindSchemaViewNames(app App) ([]string, error) {
+	views, err := findSchemaViews(app)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(views))
+	for i, v := range views {
+		names[i] = v.Name
+	}
+
+	return names, nil
+}

@@ -185,20 +185,15 @@ func normalizeSingleVsMultipleFieldChanges(app App, newCollection *Collection, o
 
 			// temporary drop all views to prevent dependency errors during the columns renaming
 			// (Postgres doesn't allow dropping a column that is used by a view)
-			views := []struct {
-				Name string `db:"name"`
-				SQL  string `db:"sql"`
-			}{}
-			err := txApp.DB().NewQuery(`
-				SELECT [[viewname]] AS [[name]], format('CREATE VIEW %I AS %s', [[viewname]], [[definition]]) AS [[sql]]
-				FROM {{pg_views}}
-				WHERE [[schemaname]] = current_schema()
-			`).All(&views)
+			//
+			// note: the views are ordered by their dependencies, so they are dropped
+			// from the most dependent one and restored in the opposite order
+			views, err := findSchemaViews(txApp)
 			if err != nil {
 				return err
 			}
-			for _, view := range views {
-				err = txApp.DeleteView(view.Name)
+			for i := len(views) - 1; i >= 0; i-- {
+				err = txApp.DeleteView(views[i].Name)
 				if err != nil {
 					return err
 				}

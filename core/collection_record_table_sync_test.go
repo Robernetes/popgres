@@ -126,6 +126,88 @@ func getTotalViews(app core.App) (int, error) {
 	return total, err
 }
 
+func TestFindSchemaViewsOrder(t *testing.T) {
+	t.Parallel()
+
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	// the names are in the opposite order of the dependencies
+	queries := []string{
+		"CREATE VIEW {{zz_base}} AS SELECT [[id]], [[text]] FROM {{demo1}}",
+		"CREATE VIEW {{mm_dep}} AS SELECT [[id]], [[text]] FROM {{zz_base}}",
+		"CREATE VIEW {{aa_dep}} AS SELECT a.[[id]] FROM {{mm_dep}} a JOIN {{zz_base}} b ON a.[[id]] = b.[[id]]",
+	}
+	for _, q := range queries {
+		if _, err := app.DB().NewQuery(q).Execute(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	names, err := core.FindSchemaViewNames(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	positions := map[string]int{}
+	for i, name := range names {
+		positions[name] = i
+	}
+
+	// a view must be listed after the views that it uses
+	deps := [][2]string{
+		{"view1", "view2"},
+		{"zz_base", "mm_dep"},
+		{"zz_base", "aa_dep"},
+		{"mm_dep", "aa_dep"},
+	}
+	for _, d := range deps {
+		base, okBase := positions[d[0]]
+		dependent, okDependent := positions[d[1]]
+		if !okBase || !okDependent {
+			t.Fatalf("Expected views %v in %v", d, names)
+		}
+		if base > dependent {
+			t.Fatalf("Expected view %q before %q, got %v", d[0], d[1], names)
+		}
+	}
+}
+
+// popgres: the resave of view1 (whose fields change) must keep view2 that uses it,
+// even if view2 itself is not resaved because it doesn't use the changed field
+func TestSingleVsMultipleValuesNormalizationDependentViews(t *testing.T) {
+	t.Parallel()
+
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	collection, err := app.FindCollectionByNameOrId("demo1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	collection.Fields.GetByName("select_one").(*core.SelectField).MaxSelect = 2
+
+	if err := app.Save(collection); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"view1", "view2"} {
+		var total int
+		err := app.DB().Select("count(*)").
+			From("pg_views").
+			AndWhere(dbx.NewExp("[[schemaname]] = current_schema()")).
+			AndWhere(dbx.HashExp{"viewname": name}).
+			Row(&total)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if total != 1 {
+			t.Fatalf("Expected view %q to be restored", name)
+		}
+	}
+}
+
 func TestSingleVsMultipleValuesNormalization(t *testing.T) {
 	t.Parallel()
 

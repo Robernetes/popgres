@@ -21,6 +21,7 @@
 - The dev mode verifies the downloaded embedded Postgres binaries with the SHA-256 checksums built into popgres (Linux and macOS on amd64/arm64, Windows on amd64) and caches them in the user cache directory.
 - The development `docker-compose.dev.yml` exposes Postgres only on `127.0.0.1`.
 - Fixed the parsing of the embedded Postgres port (dev mode).
+- Fixed the views that use another view collection being dropped when the fields of that view collection change (eg. after a field change of its source collection), and the restore of the views in their dependency order after a single/multiple field change.
 
 ## popgres v1.0.0
 

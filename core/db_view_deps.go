@@ -52,6 +52,41 @@ func findDependentViews(app App, relationName string) ([]*dependentView, error) 
 	return views, err
 }
 
+// findSchemaViews returns all views of the current schema ordered by their
+// dependency depth (a view is listed after the views that it uses).
+func findSchemaViews(app App) ([]*dependentView, error) {
+	views := []*dependentView{}
+
+	err := app.DB().NewQuery(`
+		WITH RECURSIVE deps AS (
+			SELECT c.[[oid]], 0 AS [[depth]]
+			FROM {{pg_class}} c
+			JOIN {{pg_namespace}} n ON n.[[oid]] = c.[[relnamespace]]
+			WHERE c.[[relkind]] = 'v' AND n.[[nspname]] = current_schema()
+			UNION
+			SELECT v.[[oid]], deps.[[depth]] + 1
+			FROM deps
+			JOIN {{pg_depend}} d ON d.[[refobjid]] = deps.[[oid]]
+			JOIN {{pg_rewrite}} r ON r.[[oid]] = d.[[objid]]
+			JOIN {{pg_class}} v ON v.[[oid]] = r.[[ev_class]]
+			WHERE d.[[classid]] = 'pg_rewrite'::regclass
+				AND v.[[relkind]] = 'v'
+				AND v.[[oid]] <> d.[[refobjid]]
+				AND deps.[[depth]] < 50
+		)
+		SELECT
+			c.[[relname]] AS [[name]],
+			format('CREATE VIEW %I AS %s', c.[[relname]], pg_get_viewdef(c.[[oid]])) AS [[sql]],
+			max(deps.[[depth]]) AS [[depth]]
+		FROM deps
+		JOIN {{pg_class}} c ON c.[[oid]] = deps.[[oid]]
+		GROUP BY c.[[oid]], c.[[relname]]
+		ORDER BY max(deps.[[depth]]) ASC, c.[[relname]] ASC
+	`).All(&views)
+
+	return views, err
+}
+
 // withDependentViews executes fn (that is expected to drop or alter the
 // specified relation) in a transaction after dropping the relation dependent
 // views and recreates them afterwards.
