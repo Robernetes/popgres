@@ -30,7 +30,7 @@ The `automigrate` (`migratecmd`) and `hooksWatch` (`jsvm`) plugin options are di
 |---|---|
 | Collections and settings cache | The node that saves them notifies the others (LISTEN/NOTIFY) and they reload their cache. In cluster mode a collection missing from the cache is also looked up in the database (eg. a collection created a few milliseconds ago by another node). |
 | Realtime events | The node that changes a record notifies the others with the record ids and each node broadcasts the event to its own clients. The deleted records are sent as a snapshot (the `_realtime_events` table) and the API rules are checked against it. |
-| Realtime subscriptions | The client id starts with the id of its node. A subscriptions request or an OAuth2 redirect received by another node is forwarded to the client node. |
+| Realtime subscriptions | The client id starts with the id of its node. A subscriptions request or an OAuth2 redirect received by another node is forwarded to the client node (only if that node is connected, based on the heartbeat that each node stores every minute in `_kv_ttl`). |
 | Cron jobs | Each scheduled job runs only once per schedule slot across all nodes (the `_cron_runs` table). A manual run from the dashboard runs on the node that receives the request. |
 | Rate limits | The counters are stored in the `_rate_limits` table. |
 | Auth emails resend timeouts, Apple OAuth2 name | The `_kv_ttl` table. |

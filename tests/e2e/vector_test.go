@@ -179,6 +179,33 @@ func TestVectorSearch(t *testing.T) {
 		}
 	}
 
+	// the special filter fields are superusers only (the same as the records list)
+	for _, filter := range []string{
+		"@collection.users.email != ''",
+		"@request.headers.x_test != ''",
+	} {
+		body := map[string]any{"field": "embedding", "vector": []float64{1, 0, 0}, "filter": filter}
+		if status, raw := client.do(http.MethodPost, "/api/collections/vdocs/vector-search", body); status != 403 {
+			t.Fatalf("Expected 403 for the filter %q, got %d\n%s", filter, status, raw)
+		}
+	}
+
+	// a superuser can filter by the special fields
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.token, err = superuser.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal("superuser filter", search(map[string]any{
+		"field":  "embedding",
+		"vector": []float64{1, 0, 0},
+		"k":      1,
+		"filter": "@collection.users.id ?= owner && @request.headers.x_test = ''",
+	}), "a")
+
 	// superusers only collection
 	client.token = ""
 	if status, raw := client.do(http.MethodPost, "/api/collections/demo1/vector-search", map[string]any{"field": "x", "vector": []float64{1}}); status != 403 {

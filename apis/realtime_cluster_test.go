@@ -318,16 +318,32 @@ func TestRealtimeClusterForwardSubscriptions(t *testing.T) {
 		t.Fatalf("Expected status 403, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// a client of a missing node
-	body = `{"clientId":"nmissingnode_abcdefghijklmnopqrstuvwxyz0","subscriptions":["demo2"]}`
-	req = httptest.NewRequest(http.MethodPost, "/api/realtime", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec = httptest.NewRecorder()
+	// popgres: the nodes heartbeats
+	if !nodeB.Cluster().NodeAlive(nodeA.Cluster().NodeId()) {
+		t.Fatalf("Expected node A %q to be alive for node B", nodeA.Cluster().NodeId())
+	}
+	for _, nodeId := range []string{"", "nmissingnode", "n" + strings.Repeat("a", 20), "x" + nodeA.Cluster().NodeId()[1:], "n'; select 1"} {
+		if nodeB.Cluster().NodeAlive(nodeId) {
+			t.Fatalf("Didn't expect node %q to be alive", nodeId)
+		}
+	}
 
-	muxB.ServeHTTP(rec, req)
+	// a client of a missing node (not forwarded, so without waiting for the forward timeout)
+	for _, clientId := range []string{"nmissingnode_abcdefghijklmnopqrstuvwxyz0", "invented_abcdefghijklmnopqrstuvwxyz0"} {
+		body = `{"clientId":"` + clientId + `","subscriptions":["demo2"]}`
+		req = httptest.NewRequest(http.MethodPost, "/api/realtime", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec = httptest.NewRecorder()
 
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("Expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		start := time.Now()
+		muxB.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("[%s] Expected status 404, got %d: %s", clientId, rec.Code, rec.Body.String())
+		}
+		if elapsed := time.Since(start); elapsed > 2*time.Second {
+			t.Fatalf("[%s] Expected the response without forwarding, got it after %v", clientId, elapsed)
+		}
 	}
 }
 

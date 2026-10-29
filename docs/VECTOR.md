@@ -50,7 +50,7 @@ Content-Type: application/json
 | `field` | The vector field (required). The hidden fields can be searched only by the superusers. |
 | `vector` | The query vector, with the field dimensions (required). |
 | `k` | The number of records (1-1000, default 10). |
-| `filter` | Optional records filter (the same syntax as the list API). |
+| `filter` | Optional records filter (the same syntax as the list API, the `@collection.*` and `@request.*` fields only for the superusers). |
 
 - The collection list rule is applied (only the superusers can search a collection with a `null` list rule).
 - The records without a vector are excluded.

@@ -3,6 +3,7 @@ package apis
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Robernetes/popgres/core"
 	"github.com/Robernetes/popgres/tools/inflector"
@@ -99,6 +100,16 @@ func recordsVectorSearch(e *core.RequestEvent) error {
 	)
 	if err != nil {
 		return firstApiError(err, e.BadRequestError("An error occurred while validating the submitted data.", err))
+	}
+
+	// forbid users and guests to filter by special fields
+	// (the same as the filter query parameter of the records list)
+	if !isSuperuser {
+		for _, field := range superuserOnlyRuleFields {
+			if strings.Contains(form.Filter, field) {
+				return e.ForbiddenError("Only superusers can filter by "+field, nil)
+			}
+		}
 	}
 
 	tableName := inflector.Columnify(collection.Name)

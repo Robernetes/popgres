@@ -242,7 +242,9 @@ func TestMCPTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text := resource.Contents[0].Text; !strings.Contains(text, `"name":"mposts"`) || strings.Contains(text, `"name":"_superusers"`) {
+	if text := resource.Contents[0].Text; !strings.Contains(text, `"name":"mposts"`) ||
+		strings.Contains(text, `"name":"_superusers"`) ||
+		strings.Contains(text, `"name":"demo1"`) {
 		t.Fatalf("Unexpected schema resource %s", text)
 	}
 
@@ -255,10 +257,20 @@ func TestMCPTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names = toolNames(t, connectMCP(t, server.URL, superuserToken))
+	superuserSession := connectMCP(t, server.URL, superuserToken)
+	names = toolNames(t, superuserSession)
 	for _, expected := range []string{"list_demo1", "update_mposts", "delete_mposts"} {
 		if !slices.Contains(names, expected) {
 			t.Fatalf("Expected superuser tool %q in %v", expected, names)
 		}
+	}
+
+	// and the schema of the superusers only collections
+	resource, err = superuserSession.ReadResource(context.Background(), &sdk.ReadResourceParams{URI: mcp.SchemaResourceURI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := resource.Contents[0].Text; !strings.Contains(text, `"name":"demo1"`) {
+		t.Fatalf("Expected the superusers only collection in the superuser schema resource %s", text)
 	}
 }

@@ -59,6 +59,13 @@ const (
 
 	// the min interval between the repeated warnings of the same kind (eg. a full queue)
 	warnInterval = 10 * time.Second
+
+	// the key-value store prefix of the nodes heartbeats (see [Cluster.NodeAlive])
+	nodeKeyPrefix = "@node_"
+
+	// the node ids alphabet and length ("n" + 11 random characters)
+	nodeIdAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	nodeIdLength   = 12
 )
 
 // Message is a cluster message received from a node (including the current one).
@@ -173,7 +180,7 @@ func New(config Config) *Cluster {
 	}
 
 	return &Cluster{
-		nodeId:         "n" + security.RandomStringWithAlphabet(11, "abcdefghijklmnopqrstuvwxyz0123456789"),
+		nodeId:         "n" + security.RandomStringWithAlphabet(nodeIdLength-1, nodeIdAlphabet),
 		dsn:            config.DSN,
 		secret:         config.Secret,
 		logger:         logger,
@@ -204,6 +211,41 @@ func (c *Cluster) KV() *KV {
 // NodeId returns the unique id of the current node (app instance).
 func (c *Cluster) NodeId() string {
 	return c.nodeId
+}
+
+// NodeAlive reports whether the specified node is connected to the cluster
+// (its LISTEN connection is active), based on the heartbeats that the nodes
+// store in the key-value store in cluster mode.
+//
+// It returns false for an invalid node id without querying the database.
+func (c *Cluster) NodeAlive(nodeId string) bool {
+	if nodeId == c.nodeId {
+		return c.connected.Load()
+	}
+
+	if len(nodeId) != nodeIdLength || nodeId[0] != 'n' ||
+		strings.Trim(nodeId, nodeIdAlphabet) != "" {
+		return false
+	}
+
+	return c.kv.Has(nodeKeyPrefix + nodeId)
+}
+
+// heartbeat stores (or deletes) the heartbeat of the current node in cluster mode.
+func (c *Cluster) heartbeat(alive bool) {
+	if !c.Enabled() {
+		return
+	}
+
+	var err error
+	if alive {
+		err = c.kv.Set(nodeKeyPrefix+c.nodeId, "1", 3*c.resyncInterval)
+	} else {
+		err = c.kv.Delete(nodeKeyPrefix + c.nodeId)
+	}
+	if err != nil {
+		c.logger().Debug("Failed to update the cluster node heartbeat", slog.String("error", err.Error()))
+	}
 }
 
 // Subscribe registers a handler for the messages of the specified topic
@@ -380,6 +422,8 @@ func (c *Cluster) Stop() {
 	close(c.queue)
 	close(c.dataQueue)
 
+	c.heartbeat(false)
+
 	// the secret is loaded again on the next start (eg. the database could be restored)
 	c.keyMu.Lock()
 	c.key = nil
@@ -409,6 +453,9 @@ func (c *Cluster) run(ctx context.Context, done chan struct{}, ready chan struct
 				return
 			case <-ticker.C:
 				c.requestResync()
+				if c.connected.Load() {
+					c.heartbeat(true)
+				}
 			}
 		}
 	}()
@@ -499,6 +546,8 @@ func (c *Cluster) listen(
 
 	c.connected.Store(true)
 	defer c.connected.Store(false)
+
+	c.heartbeat(true)
 
 	select {
 	case <-ready:

@@ -682,6 +682,9 @@ func realtimeBroadcastRecordWithAccessCheck(
 
 	dryCacheKey := getDryCacheKey(action, record)
 
+	// popgres: the guests with the same subscription options share the access check
+	canAccess = memoizeRealtimeGuestAccessCheck(canAccess)
+
 	group := new(errgroup.Group)
 
 	for _, chunk := range chunks {

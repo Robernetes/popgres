@@ -21,6 +21,10 @@
 - The dev mode verifies the downloaded embedded Postgres binaries with the SHA-256 checksums built into popgres (Linux and macOS on amd64/arm64, Windows on amd64) and caches them in the user cache directory.
 - The development `docker-compose.dev.yml` exposes Postgres only on `127.0.0.1`.
 - Fixed the parsing of the embedded Postgres port (dev mode).
+- The vector search `filter` accepts the `@collection.*` and `@request.*` fields only from the superusers (the same as the records list).
+- The MCP `popgres://schema` resource lists the collections without any allowed operation only for the superusers.
+- A realtime request for a client of a node that is not connected to the cluster is not forwarded (the nodes store a heartbeat in the shared key-value store), so it fails right away instead of waiting for the forward timeout.
+- The realtime access checks of the guests with the same subscription options are executed once per record event (instead of one query per guest with a non-public rule).
 - Fixed the views that use another view collection being dropped when the fields of that view collection change (eg. after a field change of its source collection), and the restore of the views in their dependency order after a single/multiple field change.
 
 ## popgres v1.0.0

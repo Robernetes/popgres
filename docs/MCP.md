@@ -43,4 +43,4 @@ Each tool executes the REST API request internally with the same auth token, so 
 
 ## Resources
 
-`popgres://schema` describes the collections, their fields (with their options, the hidden fields only for the superusers) and the operations allowed to the authenticated record.
+`popgres://schema` describes the collections, their fields (with their options, the hidden fields only for the superusers) and the operations allowed to the authenticated record. The collections without any allowed operation are listed only for the superusers.

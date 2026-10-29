@@ -339,7 +339,8 @@ type schemaCollection struct {
 }
 
 // schemaInfo describes the collections for the schema resource
-// (the hidden fields are listed only for the superusers).
+// (the hidden fields and the collections without any allowed operation
+// are listed only for the superusers).
 func schemaInfo(collections []*core.Collection, isSuperuser bool) []schemaCollection {
 	result := make([]schemaCollection, 0, len(collections))
 
@@ -386,6 +387,10 @@ func schemaInfo(collections []*core.Collection, isSuperuser bool) []schemaCollec
 		}
 		if len(vectorFields(c)) > 0 && slices.Contains(item.Operations, "list") {
 			item.Operations = append(item.Operations, "vectorSearch")
+		}
+
+		if len(item.Operations) == 0 {
+			continue // superusers only collection
 		}
 
 		result = append(result, item)

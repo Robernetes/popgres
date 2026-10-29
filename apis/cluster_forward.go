@@ -96,6 +96,12 @@ func shouldForwardToClientNode(e *core.RequestEvent, clientId string) (string, b
 		return "", false
 	}
 
+	// a client id with an invalid or disconnected node is not forwarded
+	// (eg. to not wait for the response of a node that doesn't exist)
+	if !e.App.Cluster().NodeAlive(nodeId) {
+		return "", false
+	}
+
 	return nodeId, true
 }
 
