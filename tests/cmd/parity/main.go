@@ -34,11 +34,12 @@ var nameNormalizations = []struct {
 	re   *regexp.Regexp
 	repl string
 }{
+	// before the pointers, because the random file name suffix can contain "0x"
+	{regexp.MustCompile(`_[a-z0-9]{10}\.txt`), "_?.txt"},
 	{regexp.MustCompile(`0x[0-9a-f]+`), "0x?"},
 	{regexp.MustCompile(`time\.Date\([^)]*\)`), "time.Date(?)"},
 	{regexp.MustCompile(`ext:-?\d+`), "ext:?"},
 	{regexp.MustCompile(`boundary=[0-9a-f]+`), "boundary=?"},
-	{regexp.MustCompile(`_[a-z0-9]{10}\.txt`), "_?.txt"},
 	{regexp.MustCompile(`\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}\.\d{3}Z`), "<datetime>"},
 }
 
