@@ -123,6 +123,7 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 //
 // The zero DateTime is stored as NULL.
 func (d DateTime) Value() (driver.Value, error) {
+	// popgres: the zero DateTime is NULL in the Postgres TIMESTAMPTZ columns
 	if d.IsZero() {
 		return nil, nil
 	}

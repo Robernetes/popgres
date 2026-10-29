@@ -8,6 +8,7 @@ import (
 func init() {
 	core.SystemMigrations.Add(&core.Migration{
 		Up: func(txApp core.App) error {
+			// popgres: the logs table is in the _aux schema and uses the Postgres SQL
 			// note: the aux connections use search_path=_aux (see BaseApp.initAuxDB)
 			_, execErr := txApp.AuxDB().NewQuery(`
 				CREATE SCHEMA IF NOT EXISTS {{_aux}};

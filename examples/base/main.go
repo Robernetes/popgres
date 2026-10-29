@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	// popgres: popgres.New instead of pocketbase.New
 	app := popgres.New()
 
 	// ---------------------------------------------------------------
@@ -99,6 +100,7 @@ func main() {
 		Dir:          migrationsDir,
 	})
 
+	// popgres: there is no update command (it downloads the PocketBase releases)
 	// static route to serves files from the provided public dir
 	// (if publicDir exists and the route path is not already defined)
 	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{

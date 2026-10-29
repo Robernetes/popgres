@@ -9,6 +9,8 @@ import (
 
 // DefaultDBConnect opens a PostgreSQL connection pool for the provided
 // connection string (URL or keyword/value DSN) using the pgx stdlib driver.
+//
+// popgres: the pgx Postgres driver instead of modernc.org/sqlite
 func DefaultDBConnect(dsn string) (*dbx.DB, error) {
 	return dbx.Open("pgx", dsn)
 }

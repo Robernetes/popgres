@@ -22,6 +22,7 @@ import (
 // NB! Be aware that this method is vulnerable to SQL injection and the
 // "dangerousViewName" argument must come only from trusted input!
 func (app *BaseApp) DeleteView(dangerousViewName string) error {
+	// popgres: the dependent views are kept (see withDependentViews)
 	// the views that depend on the deleted one are dropped too (and recreated if possible)
 	// because unlike SQLite Postgres doesn't allow leaving them broken
 	return withDependentViews(app, dangerousViewName, func(txApp App) error {
@@ -39,6 +40,7 @@ func (app *BaseApp) DeleteView(dangerousViewName string) error {
 // NB! Be aware that this method is vulnerable to SQL injection and
 // its arguments must come only from trusted input!
 func (app *BaseApp) SaveView(dangerousViewName string, dangerousSelectQuery string) error {
+	// popgres: the dependent views are kept (see withDependentViews)
 	// the views that depend on the old view are recreated after the new one is saved
 	return withDependentViews(app, dangerousViewName, func(txApp App) error {
 		// delete old view (if exists)
@@ -326,6 +328,7 @@ func defaultViewIdField() Field {
 	}
 }
 
+// popgres: the multi-word Postgres types (eg. double precision)
 var castRegex = regexp.MustCompile(`(?is)^cast\s*\(.*\s+as\s+(\w+(?:\s+\w+)?)\s*\)$`)
 
 func parseQueryToFields(app App, selectQuery string) (map[string]*queryField, error) {
@@ -387,6 +390,7 @@ func parseQueryToFields(app App, selectQuery string) (map[string]*queryField, er
 
 		// casts
 		if len(castMatch) == 2 {
+			// popgres: the Postgres cast types
 			switch strings.Join(strings.Fields(castMatch[1]), " ") {
 			case "real", "decimal", "numeric", "double precision", "float", "float4", "float8":
 				result[col.alias] = &queryField{

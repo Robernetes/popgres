@@ -84,6 +84,7 @@ func logsTruncate(e *core.RequestEvent) error {
 		return e.InternalServerError("Failed to truncate all logs.", err)
 	}
 
+	// popgres: no VACUUM of the logs database
 	// note: the deleted rows space is reclaimed by the Postgres autovacuum
 
 	return e.NoContent(http.StatusNoContent)

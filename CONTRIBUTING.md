@@ -134,6 +134,7 @@ npm --prefix ui run build   # rebuild ui/dist before committing UI changes
 - **Multiple instances:** popgres can run as several instances sharing one database. Shared state goes to Postgres, not to `app.Store()` or the local disk. Events between instances are published after the commit (`OnModelAfter*Success`), and the `NOTIFY` payloads carry only ids (8 KB limit).
 - **Background goroutines** never call `os.Exit` or `panic`: log the error and retry.
 - **Style:** follow the PocketBase code style (naming, structure, English comments). Add tests for the changes.
+- **Inherited files:** mark every change to a PocketBase file with a `// popgres: <reason>` comment, so that the new PocketBase versions can be merged (see [UPSTREAM.md](UPSTREAM.md)). New features go to their own files when possible.
 
 ## Pull requests
 

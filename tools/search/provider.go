@@ -60,6 +60,8 @@ type Result struct {
 }
 
 // Provider represents a single configured search provider instance.
+//
+// popgres: the sequential field (see Sequential)
 type Provider struct {
 	fieldResolver      FieldResolver
 	query              *dbx.SelectQuery
@@ -269,6 +271,7 @@ func (s *Provider) Exec(items any) (*Result, error) {
 			return nil, err
 		}
 		if expr != "" {
+			// popgres: there is no _rowid_ prefixing (Postgres has no _rowid_)
 			modelsQuery.AndOrderBy(expr)
 		}
 	}
@@ -333,6 +336,7 @@ func (s *Provider) Exec(items any) (*Result, error) {
 		return modelsQuery.All(items)
 	}
 
+	// popgres: the sequential execution (see Sequential)
 	if !s.skipTotal && s.sequential {
 		if err := countExec(); err != nil {
 			return nil, err

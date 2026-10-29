@@ -13,6 +13,8 @@ import (
 
 const systemHookIdNotifyWatcher = "__pbNotifyWatcherSystemHook__"
 
+// popgres: the fsnotify watcher of the local notify dir is replaced by the cluster
+// LISTEN/NOTIFY messages (and a periodic resync), so the file is mostly rewritten
 // the cluster topics of the cached app state changes
 const (
 	clusterTopicSettings    = "settings"
@@ -264,6 +266,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 			return err
 		}
 
+		// popgres: a cluster message instead of the notify file
 		publish(clusterTopicSettings)
 
 		return nil
@@ -286,6 +289,7 @@ func (app *BaseApp) registerNotifyWatcherHooks() {
 			return err
 		}
 
+		// popgres: a cluster message instead of the notify file
 		publish(clusterTopicCollections)
 
 		return nil

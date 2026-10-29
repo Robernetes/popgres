@@ -128,6 +128,7 @@ func (r *MigrationsRunner) Up() ([]string, error) {
 	applied := []string{}
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
+		// popgres: the migrations are applied under cluster locks
 		// prevent applying the same migrations by multiple app instances
 		// (the applied migrations check below waits for the locks)
 		//
@@ -203,6 +204,7 @@ func (r *MigrationsRunner) Down(toRevertCount int) ([]string, error) {
 	}
 
 	err := r.app.AuxRunInTransaction(func(txApp App) error {
+		// popgres: the migrations are reverted under cluster locks
 		if err := cluster.XactLock(txApp.AuxDB(), r.auxLockName()); err != nil {
 			return err
 		}
@@ -271,10 +273,12 @@ func (r *MigrationsRunner) initMigrationsTable() error {
 	}
 
 	rawQuery := fmt.Sprintf(
+		// popgres: quoted columns and BIGINT applied time
 		"CREATE TABLE IF NOT EXISTS {{%s}} ([[file]] VARCHAR(255) PRIMARY KEY NOT NULL, [[applied]] BIGINT NOT NULL)",
 		r.tableName,
 	)
 
+	// popgres: the table is created under a cluster lock
 	// the lock prevents the "duplicate key" error of concurrent CREATE TABLE IF NOT EXISTS
 	err := r.app.RunInTransaction(func(txApp App) error {
 		if err := cluster.XactLock(txApp.DB(), r.lockName()); err != nil {
@@ -293,6 +297,8 @@ func (r *MigrationsRunner) initMigrationsTable() error {
 }
 
 // lockName returns the name of the advisory lock of the runner migrations table.
+//
+// popgres: the cluster locks of the runner
 func (r *MigrationsRunner) lockName() string {
 	return "migrations:" + r.tableName
 }
@@ -346,6 +352,7 @@ func (r *MigrationsRunner) lastAppliedMigrations(limit int) ([]string, error) {
 		From(r.tableName).
 		Where(dbx.Not(dbx.HashExp{"applied": nil})).
 		AndWhere(dbx.HashExp{"file": names}).
+		// popgres: the applied time is always in microseconds (no seconds compatibility)
 		OrderBy("applied DESC").
 		AndOrderBy("file DESC").
 		Limit(int64(limit)).

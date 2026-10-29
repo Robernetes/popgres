@@ -15,6 +15,7 @@
 - The main pool size can be set with `POPGRES_DB_MAX_CONNS` and the connections are closed after 30 minutes (`POPGRES_DB_CONN_MAX_LIFETIME`).
 - The collection changes wait at most 5 seconds for the table locks (eg. a table used by a long running direct SQL transaction), instead of blocking all the queries of the table while they wait.
 - The realtime slot name of a database whose name has characters other than `[a-z0-9_]` has a hash suffix (eg. the `my-db` and `my_db` databases had the same slot). The existing slots keep their name.
+- New [UPSTREAM.md](UPSTREAM.md) guide: the changes of popgres to the PocketBase code and how to merge a new PocketBase version. The changes in the inherited Go files are marked with `// popgres:` comments.
 - New [OPERATIONS.md](docs/OPERATIONS.md) guide: health checks, database connections, poolers and multiple databases on one server.
 - The release archives have an SPDX SBOM and the checksums file is signed with cosign keyless (see [verifying a release](.github/SECURITY.md#verifying-a-release)). A release is published only for a commit with a successful CI run, and the GitHub Actions are pinned by commit SHA.
 - **Docker:** the image runs as the non-root user `popgres` (uid/gid 10001) and its base images are pinned by digest. **Upgrade note:** the data directory or volume used by a previous image (owned by root) must be made writable by it, eg. `docker run --rm -u 0 -v popgres_data:/app/popgres_data --entrypoint chown popgres -R 10001:10001 /app/popgres_data`.

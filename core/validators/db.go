@@ -51,6 +51,8 @@ func UniqueId(db dbx.Builder, tableName string) validation.RuleFunc {
 // - err is already validation.Errors
 // - err is not an unique violation error of the specified table
 // - none of the fieldNames is part of the violated unique index
+//
+// popgres: detects the Postgres unique violations (SQLSTATE 23505) instead of the SQLite error text
 func NormalizeUniqueIndexError(err error, tableOrAlias string, fieldNames []string) error {
 	if err == nil {
 		return err

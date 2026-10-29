@@ -44,6 +44,7 @@ type ResolverResult struct {
 	// and combining the result of both resolved operands/sides in a single expression.
 	AfterBuild func(expr dbx.Expression) dbx.Expression
 
+	// popgres: the JSON and Type hints used to normalize the Postgres comparisons
 	// JSON indicates that the Identifier (and the MultiMatchSubQuery value)
 	// resolves to a jsonb value (eg. a json field path).
 	//
@@ -114,6 +115,7 @@ func (r *SimpleFieldResolver) Resolve(field string) (*ResolverResult, error) {
 		}, nil
 	}
 
+	// popgres: dbutils.JSONExtract (with a PocketBase path) instead of JSON_EXTRACT
 	// treat as json path
 	var jsonPath strings.Builder
 	for i, part := range parts[1:] {

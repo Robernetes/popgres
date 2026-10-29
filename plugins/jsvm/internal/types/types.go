@@ -1344,6 +1344,7 @@ func main() {
 
 	// replace the original app interfaces with their non-"on*"" hooks equivalents
 	result = strings.ReplaceAll(result, "core.App", "CoreApp")
+	// popgres: the root package is named popgres (the PocketBase type name is kept)
 	result = strings.ReplaceAll(result, "popgres.PocketBase", "PocketBase")
 	result = strings.ReplaceAll(result, "ORIGINAL_CORE_APP", "core.App")
 	result = strings.ReplaceAll(result, "ORIGINAL_POCKETBASE", "popgres.PocketBase")

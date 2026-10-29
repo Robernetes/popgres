@@ -63,6 +63,7 @@ func Serve(app core.App, config ServeConfig) error {
 		config.AllowedOrigins = []string{"*"}
 	}
 
+	// popgres: the cluster mode requirements
 	if err := checkClusterServeConfig(app, config); err != nil {
 		return err
 	}

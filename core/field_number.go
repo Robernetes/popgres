@@ -127,6 +127,7 @@ func (f *NumberField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *NumberField) ColumnType(app App) string {
+	// popgres: DOUBLE PRECISION instead of NUMERIC
 	return "DOUBLE PRECISION DEFAULT 0 NOT NULL"
 }
 

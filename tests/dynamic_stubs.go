@@ -113,6 +113,7 @@ func StubMFARecords(app core.App) error {
 }
 
 func StubLogsData(app *TestApp) error {
+	// popgres: single quoted strings and no updated column (the Postgres logs table)
 	_, err := app.AuxDB().NewQuery(`
 		delete from {{_logs}};
 

@@ -164,6 +164,7 @@ func (f *TextField) ColumnType(app App) string {
 		// note: the default is just a last resort fallback to avoid empty
 		// string values in case the record was inserted with raw sql and
 		// it is not actually used when operating with the db abstraction
+		// popgres: the popgres_id() SQL function instead of the SQLite randomblob
 		return "TEXT PRIMARY KEY DEFAULT popgres_id() NOT NULL"
 	}
 
@@ -206,6 +207,7 @@ func (f *TextField) ValidateValue(ctx context.Context, app App, record *Record) 
 				err := app.ConcurrentDB().
 					Select("(1)").
 					From(record.TableName()).
+					// popgres: Postgres has no COLLATE NOCASE
 					Where(dbx.NewExp("lower([[id]]) = lower({:id})", dbx.Params{"id": newVal})).
 					Limit(1).
 					Row(&exists)

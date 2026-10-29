@@ -34,6 +34,7 @@ func init() {
 
 		// -----------------------------------------------------------
 
+		// popgres: the Postgres SQL (popgres_id(), JSONB, TIMESTAMPTZ and single quoted strings)
 		_, execerr := txApp.DB().NewQuery(`
 			CREATE TABLE {{_collections}} (
 				[[id]]         TEXT PRIMARY KEY DEFAULT popgres_id() NOT NULL,
@@ -105,6 +106,7 @@ func init() {
 }
 
 func createParamsTable(txApp core.App) error {
+	// popgres: the Postgres SQL (the value is TEXT instead of JSON)
 	_, execErr := txApp.DB().NewQuery(`
 		-- note: value is TEXT (and not JSONB) because the settings
 		-- could be stored encrypted (see Settings.DBExport)

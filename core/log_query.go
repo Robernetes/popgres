@@ -38,6 +38,7 @@ type LogsStatsItem struct {
 func (app *BaseApp) LogsStats(expr dbx.Expression) ([]*LogsStatsItem, error) {
 	result := []*LogsStatsItem{}
 
+	// popgres: date_trunc instead of strftime (and sorted by date)
 	// note: the same expression as the idx_logs_created_hour index
 	query := app.LogQuery().
 		Select("count(id) as total", "date_trunc('hour', [[created]] AT TIME ZONE 'UTC') as date").

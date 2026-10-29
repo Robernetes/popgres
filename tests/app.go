@@ -28,6 +28,7 @@ type TestApp struct {
 
 	TestMailer *TestMailer
 
+	// popgres: each test app uses its own temporary Postgres database
 	// testDatabase is the temporary database created for the app (if any).
 	testDatabase *TestDatabase
 }
@@ -52,6 +53,7 @@ func (t *TestApp) Cleanup() {
 		os.RemoveAll(t.DataDir())
 	}
 
+	// popgres: drop the temporary database
 	if t.testDatabase != nil {
 		// best effort, the leftovers are removed with "make test-clean"
 		_ = DropTestDatabase(t.testDatabase.Name)
@@ -105,6 +107,7 @@ func NewTestApp(optTestDataDir ...string) (*TestApp, error) {
 //
 // It is the caller's responsibility to call app.Cleanup() when the app is no longer needed.
 func NewTestAppWithConfig(config core.BaseAppConfig) (*TestApp, error) {
+	// popgres: a new Postgres database with the fixtures (the original body is in newTestApp)
 	return newTestAppWithDatabase(config, NewFixturesTestDatabase)
 }
 
@@ -175,6 +178,7 @@ func newTestApp(config core.BaseAppConfig) (*TestApp, error) {
 		return nil, err
 	}
 
+	// popgres: the SQLite files of the tests data dir are not used
 	// the SQLite databases of the default tests data directory are only
 	// the source of the Postgres fixtures (see scripts/gen-fixtures.sh)
 	// and the fixtures are already loaded in the test database

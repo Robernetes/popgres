@@ -18,6 +18,7 @@ var defaultRetryIntervals = []int{50, 100, 150, 200, 300, 400, 500, 700, 1000}
 // default max retry attempts
 const defaultMaxLockRetries = 12
 
+// popgres: the retries check the Postgres error codes instead of the SQLite lock errors
 // Postgres error codes (SQLSTATE) of the transient errors that are safe to retry
 // when the failed statement is not part of an already aborted transaction.
 var retryableSQLStates = []string{
@@ -56,6 +57,7 @@ func execLockRetry(timeout time.Duration, maxRetries int) dbx.ExecHookFunc {
 func baseLockRetry(op func(attempt int) error, maxRetries int) error {
 	attempt := 1
 
+	// popgres: retry the Postgres transient errors (see isRetryableDBError) and not the aborted transactions
 	var firstErr error
 
 Retry:
@@ -83,6 +85,8 @@ Retry:
 
 // isRetryableDBError reports whether err is a transient Postgres
 // concurrency error (serialization failure, deadlock or lock timeout).
+//
+// popgres: replaces the SQLite "database is locked" and "table is locked" errors check
 func isRetryableDBError(err error) bool {
 	code := sqlState(err)
 	for _, c := range retryableSQLStates {

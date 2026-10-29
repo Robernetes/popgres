@@ -107,6 +107,7 @@ func (f *DateField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *DateField) ColumnType(app App) string {
+	// popgres: TIMESTAMPTZ instead of TEXT (the empty date is NULL)
 	return "TIMESTAMPTZ DEFAULT NULL" // the zero (empty) date is stored as NULL
 }
 

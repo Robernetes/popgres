@@ -114,6 +114,7 @@ func (f *JSONField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *JSONField) ColumnType(app App) string {
+	// popgres: JSONB instead of JSON
 	return "JSONB DEFAULT NULL"
 }
 

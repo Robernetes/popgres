@@ -562,6 +562,7 @@ func (cv *collectionValidator) checkIndexes(value any) error {
 
 		// ensure that the index name is not used in another collection
 		var usedTblName string
+		// popgres: the index names are checked in pg_indexes instead of sqlite_master
 		// (in Postgres the index names are unique per schema)
 		_ = cv.app.ConcurrentDB().Select("tablename").
 			From("pg_indexes").

@@ -14,6 +14,7 @@ const (
 	StoreKeyActiveBackup = "@activeBackup"
 )
 
+// popgres: the backup state is shared by all app instances (nodes) with a cluster lock
 const (
 	// backupLockName is the cluster lock held during a backup operation
 	// (it prevents concurrent backups by multiple app instances).

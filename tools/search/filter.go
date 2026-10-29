@@ -185,6 +185,7 @@ func buildResolversExpr(
 ) (dbx.Expression, error) {
 	var expr dbx.Expression
 
+	// popgres: the operands are normalized for the Postgres types (see normalizeOperands)
 	// keep the original operands for the multi-match expressions
 	// (they are normalized separately when built)
 	originalLeft, originalRight := left, right
@@ -197,6 +198,7 @@ func buildResolversExpr(
 	case fexpr.SignNeq, fexpr.SignAnyNeq:
 		expr = resolveEqualExpr(false, left, right)
 	case fexpr.SignLike, fexpr.SignAnyLike:
+		// popgres: ILIKE with text operands instead of LIKE
 		// note: ILIKE keeps the case-insensitive behavior of the SQLite LIKE and the operands
 		// are converted to text because Postgres has LIKE operators only for text values
 		//
@@ -229,6 +231,7 @@ func buildResolversExpr(
 
 	// multi-match expressions
 	if !isAnyMatchOp(op) {
+		// popgres: the multi-match expressions use the original operands (with their JSON and Type hints)
 		if left.MultiMatchSubQuery != nil && right.MultiMatchSubQuery != nil {
 			mm := &manyVsManyExpr{
 				left:  originalLeft,
@@ -277,6 +280,7 @@ func buildResolversExpr(
 var normalizedIdentifiers = map[string]string{
 	// if `null` field is missing, treat `null` identifier as NULL token
 	"null": "NULL",
+	// popgres: TRUE and FALSE instead of 1 and 0
 	// if `true` field is missing, treat `true` identifier as TRUE token
 	"true": "TRUE",
 	// if `false` field is missing, treat `false` identifier as FALSE token
@@ -352,6 +356,8 @@ func resolveToken(token fexpr.Token, fieldResolver FieldResolver) (*ResolverResu
 // with a seek while the COALESCE will induce a table scan.
 func resolveEqualExpr(equal bool, left, right *ResolverResult) dbx.Expression {
 	equalOp := "="
+	// popgres: IS [NOT] DISTINCT FROM instead of IS [NOT] and the empty and COALESCE
+	// comparisons of the text operands (see textOperand)
 	nullEqualOp := "IS NOT DISTINCT FROM"
 	concatOp := "OR"
 	nullExpr := "IS NULL"
@@ -670,6 +676,7 @@ func (e *manyVsManyExpr) Build(db *dbx.DB, params dbx.Params) string {
 	lAlias := "__ml" + security.PseudorandomString(8)
 	rAlias := "__mr" + security.PseudorandomString(8)
 
+	// popgres: the JSON and Type hints of the operands
 	whereExpr, buildErr := buildResolversExpr(
 		&ResolverResult{
 			NullFallback: e.left.NullFallback,
@@ -694,6 +701,7 @@ func (e *manyVsManyExpr) Build(db *dbx.DB, params dbx.Params) string {
 	}
 
 	return fmt.Sprintf(
+		// popgres: Postgres requires an ON clause for LEFT JOIN
 		"NOT EXISTS (SELECT 1 FROM (%s) {{%s}} LEFT JOIN (%s) {{%s}} ON TRUE WHERE %s)",
 		e.left.MultiMatchSubQuery.Build(db, params),
 		lAlias,
@@ -712,6 +720,8 @@ var _ dbx.Expression = (*manyVsOneExpr)(nil)
 // Expects subQuery to return a subquery with a single "multiMatchValue" column.
 //
 // You can set inverse=false to reverse the condition sides (aka. one<->many).
+//
+// popgres: the json and valueType hints of the subquery value
 type manyVsOneExpr struct {
 	otherOperand *ResolverResult
 	subQuery     dbx.Expression
@@ -732,6 +742,7 @@ func (e *manyVsOneExpr) Build(db *dbx.DB, params dbx.Params) string {
 
 	alias := "__sm" + security.PseudorandomString(8)
 
+	// popgres: the JSON and Type hints of the operands
 	r1 := &ResolverResult{
 		NullFallback: e.nullFallback,
 		Identifier:   "[[" + alias + ".multiMatchValue]]",
@@ -768,6 +779,7 @@ func (e *manyVsOneExpr) Build(db *dbx.DB, params dbx.Params) string {
 	)
 }
 
+// popgres: used to normalize the operands of the non-LIKE operators
 func isLikeOp(op fexpr.SignOp) bool {
 	switch op {
 	case fexpr.SignLike, fexpr.SignAnyLike, fexpr.SignNlike, fexpr.SignAnyNlike:

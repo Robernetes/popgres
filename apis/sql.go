@@ -76,6 +76,7 @@ type runSQLResult struct {
 
 var knownWriteQueryPrefixes = []string{
 	"INSERT", "CREATE", "UPDATE", "DELETE",
+	// popgres: the Postgres write statements (there are no DETACH and REPLACE)
 	"DROP", "ALTER", "TRUNCATE", "MERGE",
 	"GRANT", "REVOKE", "COMMENT", "REINDEX",
 	"CLUSTER", "REFRESH", "SECURITY", "LOCK",
@@ -145,6 +146,7 @@ func executeQuery(app core.App, query string, maxRows int) (*runSQLResult, error
 	// assume query returning rows
 	// ---------------------------------------------------------------
 
+	// popgres: the multiple statements queries (see splitSQLStatements and readQueryRows)
 	// Postgres doesn't allow multiple statements in a query with result rows
 	// so the previous statements are executed separately and only the
 	// result of the last one is returned (the same as with SQLite)

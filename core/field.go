@@ -273,6 +273,8 @@ func noopSetter(record *Record, raw any) {
 
 // ColumnBaseType returns the data type part of a column definition
 // (eg. "DOUBLE PRECISION" for "DOUBLE PRECISION DEFAULT 0 NOT NULL").
+//
+// popgres: used to cast and compare the Postgres column types
 func ColumnBaseType(columnDefinition string) string {
 	parts := strings.Fields(columnDefinition)
 

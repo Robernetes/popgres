@@ -245,6 +245,7 @@ func (scenario *ApiScenario) test(t testing.TB) {
 
 		res := recorder.Result()
 
+		// popgres: the responses are compared with (or saved as) the PocketBase golden files
 		scenario.captureGolden(t, recorder)
 
 		if res.StatusCode != scenario.ExpectedStatus {

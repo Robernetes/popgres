@@ -142,6 +142,7 @@ func (f *SelectField) IsMultiple() bool {
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *SelectField) ColumnType(app App) string {
 	if f.IsMultiple() {
+		// popgres: JSONB instead of JSON
 		return "JSONB DEFAULT '[]' NOT NULL"
 	}
 

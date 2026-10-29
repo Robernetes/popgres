@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// popgres: the SQLite json functions are replaced by jsonb and the popgres_* SQL functions
 // note: the helpers rely on the popgres_* SQL functions created by the
 // popgres_functions system migration, which accept text, jsonb and any other
 // column type and normalize the non-json values the same way as PocketBase.
@@ -17,6 +18,8 @@ import (
 // It is intended to be used as a FROM/JOIN item, eg.:
 //
 //	"LEFT JOIN " + JSONEach("tbl.col") + " je ON TRUE"
+//
+// popgres: jsonb_array_elements_text instead of json_each
 func JSONEach(column string) string {
 	return fmt.Sprintf(`jsonb_array_elements_text(popgres_json_array([[%s]]))`, column)
 }
@@ -27,6 +30,8 @@ func JSONEach(column string) string {
 // It works with both json and non-json column values.
 //
 // Returns 0 for empty string or NULL column values.
+//
+// popgres: popgres_json_array_length instead of json_array_length
 func JSONArrayLength(column string) string {
 	return fmt.Sprintf(`popgres_json_array_length([[%s]])`, column)
 }
@@ -38,6 +43,8 @@ func JSONArrayLength(column string) string {
 //
 // NULL is returned for missing paths and for the json null value
 // (the same as the SQLite JSON_EXTRACT).
+//
+// popgres: jsonb_path_query_first (see jsonPath) instead of JSON_EXTRACT
 func JSONExtract(column string, path string) string {
 	if path == "" {
 		return fmt.Sprintf(`NULLIF(popgres_jsonb([[%s]]), 'null'::jsonb)`, column)

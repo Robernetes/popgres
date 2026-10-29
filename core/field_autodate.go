@@ -106,6 +106,7 @@ func (f *AutodateField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *AutodateField) ColumnType(app App) string {
+	// popgres: TIMESTAMPTZ instead of TEXT
 	return "TIMESTAMPTZ DEFAULT NULL" // note: the value is always set by the app on create/update
 }
 

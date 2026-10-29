@@ -109,6 +109,7 @@ func backupDelete(e *core.RequestEvent) error {
 
 	key := e.Request.PathValue("key")
 
+	// popgres: the active backup could be in another app instance (node)
 	if key != "" && core.ActiveBackupName(e.App) == key {
 		return e.BadRequestError("The backup is currently being used and cannot be deleted.", nil)
 	}
@@ -121,6 +122,7 @@ func backupDelete(e *core.RequestEvent) error {
 }
 
 func backupRestore(e *core.RequestEvent) error {
+	// popgres: the backup could be active in another app instance (node)
 	if core.IsBackupActive(e.App) {
 		return e.BadRequestError("Try again later - another backup/restore process has already been started.", nil)
 	}

@@ -101,6 +101,8 @@ func NewDefaultClient() *DefaultClient {
 // NewDefaultClientWithIdPrefix creates and returns a new DefaultClient
 // instance with an id that starts with the specified prefix
 // (the id has the same length as the one of [NewDefaultClient]).
+//
+// popgres: the realtime client ids start with their node id
 func NewDefaultClientWithIdPrefix(prefix string) *DefaultClient {
 	client := NewDefaultClient()
 

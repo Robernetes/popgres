@@ -52,6 +52,7 @@ func recordConfirmPasswordReset(e *core.RequestEvent) error {
 			return firstApiError(err, e.BadRequestError("Failed to set new password.", err))
 		}
 
+		// popgres: the resend timeout is shared by all app instances (nodes)
 		if err := e.App.Cluster().KV().Delete(getPasswordResetResendKey(authRecord)); err != nil {
 			e.App.Logger().Warn("Failed to remove the password reset resend timeout", "error", err)
 		}

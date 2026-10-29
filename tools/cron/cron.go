@@ -19,6 +19,8 @@ import (
 )
 
 // Cron is a crontab-like struct for tasks/jobs scheduling.
+//
+// popgres: the claim field (see ClaimFunc)
 type Cron struct {
 	timezone   *time.Location
 	ticker     *time.Ticker
@@ -37,6 +39,8 @@ type Cron struct {
 //
 // The job execution is skipped if it returns false (eg. because the job
 // was already executed for the same slot by another app instance).
+//
+// popgres: used to run each scheduled job by a single app instance (node)
 type ClaimFunc func(jobId string, slot time.Time) bool
 
 // New create a new Cron struct with default tick interval of 1 minute
@@ -243,6 +247,7 @@ func (c *Cron) runDue(t time.Time) {
 
 	moment := NewMoment(t.In(c.timezone))
 
+	// popgres: the due jobs are claimed before running (see SetClaimFunc)
 	slot := t.Truncate(c.interval)
 	claim := c.claim
 

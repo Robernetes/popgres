@@ -69,6 +69,8 @@ func needInstallerSuperuser(app core.App) bool {
 	return err == nil && total == 0
 }
 
+// popgres: a cluster lock prevents duplicated installer superusers
+// (the original body is in findOrCreateInstallerSuperuserNoLock)
 func findOrCreateInstallerSuperuser(app core.App) (*core.Record, error) {
 	var record *core.Record
 

@@ -57,6 +57,7 @@ func recordConfirmVerification(e *core.RequestEvent) error {
 			}
 		}
 
+		// popgres: the resend timeout is shared by all app instances (nodes)
 		if err := e.App.Cluster().KV().Delete(getVerificationResendKey(e.Record)); err != nil {
 			e.App.Logger().Warn("Failed to remove the verification resend timeout", "error", err)
 		}

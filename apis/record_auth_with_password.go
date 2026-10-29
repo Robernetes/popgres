@@ -148,6 +148,7 @@ func findRecordByIdentityField(app core.App, collection *core.Collection, field 
 	var expr dbx.Expression
 	if strings.EqualFold(index.Columns[0].Collate, "nocase") {
 		// case-insensitive search
+		// popgres: Postgres has no COLLATE NOCASE
 		expr = dbx.NewExp("lower([["+field+"]]) = lower({:identity})", dbx.Params{"identity": value})
 	} else {
 		expr = dbx.HashExp{field: value}

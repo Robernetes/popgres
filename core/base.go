@@ -33,6 +33,7 @@ import (
 )
 
 const (
+	// popgres: smaller Postgres pools and the connections max lifetime
 	// note: Postgres defaults to max_connections = 100 shared by all
 	// clients (and app instances), so the default pools are kept small.
 	//
@@ -60,6 +61,7 @@ const (
 	// @todo consider removing after backups refactoring
 	lostFoundDirName string = "lost+found"
 
+	// popgres: the Postgres schema and env variables instead of the SQLite db filenames
 	// AuxSchema is the Postgres schema of the auxiliary (logs) tables.
 	AuxSchema string = "_aux"
 
@@ -86,12 +88,15 @@ type FilesManager interface {
 // DBConnectFunc defines a database connection initialization function.
 //
 // The argument is the PostgreSQL connection string (URL or keyword/value DSN).
+//
+// popgres: the argument is a Postgres connection string instead of a SQLite db path
 type DBConnectFunc func(dsn string) (*dbx.DB, error)
 
 // BaseAppConfig defines a BaseApp configuration option
 type BaseAppConfig struct {
 	DBConnect DBConnectFunc
 
+	// popgres: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
 	DatabaseURL string
@@ -138,6 +143,8 @@ type BaseAppConfig struct {
 
 // testDatabaseURLFunc is an optional tests only hook that provides a new
 // database for the apps created without a connection string (see export_test.go).
+//
+// popgres: each test app uses its own Postgres database
 var testDatabaseURLFunc func() string
 
 // ensures that the BaseApp implements the App interface.
@@ -151,6 +158,7 @@ type BaseApp struct {
 	cron                *cron.Cron
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
+	// popgres: the cluster and the main Postgres pool
 	cluster             *cluster.Cluster
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
 	clusterFingerprints *clusterFingerprints // shared with the transaction app clones
@@ -293,6 +301,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		clusterFingerprints: &clusterFingerprints{},
 	}
 
+	// popgres: the cluster of the app instances (nodes)
 	app.cluster = cluster.New(cluster.Config{
 		DSN:     func() string { return app.config.DatabaseURL },
 		DB:      func() dbx.Builder { return app.dataDB },
@@ -305,6 +314,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	if app.config.DBConnect == nil {
 		app.config.DBConnect = DefaultDBConnect
 	}
+	// popgres: the env variables fallbacks of the Postgres, cluster, realtime, RLS and pool settings
 	if app.config.DatabaseURL == "" {
 		app.config.DatabaseURL = os.Getenv(DatabaseURLEnv)
 	}
@@ -329,6 +339,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	if app.config.DataMaxOpenConns <= 0 {
 		app.config.DataMaxOpenConns = DefaultDataMaxOpenConns
 	}
+	// popgres: the idle pools default to the open ones
 	if app.config.DataMaxIdleConns <= 0 {
 		app.config.DataMaxIdleConns = app.config.DataMaxOpenConns
 	}
@@ -341,6 +352,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	if app.config.QueryTimeout <= 0 {
 		app.config.QueryTimeout = DefaultQueryTimeout
 	}
+	// popgres: the connections max lifetime
 	if app.config.ConnMaxLifetime == 0 {
 		app.config.ConnMaxLifetime = DefaultConnMaxLifetime
 		if v, err := time.ParseDuration(os.Getenv(DBConnMaxLifetimeEnv)); err == nil {
@@ -543,6 +555,7 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		// popgres: the cluster LISTEN, the RLS repair and the cluster state fingerprints
 		// listen for the messages of the other nodes before loading the
 		// collections and settings so that no change is missed
 		app.cluster.Start()
@@ -565,6 +578,7 @@ func (app *BaseApp) Bootstrap() error {
 			return err
 		}
 
+		// popgres: the cluster state fingerprints and the realtime source
 		app.initClusterFingerprints(fingerprints)
 
 		app.initRealtimeSource()
@@ -606,6 +620,7 @@ func (app *BaseApp) ClearBootstrap() error {
 			Close() error
 		}
 
+		// popgres: stop the cluster and the replication
 		app.cluster.StopReplication()
 		app.cluster.Stop()
 		app.clusterFingerprints.reset()
@@ -620,6 +635,7 @@ func (app *BaseApp) ClearBootstrap() error {
 			&app.auxNonconcurrentDB,
 		}
 
+		// popgres: the concurrent and nonconcurrent builders share the same pool
 		closed := map[closer]struct{}{}
 
 		for _, db := range dbs {
@@ -779,6 +795,8 @@ func (app *BaseApp) Cron() *cron.Cron {
 
 // Cluster returns the app cluster instance used to coordinate
 // the app instances (nodes) that share the same database.
+//
+// popgres: the cluster of the app instances (nodes)
 func (app *BaseApp) Cluster() *cluster.Cluster {
 	return app.cluster
 }
@@ -1393,6 +1411,7 @@ func (app *BaseApp) OnBatchRequest() *hook.Hook[*BatchRequestEvent] {
 // Helpers
 // -------------------------------------------------------------------
 
+// popgres: a single Postgres pool instead of the SQLite concurrent and nonconcurrent pools
 func (app *BaseApp) initDataDB() error {
 	if app.config.DatabaseURL == "" {
 		return errors.New("missing database connection string: set the " + DatabaseURLEnv + " env variable (eg. postgres://user:pass@localhost:5432/popgres)")
@@ -1425,6 +1444,7 @@ func (app *BaseApp) initDataDB() error {
 	return nil
 }
 
+// popgres: the identifiers are logged with double quotes instead of backticks
 var sqlLogReplacements = []struct {
 	pattern     *regexp.Regexp
 	replacement string
@@ -1449,6 +1469,7 @@ func normalizeSQLLog(sql string) string {
 	return sql
 }
 
+// popgres: a single Postgres pool with the "_aux" schema of the main (or the logs) database
 func (app *BaseApp) initAuxDB() error {
 	dsn := app.config.LogsDatabaseURL
 	if dsn == "" {
@@ -1583,6 +1604,7 @@ func (app *BaseApp) registerBaseHooks() {
 		Priority: 999,
 	})
 
+	// popgres: there is no __pbDBOptimize__ cron (it ran only SQLite PRAGMAs)
 	app.registerSettingsHooks()
 	app.registerAutobackupHooks()
 	app.registerCollectionHooks()
@@ -1593,6 +1615,7 @@ func (app *BaseApp) registerBaseHooks() {
 	app.registerOTPHooks()
 	app.registerAuthOriginHooks()
 	app.registerNotifyWatcherHooks()
+	// popgres: the cluster hooks
 	app.registerClusterHooks()
 }
 
@@ -1754,6 +1777,7 @@ func (app *BaseApp) initLogger() error {
 				e.App.Logger().Debug("Failed to cleanup old logs", "error", err)
 			}
 
+			// popgres: no VACUUM of the logs database
 			// note: the deleted rows space is reclaimed by the Postgres autovacuum
 
 			return nil

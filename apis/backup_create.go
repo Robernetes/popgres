@@ -10,6 +10,7 @@ import (
 )
 
 func backupCreate(e *core.RequestEvent) error {
+	// popgres: the backup could be active in another app instance (node)
 	if core.IsBackupActive(e.App) {
 		return e.BadRequestError("Try again later - another backup/restore process has already been started", nil)
 	}

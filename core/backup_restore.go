@@ -11,5 +11,6 @@ import (
 // other instances using it) is not safe. Stop the app and use the
 // "popgres restore <backup>" command (see [RestoreBackupArchive]) instead.
 func (app *BaseApp) RestoreBackup(ctx context.Context, name string) error {
+	// popgres: the in-place restore is replaced by the "popgres restore" command
 	return ErrRestoreNotSupported
 }

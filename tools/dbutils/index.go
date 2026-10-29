@@ -37,6 +37,7 @@ func (idx Index) IsValid() bool {
 
 // Build returns a "CREATE INDEX" SQL string from the current index parts.
 //
+// popgres: Build is kept for the stored definitions (see BuildPostgres)
 // It is the PocketBase (SQLite) format used for the stored collection index
 // definitions; use [Index.BuildPostgres] for the SQL that is executed.
 //
@@ -139,6 +140,8 @@ func (idx Index) Build() string {
 //   - any other collation name is used as it is (eg. "C").
 //
 // Returns empty string if idx.IsValid() is false.
+//
+// popgres: the executed Postgres SQL of the indexes (with quoteIdentifier and NormalizeIdentifierQuotes)
 func (idx Index) BuildPostgres() string {
 	if !idx.IsValid() {
 		return ""

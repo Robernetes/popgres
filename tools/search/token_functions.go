@@ -42,6 +42,7 @@ var TokenFunctions = map[string]func(
 			resolvedArgs[i] = resolved
 		}
 
+		// popgres: the json lon/lat values are converted to numbers
 		// the json values (eg. a geoPoint lon/lat) are converted to numbers
 		numericArg := func(r *ResolverResult) string {
 			if r.JSON {
@@ -60,6 +61,7 @@ var TokenFunctions = map[string]func(
 			// the clamping is to prevent floating point rounding errors for values like
 			// "1.0002" that could occur for example when comparing identical points
 			// (see the NULL note for arccosine in https://sqlite.org/lang_mathfunc.html#overview)
+			// popgres: LEAST and GREATEST instead of the SQLite min and max (and the Type hint)
 			Identifier: `(6371 * acos(LEAST(1, GREATEST(-1, ` +
 				`cos(radians(` + latA + `)) * cos(radians(` + latB + `)) * ` +
 				`cos(radians(` + lonB + `) - radians(` + lonA + `)) + ` +
@@ -77,6 +79,7 @@ var TokenFunctions = map[string]func(
 	// with the main difference that NULL results will be normalized for
 	// consistency with the non-nullable PocketBase "text" and "date" fields.
 	//
+	// popgres: popgres_strftime instead of strftime
 	// On Postgres it is emulated by the popgres_strftime SQL functions
 	// (see the popgres_functions system migration).
 	//
@@ -119,6 +122,7 @@ var TokenFunctions = map[string]func(
 		// no further arguments
 		if totalArgs == 1 {
 			formatArgResult.NullFallback = NullFallbackEnforced
+			// popgres: popgres_strftime instead of strftime
 			formatArgResult.Identifier = "popgres_strftime(" + formatArgResult.Identifier + ")"
 			return formatArgResult, nil
 		}
@@ -153,6 +157,7 @@ var TokenFunctions = map[string]func(
 
 		// generating new ResolverResult
 		// -----------------------------------------------------------
+		// popgres: the Type hint of the result
 		result := &ResolverResult{
 			NullFallback: NullFallbackEnforced,
 			Params:       dbx.Params{},
@@ -179,6 +184,7 @@ var TokenFunctions = map[string]func(
 			}
 		}
 
+		// popgres: popgres_strftime instead of strftime
 		result.Identifier = "popgres_strftime(" + strings.Join(identifiers, ",") + ")"
 
 		if timeValueArgResult.MultiMatchSubQuery != nil {

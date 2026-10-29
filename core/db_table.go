@@ -8,6 +8,8 @@ import (
 )
 
 // TableColumns returns all column names of a single table by its name.
+//
+// popgres: queries pg_attribute instead of PRAGMA_TABLE_INFO
 func (app *BaseApp) TableColumns(tableName string) ([]string, error) {
 	columns := []string{}
 
@@ -40,6 +42,8 @@ type TableInfoRow struct {
 // TableInfo returns the columns info of the specified table
 // in the same shape as the SQLite "table_info" pragma
 // (cid, name, type, notnull, dflt_value and the 1-based primary key position).
+//
+// popgres: queries the Postgres catalog instead of PRAGMA_TABLE_INFO
 func (app *BaseApp) TableInfo(tableName string) ([]*TableInfoRow, error) {
 	info := []*TableInfoRow{}
 
@@ -81,6 +85,8 @@ func (app *BaseApp) TableInfo(tableName string) ([]*TableInfoRow, error) {
 // (the indexes backing the primary key and the inline constraints are excluded).
 //
 // Note: This method doesn't return an error on nonexisting table.
+//
+// popgres: queries the Postgres catalog instead of sqlite_master
 func (app *BaseApp) TableIndexes(tableName string) (map[string]string, error) {
 	indexes := []struct {
 		Name string
@@ -116,6 +122,7 @@ func (app *BaseApp) TableIndexes(tableName string) (map[string]string, error) {
 // NB! Be aware that this method is vulnerable to SQL injection and the
 // "dangerousTableName" argument must come only from trusted input!
 func (app *BaseApp) DeleteTable(dangerousTableName string) error {
+	// popgres: the dependent views are kept (see withDependentViews)
 	// the views that depend on the table are dropped too (and recreated if possible)
 	// because unlike SQLite Postgres doesn't allow leaving them broken
 	return withDependentViews(app, dangerousTableName, func(txApp App) error {
@@ -143,6 +150,7 @@ func (app *BaseApp) AuxHasTable(tableName string) bool {
 func (app *BaseApp) hasTable(db dbx.Builder, tableName string) bool {
 	var exists int
 
+	// popgres: queries the Postgres catalog instead of sqlite_schema
 	// tables, partitioned tables, views and materialized views visible in the current search_path
 	err := db.NewQuery(`
 		SELECT (1)
@@ -162,6 +170,8 @@ func (app *BaseApp) hasTable(db dbx.Builder, tableName string) bool {
 // Vacuum executes VACUUM on the main database.
 //
 // Postgres reclaims the space automatically with autovacuum so calling it is rarely needed.
+//
+// popgres: Postgres has autovacuum, so VACUUM is rarely needed
 func (app *BaseApp) Vacuum() error {
 	return app.vacuum(app.NonconcurrentDB())
 }

@@ -52,6 +52,7 @@ func (m *MultiMatchSubquery) Build(db *dbx.DB, params dbx.Params) string {
 		mergedJoins.WriteString(db.QuoteTableName(j.TableName))
 		mergedJoins.WriteString(" ")
 		mergedJoins.WriteString(db.QuoteTableName(j.TableAlias))
+		// popgres: Postgres requires an ON clause for LEFT JOIN
 		mergedJoins.WriteString(" ON ")
 		if j.On != nil {
 			mergedJoins.WriteString(j.On.Build(db, params))

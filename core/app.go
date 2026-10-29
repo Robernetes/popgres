@@ -91,6 +91,7 @@ type App interface {
 	// SubscriptionsBroker returns the app realtime subscriptions broker instance.
 	SubscriptionsBroker() *subscriptions.Broker
 
+	// popgres: the cluster of the app instances (nodes) and the RLS strict mode
 	// Cluster returns the app cluster instance used to coordinate
 	// the app instances (nodes) that share the same database.
 	Cluster() *cluster.Cluster
