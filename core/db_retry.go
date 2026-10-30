@@ -75,7 +75,10 @@ Retry:
 		}
 
 		// wait and retry
-		time.Sleep(getDefaultRetryInterval(attempt))
+		// (the stale prepared statement is already removed from the connection cache)
+		if !isCachedPlanError(err) {
+			time.Sleep(getDefaultRetryInterval(attempt))
+		}
 		attempt++
 		goto Retry
 	}
@@ -95,7 +98,17 @@ func isRetryableDBError(err error) bool {
 		}
 	}
 
-	return false
+	return isCachedPlanError(err)
+}
+
+// isCachedPlanError reports whether err is the error of a prepared statement whose
+// result columns changed since it was prepared on the connection (eg. a "SELECT *"
+// of a record table after a collection field change).
+//
+// The driver removes the statement from the connection cache after the error,
+// so the statement can be retried (if it is not part of a transaction).
+func isCachedPlanError(err error) bool {
+	return sqlState(err) == "0A000" && strings.Contains(err.Error(), "cached plan must not change result type")
 }
 
 // sqlState returns the Postgres error code (SQLSTATE) of err or empty string if there is none.

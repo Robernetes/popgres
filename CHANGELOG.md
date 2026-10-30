@@ -1,3 +1,7 @@
+## popgres v1.2.0 (unreleased)
+
+- Fixed the first records query of each database connection failing after a collection field change ("cached plan must not change result type"): the query is retried (outside of a transaction).
+
 ## popgres v1.1.0
 
 - The cluster messages (LISTEN/NOTIFY) use a channel derived from a random secret stored in `_params` and they are signed with it, so the other roles of the database (eg. the direct SQL clients) can't read or forge them. **Upgrade note:** stop all the nodes before starting v1.1 (the v1.0 and v1.1 nodes can't exchange messages).

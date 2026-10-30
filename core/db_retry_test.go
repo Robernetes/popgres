@@ -40,6 +40,8 @@ func TestBaseLockRetry(t *testing.T) {
 		{&pgconn.PgError{Code: "40P01"}, 3, 3},
 		{fmt.Errorf("wrapped: %w", &pgconn.PgError{Code: "55P03"}), 3, 3},
 		{errors.New("ERROR: could not serialize access (SQLSTATE 40001)"), 3, 3},
+		{&pgconn.PgError{Code: "0A000", Message: "cached plan must not change result type"}, 3, 3},
+		{&pgconn.PgError{Code: "0A000", Message: "unsupported feature"}, 3, 1},
 	}
 
 	for i, s := range scenarios {
