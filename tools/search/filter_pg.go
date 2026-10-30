@@ -34,6 +34,10 @@ const (
 	ValueTypeNumber  ValueType = "number"
 	ValueTypeBool    ValueType = "bool"
 	ValueTypeDate    ValueType = "date"
+
+	// ValueTypeTextSearch is the tsvector column of a "search" field
+	// (its text search configuration is in ResolverResult.TextSearchConfig).
+	ValueTypeTextSearch ValueType = "tsvector"
 )
 
 var plainParamRegex = regexp.MustCompile(`^\{:(\w+)\}$`)

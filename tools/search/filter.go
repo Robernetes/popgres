@@ -183,6 +183,11 @@ func buildResolversExpr(
 	op fexpr.SignOp,
 	right *ResolverResult,
 ) (dbx.Expression, error) {
+	// popgres: the full text search of a "search" field (see buildTextSearchExpr)
+	if left.Type == ValueTypeTextSearch || right.Type == ValueTypeTextSearch {
+		return buildTextSearchExpr(left, op, right)
+	}
+
 	var expr dbx.Expression
 
 	// popgres: the operands are normalized for the Postgres types (see normalizeOperands)

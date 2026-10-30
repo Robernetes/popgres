@@ -86,10 +86,33 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 			}
 		}
 
+		// popgres: the generated columns of the removed or changed search fields
+		// are dropped before the other column changes and added again after them
+		// (Postgres doesn't drop or alter the columns used by a generated column)
+		droppedSearchFields := changedSearchFields(txApp, oldCollection, newCollection)
+		for _, oldField := range oldFields {
+			if !droppedSearchFields[oldField.GetId()] {
+				continue
+			}
+
+			err := withDependentViews(txApp, newTableName, func(txApp App) error {
+				_, err := txApp.DB().DropColumn(newTableName, oldField.GetName()).Execute()
+				return err
+			})
+			if err != nil {
+				return fmt.Errorf("failed to drop column %s - %w", oldField.GetName(), err)
+			}
+		}
+
 		// check for deleted columns
 		for _, oldField := range oldFields {
 			if f := newFields.GetById(oldField.GetId()); f != nil {
 				continue // exist
+			}
+
+			// popgres: already dropped
+			if droppedSearchFields[oldField.GetId()] {
+				continue
 			}
 
 			// note: Postgres doesn't allow dropping a column used by a view
@@ -106,6 +129,12 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 		toRename := map[string]string{}
 		for _, field := range newFields {
 			oldField := oldFields.GetById(field.GetId())
+
+			// popgres: the new and the dropped search fields are added after the other columns
+			if _, ok := field.(*SearchField); ok && (oldField == nil || droppedSearchFields[field.GetId()]) {
+				continue
+			}
+
 			// Note:
 			// We are using a temporary column name when adding or renaming columns
 			// to ensure that there are no name collisions in case there is
@@ -143,6 +172,22 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 
 		if err := normalizeSingleVsMultipleFieldChanges(txApp, newCollection, oldCollection); err != nil {
 			return err
+		}
+
+		// popgres: add the new and the dropped search fields
+		for _, field := range newFields {
+			if _, ok := field.(*SearchField); !ok {
+				continue
+			}
+
+			if oldFields.GetById(field.GetId()) != nil && !droppedSearchFields[field.GetId()] {
+				continue
+			}
+
+			_, err := txApp.DB().AddColumn(newTableName, field.GetName(), field.ColumnType(txApp)).Execute()
+			if err != nil {
+				return fmt.Errorf("failed to add column %s - %w", field.GetName(), err)
+			}
 		}
 
 		if needIndexesUpdate {
@@ -286,8 +331,11 @@ func dropCollectionIndexes(app App, collection *Collection) error {
 	}
 
 	return app.RunInTransaction(func(txApp App) error {
-		// popgres: the HNSW indexes of the vector fields
+		// popgres: the HNSW indexes of the vector fields and the GIN indexes of the search fields
 		if err := dropVectorIndexes(txApp, collection); err != nil {
+			return err
+		}
+		if err := dropSearchIndexes(txApp, collection); err != nil {
 			return err
 		}
 
@@ -349,7 +397,10 @@ func createCollectionIndexes(app App, collection *Collection) error {
 			return validation.Errors{"indexes": errs}
 		}
 
-		// popgres: the HNSW indexes of the vector fields
-		return createVectorIndexes(txApp, collection)
+		// popgres: the HNSW indexes of the vector fields and the GIN indexes of the search fields
+		if err := createVectorIndexes(txApp, collection); err != nil {
+			return err
+		}
+		return createSearchIndexes(txApp, collection)
 	})
 }

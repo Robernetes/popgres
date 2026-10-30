@@ -58,6 +58,10 @@ type ResolverResult struct {
 	// It is used to normalize the comparisons with operands of incompatible
 	// types (eg. a bool literal compared to a text column).
 	Type ValueType
+
+	// TextSearchConfig is the Postgres text search configuration
+	// (eg. "english") of a ValueTypeTextSearch Identifier.
+	TextSearchConfig string
 }
 
 // FieldResolver defines an interface for managing search fields.

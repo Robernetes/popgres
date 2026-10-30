@@ -12,7 +12,9 @@ export function docsCreate(collection) {
     const excludedTableFields = isAuth ? ["password", "verified", "email", "emailVisibility"] : [];
 
     const tableFields =
-        collection.fields?.filter((f) => !f.hidden && f.type != "autodate" && !excludedTableFields.includes(f.name))
+        collection.fields?.filter((f) =>
+            !f.hidden && f.type != "autodate" && f.type != "search" && !excludedTableFields.includes(f.name)
+        )
         || [];
 
     const baseDummyRecord = {

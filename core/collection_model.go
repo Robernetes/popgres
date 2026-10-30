@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json/v2"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -827,6 +828,13 @@ func onCollectionSave(e *CollectionEvent) error {
 	}
 
 	e.Collection.updateGeneratedIdIfExists(e.App)
+
+	// popgres: keep the search fields sources in sync with the renamed fields
+	if !e.Collection.IsNew() && slices.ContainsFunc(e.Collection.Fields, func(f Field) bool { return f.Type() == FieldTypeSearch }) {
+		if oldCollection, err := e.App.FindCollectionByNameOrId(e.Collection.Id); err == nil {
+			renameSearchFieldSources(e.Collection, oldCollection)
+		}
+	}
 
 	// normalize indexes table name
 	for i, raw := range e.Collection.Indexes {

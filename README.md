@@ -15,6 +15,7 @@ It keeps the PocketBase experience (a single binary with the REST API, realtime,
 - **Multiple instances** behind a load balancer, coordinated only through Postgres ([CLUSTER.md](docs/CLUSTER.md)).
 - **Row level security**: the collection API rules are compiled to Postgres RLS policies, so they also apply to direct SQL clients ([RLS.md](docs/RLS.md)).
 - **Realtime from the database**: optionally, the realtime events come from the Postgres logical replication, including the changes made outside of the API ([REALTIME.md](docs/REALTIME.md)).
+- **Full text search** with a `search` field: word stemming per language, relevance ranking and a GIN index ([SEARCH.md](docs/SEARCH.md)).
 - **Vector search** with a pgvector `vector` field and a similarity search endpoint ([VECTOR.md](docs/VECTOR.md)).
 - **MCP server** for AI agents, with tools generated from the collections and the same API rules ([MCP.md](docs/MCP.md)).
 - **Embedded Postgres for development**: `popgres serve --dev` without a database starts a local Postgres ([DEV.md](docs/DEV.md)).

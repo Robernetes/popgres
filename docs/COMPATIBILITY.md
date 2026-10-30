@@ -126,7 +126,11 @@ The SQL console runs as the app connection role, so the policies don't apply to 
 
 ## Vector search
 
-popgres adds the `vector` field type (pgvector), the `POST /api/collections/{collection}/vector-search` endpoint and the `@vectorDistance(field, [...])` sort field (see [VECTOR.md](VECTOR.md)). A sort expression is split only by the commas outside of parenthesis and brackets.
+popgres adds the `vector` field type (pgvector), the `POST /api/collections/{collection}/vector-search` endpoint and the `@vectorDistance(field, [...])` sort field (see [VECTOR.md](VECTOR.md)). A sort expression is split only by the commas outside of parenthesis, brackets and quotes.
+
+## Full text search
+
+popgres adds the `search` field type (a generated `tsvector` column that is never returned in the records), the `~` and `!~` operators for it in the filters and the `@textRank(field, 'query')` sort field (see [SEARCH.md](SEARCH.md)).
 
 ## MCP server
 

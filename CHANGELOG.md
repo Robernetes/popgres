@@ -1,5 +1,6 @@
 ## popgres v1.2.0 (unreleased)
 
+- New `search` field type for the full text search of the text fields of a collection (a generated `tsvector` column with a GIN index, always in sync also for the SQL changes), with the word stemming of a Postgres text search language. Filter with `field ~ 'words'` (web search syntax: phrases, `or` and `-word`) and sort by relevance with `-@textRank(field, 'words')`. See [SEARCH.md](docs/SEARCH.md).
 - Fixed the first records query of each database connection failing after a collection field change ("cached plan must not change result type"): the query is retried (outside of a transaction).
 
 ## popgres v1.1.0

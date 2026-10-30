@@ -13,6 +13,10 @@ const (
 	// popgres: @vectorDistance(field, [1,2,3]) sorts by the pgvector
 	// distance (the optional third argument is the metric: cosine, l2 or ip)
 	vectorDistanceSortKey string = "@vectorDistance("
+
+	// popgres: @textRank(field, 'query') sorts by the full text search
+	// relevance of a "search" field (eg. "-@textRank(content, 'red shoes')")
+	textRankSortKey string = "@textRank("
 )
 
 // sort field directions
@@ -37,6 +41,15 @@ func (s *SortField) BuildExpr(fieldResolver FieldResolver) (string, error) {
 	// popgres: pgvector distance
 	if strings.HasPrefix(s.Name, vectorDistanceSortKey) {
 		expr, err := buildVectorDistanceSort(s.Name, fieldResolver)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s %s", expr, s.Direction), nil
+	}
+
+	// popgres: full text search relevance
+	if strings.HasPrefix(s.Name, textRankSortKey) {
+		expr, err := buildTextRankSort(s.Name, fieldResolver)
 		if err != nil {
 			return "", err
 		}
@@ -81,14 +94,24 @@ func ParseSortFromString(str string) (fields []SortField) {
 }
 
 // splitSortFields splits the sort expression by the commas that are not
-// inside parenthesis or brackets (eg. the @vectorDistance arguments).
+// inside parenthesis, brackets or quotes (eg. the @vectorDistance arguments).
 func splitSortFields(str string) []string {
 	var parts []string
 	var depth int
 	var start int
+	var quote rune
 
 	for i, ch := range str {
+		if quote != 0 {
+			if ch == quote {
+				quote = 0
+			}
+			continue
+		}
+
 		switch ch {
+		case '\'', '"':
+			quote = ch
 		case '(', '[':
 			depth++
 		case ')', ']':
